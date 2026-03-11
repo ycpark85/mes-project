@@ -1,0 +1,82 @@
+﻿<Window x:Class="Mes.Wpf.Views.Shell.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:defectViews="clr-namespace:Mes.Wpf.Modules.DefectTypes.Views"
+        Title="MES"
+        Style="{StaticResource ShellWindowStyle}"
+        WindowStartupLocation="CenterScreen">
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="240" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <Border Grid.Column="0" Style="{StaticResource ShellSidebarStyle}">
+            <DockPanel LastChildFill="True">
+                <StackPanel DockPanel.Dock="Top">
+                    <TextBlock Text="MES"
+                               FontSize="24"
+                               FontWeight="Bold"
+                               Margin="0,0,0,6" />
+
+                    <TextBlock Text="생산관리 시스템"
+                               FontSize="13"
+                               Foreground="{StaticResource Brush.TextSecondary}"
+                               Margin="0,0,0,24" />
+
+                    <Button Content="대시보드"
+                            Style="{StaticResource BaseButtonStyle}"
+                            Margin="0,0,0,10" />
+
+                    <Button Content="불량유형"
+                            Style="{StaticResource BaseButtonStyle}"
+                            Margin="0,0,0,10" />
+
+                    <Button Content="공정관리"
+                            Style="{StaticResource BaseButtonStyle}"
+                            Margin="0,0,0,10" />
+                </StackPanel>
+
+                <TextBlock DockPanel.Dock="Bottom"
+                           Text="v1.0 Frontend Base"
+                           FontSize="12"
+                           Foreground="{StaticResource Brush.TextSecondary}" />
+            </DockPanel>
+        </Border>
+
+        <Grid Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0" Style="{StaticResource ShellHeaderStyle}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel>
+                        <TextBlock Text="MES 프로그램"
+                                   FontSize="24"
+                                   FontWeight="Bold" />
+                        <TextBlock Text="프론트엔드 아키텍처 베이스"
+                                   Margin="0,6,0,0"
+                                   Foreground="{StaticResource Brush.TextSecondary}" />
+                    </StackPanel>
+
+                    <Button Grid.Column="1"
+                            Content="테스트 버튼"
+                            Style="{StaticResource PrimaryButtonStyle}"
+                            VerticalAlignment="Center" />
+                </Grid>
+            </Border>
+
+            <Grid Grid.Row="1">
+                <defectViews:DefectTypePage x:Name="DefectTypePageControl" />
+            </Grid>
+        </Grid>
+    </Grid>
+</Window>

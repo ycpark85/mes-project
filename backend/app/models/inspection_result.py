@@ -1,0 +1,73 @@
+from __future__ import annotations
+
+from datetime import date, datetime
+from typing import List, Optional
+
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    CheckConstraint,
+    Date,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.db.base import Base
+
+
+class InspectionResult(Base):
+    """검수 실적 (회차 SSOT)"""
+
+    __tablename__ = "inspection_result"
+    __table_args__ = (
+        UniqueConstraint("inspection_schedule_id", name="uq_inspection_result__schedule"),
+        CheckConstraint("good_qty >= 0", name="ck_inspection_result__good_qty"),
+        CheckConstraint("defect_qty >= 0", name="ck_inspection_result__defect_qty"),
+        CheckConstraint("defect_ship_qty >= 0", name="ck_inspection_result__defect_ship_qty"),
+        CheckConstraint(
+            "inspected_qty = good_qty + defect_ship_qty + defect_qty",
+            name="ck_inspection_result__inspected_qty_calc_v2",
+        ),
+        Index("ix_inspection_result__schedule", "inspection_schedule_id"),
+    )
+
+    inspection_result_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+
+    inspection_schedule_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("inspection_schedule.inspection_schedule_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    good_qty: Mapped[int] = mapped_column(Integer, nullable=False)
+    defect_ship_qty: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    defect_qty: Mapped[int] = mapped_column(Integer, nullable=False)
+    inspected_qty: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    is_partial: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    next_inspection_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    partial_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    created_by: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+    inspection_schedule = relationship("InspectionSchedule")
+    defects: Mapped[List["InspectionDefect"]] = relationship(
+        "InspectionDefect",
+        back_populates="inspection_result",
+        cascade="all, delete-orphan",
+    )

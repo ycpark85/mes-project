@@ -1,0 +1,35 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Style x:Key="ShellWindowStyle" TargetType="Window">
+        <Setter Property="Background" Value="{StaticResource Brush.Background}" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.TextPrimary}" />
+        <Setter Property="FontFamily" Value="Segoe UI" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="MinWidth" Value="1200" />
+        <Setter Property="MinHeight" Value="760" />
+    </Style>
+
+    <Style x:Key="ShellSidebarStyle" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource Brush.Surface}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.Border}" />
+        <Setter Property="BorderThickness" Value="0,0,1,0" />
+        <Setter Property="Padding" Value="20" />
+    </Style>
+
+    <Style x:Key="ShellHeaderStyle" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource Brush.Surface}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.Border}" />
+        <Setter Property="BorderThickness" Value="0,0,0,1" />
+        <Setter Property="Padding" Value="24,16" />
+    </Style>
+
+    <Style x:Key="SurfaceCardStyle" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource Brush.Surface}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.Border}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="12" />
+        <Setter Property="Padding" Value="20" />
+    </Style>
+
+</ResourceDictionary>
