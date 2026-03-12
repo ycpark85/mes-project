@@ -5,6 +5,8 @@ using Mes.Wpf.Infrastructure.Dialogs;
 using Mes.Wpf.Modules.DefectTypes.ViewModels;
 using Mes.Wpf.Modules.Processes.ViewModels;
 using Mes.Wpf.Modules.Processes.Views;
+using Mes.Wpf.Modules.RoutingTemplates.ViewModels;
+using Mes.Wpf.Modules.RoutingTemplates.Views;
 
 namespace Mes.Wpf.Views.Shell
 {
@@ -13,6 +15,7 @@ namespace Mes.Wpf.Views.Shell
         private readonly ApiClient _apiClient;
         private readonly MessageService _messageService;
         private readonly DefectTypePageViewModel _defectTypePageViewModel;
+        private readonly RoutingTemplatePageViewModel _routingTemplatePageViewModel;
 
         public MainWindow()
         {
@@ -23,7 +26,7 @@ namespace Mes.Wpf.Views.Shell
             _messageService = new MessageService();
 
             _defectTypePageViewModel = new DefectTypePageViewModel(_apiClient, _messageService);
-            DefectTypePageControl.DataContext = _defectTypePageViewModel;
+            _routingTemplatePageViewModel = new RoutingTemplatePageViewModel(_apiClient, _messageService);
 
             Loaded += MainWindow_Loaded;
         }
@@ -36,7 +39,6 @@ namespace Mes.Wpf.Views.Shell
 
         private void Dashboard_Click(object sender, RoutedEventArgs e)
         {
-            DefectTypePageControl.Visibility = Visibility.Collapsed;
             MainContent.Content = null;
             MainContent.Visibility = Visibility.Visible;
 
@@ -56,7 +58,7 @@ namespace Mes.Wpf.Views.Shell
 
             processPage.DataContext = processViewModel;
 
-            DefectTypePageControl.Visibility = Visibility.Collapsed;
+            
             MainContent.Content = processPage;
             MainContent.Visibility = Visibility.Visible;
 
@@ -66,11 +68,30 @@ namespace Mes.Wpf.Views.Shell
             await processViewModel.InitializeAsync();
         }
 
+        private async void RoutingTemplate_Click(object sender, RoutedEventArgs e)
+        {
+            var routingTemplatePage = new RoutingTemplatePage();
+            var routingTemplateViewModel = new RoutingTemplatePageViewModel(_apiClient, _messageService);
+
+            routingTemplatePage.DataContext = routingTemplateViewModel;
+
+            
+            MainContent.Content = routingTemplatePage;
+            MainContent.Visibility = Visibility.Visible;
+
+            HeaderTitle.Text = "라우팅 템플릿 관리";
+            HeaderSubtitle.Text = "라우팅 템플릿 마스터 등록 / 조회 / 수정 / 삭제";
+
+            await routingTemplateViewModel.InitializeAsync();
+        }
+
         private void ShowDefectType()
         {
-            MainContent.Content = null;
-            MainContent.Visibility = Visibility.Collapsed;
-            DefectTypePageControl.Visibility = Visibility.Visible;
+            var defectTypePage = new Modules.DefectTypes.Views.DefectTypePage();
+            defectTypePage.DataContext = _defectTypePageViewModel;
+
+            MainContent.Content = defectTypePage;
+            MainContent.Visibility = Visibility.Visible;
 
             HeaderTitle.Text = "불량유형 관리";
             HeaderSubtitle.Text = "불량유형 마스터 등록 / 조회 / 수정 / 삭제";

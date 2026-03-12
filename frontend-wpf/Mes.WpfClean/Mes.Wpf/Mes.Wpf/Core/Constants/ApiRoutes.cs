@@ -4,5 +4,6 @@
     {
         public const string DefectTypes = "api/v1/defect-types";
         public const string Processes = "api/v1/processes";
+        public const string RoutingTemplates = "api/v1/routing-templates";
     }
 }
