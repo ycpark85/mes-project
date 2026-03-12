@@ -240,13 +240,11 @@ namespace Mes.Wpf.Modules.DefectTypes.ViewModels
             }
 
             await SearchAsync();
-            SelectedItem = Items.FirstOrDefault(x => x.DefectTypeId == result.Data.DefectTypeId);
 
-            if (SelectedItem == null)
-            {
-                EditModel.Clear();
-                IsCodeEditable = true;
-            }
+
+            SelectedItem = null;
+            EditModel.Clear();
+            IsCodeEditable = true;
 
             _messageService.ShowInfo("저장되었습니다.");
         }
@@ -271,7 +269,9 @@ namespace Mes.Wpf.Modules.DefectTypes.ViewModels
             }
 
             await SearchAsync();
-            SelectedItem = Items.FirstOrDefault(x => x.DefectTypeId == result.Data.DefectTypeId);
+            SelectedItem = null;
+            EditModel.Clear();
+            IsCodeEditable = true;
 
             _messageService.ShowInfo("저장되었습니다.");
         }

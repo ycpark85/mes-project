@@ -91,7 +91,9 @@
                               AutoGenerateColumns="False"
                               IsReadOnly="True"
                               CanUserAddRows="False"
-                              SelectionMode="Single">
+                              SelectionMode="Single"
+                              HeadersVisibility="Column"
+                              RowHeaderWidth="0">   
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="공정코드"
                                                 Binding="{Binding ProcessCode}"

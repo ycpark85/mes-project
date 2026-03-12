@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 using Mes.Wpf.Core.Common;
 using Mes.Wpf.Core.Constants;
 using Mes.Wpf.Core.Interfaces;
-using Mes.Wpf.Core.Models;
 using Mes.Wpf.Modules.Processes.Dtos;
 
 namespace Mes.Wpf.Modules.Processes.ViewModels
@@ -119,14 +118,7 @@ namespace Mes.Wpf.Modules.Processes.ViewModels
                 var source = result.Data?.Items ?? [];
                 foreach (var item in source)
                 {
-                    Items.Add(new ProcessDto
-                    {
-                        ProcessId = item.ProcessId,
-                        ProcessCode = item.ProcessCode,
-                        ProcessName = item.ProcessName,
-                        ProcessType = item.ProcessType,
-                        IsActive = item.IsActive
-                    });
+                    Items.Add(item);
                 }
 
                 if (SelectedItem != null && !Items.Any(x => x.ProcessId == SelectedItem.ProcessId))
@@ -235,7 +227,9 @@ namespace Mes.Wpf.Modules.Processes.ViewModels
                 IsActive = EditModel.IsActive
             };
 
-            var result = await _apiClient.PostAsync<ProcessCreateRequest, ProcessDto>(ApiRoutes.Processes, request);
+            var result = await _apiClient.PostAsync<ProcessCreateRequest, ProcessDto>(
+                ApiRoutes.Processes,
+                request);
 
             if (!result.Success || result.Data == null)
             {
@@ -245,13 +239,9 @@ namespace Mes.Wpf.Modules.Processes.ViewModels
 
             await SearchAsync();
 
-            SelectedItem = Items.FirstOrDefault(x => x.ProcessId == result.Data.ProcessId);
-
-            if (SelectedItem == null)
-            {
-                EditModel.Clear();
-                IsCodeEditable = true;
-            }
+            SelectedItem = null;
+            EditModel.Clear();
+            IsCodeEditable = true;
 
             _messageService.ShowInfo("저장되었습니다.");
         }
@@ -265,7 +255,9 @@ namespace Mes.Wpf.Modules.Processes.ViewModels
                 IsActive = EditModel.IsActive
             };
 
-            var result = await _apiClient.PatchAsync<ProcessUpdateRequest, ProcessDto>($"{ApiRoutes.Processes}/{processId}", request);
+            var result = await _apiClient.PatchAsync<ProcessUpdateRequest, ProcessDto>(
+                $"{ApiRoutes.Processes}/{processId}",
+                request);
 
             if (!result.Success || result.Data == null)
             {
@@ -275,7 +267,9 @@ namespace Mes.Wpf.Modules.Processes.ViewModels
 
             await SearchAsync();
 
-            SelectedItem = Items.FirstOrDefault(x => x.ProcessId == result.Data.ProcessId);
+            SelectedItem = null;
+            EditModel.Clear();
+            IsCodeEditable = true;
 
             _messageService.ShowInfo("저장되었습니다.");
         }
