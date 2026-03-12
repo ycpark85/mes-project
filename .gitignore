@@ -19,7 +19,7 @@ backend/.env
 # =========================
 frontend-wpf/**/bin/
 frontend-wpf/**/obj/
-frontend-wpf/.vs/
+frontend-wpf/**/.vs/
 frontend-wpf/.idea/
 frontend-wpf/.vscode/
 frontend-wpf/**/*.user

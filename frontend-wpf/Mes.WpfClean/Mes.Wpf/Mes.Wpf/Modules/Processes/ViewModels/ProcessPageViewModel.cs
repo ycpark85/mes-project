@@ -1,25 +1,24 @@
-﻿using System;
+﻿using Mes.Wpf.Core.Common;
+using Mes.Wpf.Core.Common.ViewModels;
+using Mes.Wpf.Core.Constants;
+using Mes.Wpf.Core.Interfaces;
+using Mes.Wpf.Modules.Processes.Dtos;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
-using Mes.Wpf.Core.Common;
-using Mes.Wpf.Core.Constants;
-using Mes.Wpf.Core.Interfaces;
-using Mes.Wpf.Modules.Processes.Dtos;
 
 namespace Mes.Wpf.Modules.Processes.ViewModels
 {
-    public class ProcessPageViewModel : ViewModelBase
+    public class ProcessPageViewModel : CrudPageViewModelBase<ProcessDto>
     {
         private readonly IApiClient _apiClient;
         private readonly IMessageService _messageService;
 
         private string _searchKeyword = string.Empty;
         private string _selectedUseYn = "사용";
-        private bool _isLoading;
         private bool _isCodeEditable = true;
-        private ProcessDto? _selectedItem;
 
         public ProcessPageViewModel(IApiClient apiClient, IMessageService messageService)
         {
@@ -32,9 +31,9 @@ namespace Mes.Wpf.Modules.Processes.ViewModels
 
             EditModel = new ProcessEditModel();
 
-            SearchCommand = new AsyncRelayCommand(SearchAsync);
-            ResetCommand = new RelayCommand(Reset);
-            NewCommand = new RelayCommand(New);
+            //SearchCommand = new AsyncRelayCommand(SearchAsync);
+            //ResetCommand = new RelayCommand(Reset);
+            //NewCommand = new RelayCommand(New);
             SaveCommand = new AsyncRelayCommand(SaveAsync);
             DeleteCommand = new AsyncRelayCommand(DeleteAsync);
         }
@@ -47,11 +46,11 @@ namespace Mes.Wpf.Modules.Processes.ViewModels
 
         public ProcessEditModel EditModel { get; }
 
-        public AsyncRelayCommand SearchCommand { get; }
+        //public AsyncRelayCommand SearchCommand { get; }
 
-        public RelayCommand ResetCommand { get; }
+        //public RelayCommand ResetCommand { get; }
 
-        public RelayCommand NewCommand { get; }
+        //public RelayCommand NewCommand { get; }
 
         public AsyncRelayCommand SaveCommand { get; }
 
@@ -69,11 +68,11 @@ namespace Mes.Wpf.Modules.Processes.ViewModels
             set => SetProperty(ref _selectedUseYn, value);
         }
 
-        public bool IsLoading
-        {
-            get => _isLoading;
-            set => SetProperty(ref _isLoading, value);
-        }
+        //public bool IsLoading
+        //{
+        //    get => _isLoading;
+        //    set => SetProperty(ref _isLoading, value);
+        //}
 
         public bool IsCodeEditable
         {
@@ -81,58 +80,41 @@ namespace Mes.Wpf.Modules.Processes.ViewModels
             set => SetProperty(ref _isCodeEditable, value);
         }
 
-        public ProcessDto? SelectedItem
-        {
-            get => _selectedItem;
-            set
-            {
-                if (SetProperty(ref _selectedItem, value))
-                {
-                    LoadToEditModel(value);
-                }
-            }
-        }
+        //public ProcessDto? SelectedItem
+        //{
+        //    get => _selectedItem;
+        //    set
+        //    {
+        //        if (SetProperty(ref _selectedItem, value))
+        //        {
+        //            LoadToEditModel(value);
+        //        }
+        //    }
+        //}
 
         public async Task InitializeAsync()
         {
             await SearchAsync();
         }
 
-        private async Task SearchAsync()
+        
+
+        protected override async Task LoadListAsync()
         {
-            IsLoading = true;
+            var route = BuildListUrl();
+            var result = await _apiClient.GetAsync<ProcessListDto>(route);
 
-            try
+            if (!result.Success)
             {
-                var route = BuildListUrl();
-                var result = await _apiClient.GetAsync<ProcessListDto>(route);
-
-                if (!result.Success)
-                {
-                    _messageService.ShowError(result.Message ?? "공정 조회 중 오류가 발생했습니다.");
-                    return;
-                }
-
-                Items.Clear();
-
-                var source = result.Data?.Items ?? [];
-                foreach (var item in source)
-                {
-                    Items.Add(item);
-                }
-
-                if (SelectedItem != null && !Items.Any(x => x.ProcessId == SelectedItem.ProcessId))
-                {
-                    SelectedItem = null;
-                }
+                _messageService.ShowError(result.Message ?? "공정 조회 중 오류");
+                return;
             }
-            finally
-            {
-                IsLoading = false;
-            }
+
+            Items.Clear();
+            foreach (var item in result.Data?.Items ?? [])
+                Items.Add(item);
         }
-
-        private void Reset()
+        protected override void Reset()
         {
             SearchKeyword = string.Empty;
             SelectedUseYn = "사용";
@@ -141,7 +123,7 @@ namespace Mes.Wpf.Modules.Processes.ViewModels
             IsCodeEditable = true;
         }
 
-        private void New()
+        protected override void New()
         {
             SelectedItem = null;
             EditModel.Clear();
@@ -321,6 +303,11 @@ namespace Mes.Wpf.Modules.Processes.ViewModels
             EditModel.ProcessCode = EditModel.ProcessCode?.Trim() ?? string.Empty;
             EditModel.ProcessName = EditModel.ProcessName?.Trim() ?? string.Empty;
             EditModel.ProcessType = EditModel.ProcessType?.Trim().ToUpperInvariant() ?? "INTERNAL";
+        }
+
+        protected override void OnSelectedItemChanged(ProcessDto? item)
+        {
+            LoadToEditModel(item);
         }
 
         private string BuildListUrl()

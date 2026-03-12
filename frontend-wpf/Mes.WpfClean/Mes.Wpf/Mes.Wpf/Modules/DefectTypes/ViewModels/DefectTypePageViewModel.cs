@@ -1,17 +1,18 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Linq;
-using System.Threading.Tasks;
-using Mes.Wpf.Core.Common;
+﻿using Mes.Wpf.Core.Common;
+using Mes.Wpf.Core.Common.ViewModels;
 using Mes.Wpf.Core.Constants;
 using Mes.Wpf.Core.Interfaces;
 using Mes.Wpf.Core.Models;
 using Mes.Wpf.Modules.DefectTypes.Dtos;
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace Mes.Wpf.Modules.DefectTypes.ViewModels
 {
-    public class DefectTypePageViewModel : ViewModelBase
+    public class DefectTypePageViewModel : CrudPageViewModelBase<DefectTypeDto>
     {
         private readonly IApiClient _apiClient;
         private readonly IMessageService _messageService;
@@ -36,9 +37,7 @@ namespace Mes.Wpf.Modules.DefectTypes.ViewModels
 
             EditModel = new DefectTypeEditModel();
 
-            SearchCommand = new AsyncRelayCommand(SearchAsync);
-            ResetCommand = new RelayCommand(Reset);
-            NewCommand = new RelayCommand(New);
+            
             SaveCommand = new AsyncRelayCommand(SaveAsync);
             DeleteCommand = new AsyncRelayCommand(DeleteAsync);
         }
@@ -49,11 +48,11 @@ namespace Mes.Wpf.Modules.DefectTypes.ViewModels
 
         public DefectTypeEditModel EditModel { get; }
 
-        public AsyncRelayCommand SearchCommand { get; }
+        //public AsyncRelayCommand SearchCommand { get; }
 
-        public RelayCommand ResetCommand { get; }
+        //public RelayCommand ResetCommand { get; }
 
-        public RelayCommand NewCommand { get; }
+        //public RelayCommand NewCommand { get; }
 
         public AsyncRelayCommand SaveCommand { get; }
 
@@ -71,11 +70,11 @@ namespace Mes.Wpf.Modules.DefectTypes.ViewModels
             set => SetProperty(ref _selectedUseYn, value);
         }
 
-        public bool IsLoading
-        {
-            get => _isLoading;
-            set => SetProperty(ref _isLoading, value);
-        }
+        //public bool IsLoading
+        //{
+        //    get => _isLoading;
+        //    set => SetProperty(ref _isLoading, value);
+        //}
 
         public bool IsCodeEditable
         {
@@ -83,59 +82,80 @@ namespace Mes.Wpf.Modules.DefectTypes.ViewModels
             set => SetProperty(ref _isCodeEditable, value);
         }
 
-        public DefectTypeDto? SelectedItem
-        {
-            get => _selectedItem;
-            set
-            {
-                if (SetProperty(ref _selectedItem, value))
-                {
-                    LoadToEditModel(value);
-                }
-            }
-        }
+        //public DefectTypeDto? SelectedItem
+        //{
+        //    get => _selectedItem;
+        //    set
+        //    {
+        //        if (SetProperty(ref _selectedItem, value))
+        //        {
+        //            LoadToEditModel(value);
+        //        }
+        //    }
+        //}
 
         public async Task InitializeAsync()
         {
             await SearchAsync();
         }
 
-        private async Task SearchAsync()
+        //private async Task SearchAsync()
+        //{
+        //    IsLoading = true;
+
+        //    try
+        //    {
+        //        var route = BuildListUrl();
+        //        var result = await _apiClient.GetAsync<DefectTypeListDto>(route);
+
+        //        if (!result.Success)
+        //        {
+        //            _messageService.ShowError(result.Message ?? "불량유형 조회 중 오류가 발생했습니다.");
+        //            return;
+        //        }
+
+        //        Items.Clear();
+
+        //        var source = result.Data?.Items ?? [];
+
+        //        foreach (var item in source)
+        //        {
+        //            Items.Add(item);
+        //        }
+
+        //        if (SelectedItem != null && !Items.Any(x => x.DefectTypeId == SelectedItem.DefectTypeId))
+        //        {
+        //            SelectedItem = null;
+        //        }
+        //    }
+        //    finally
+        //    {
+        //        IsLoading = false;
+        //    }
+        //}
+
+        protected override async Task LoadListAsync()
         {
-            IsLoading = true;
+            var route = BuildListUrl();
+            var result = await _apiClient.GetAsync<DefectTypeListDto>(route);
 
-            try
+            if (!result.Success)
             {
-                var route = BuildListUrl();
-                var result = await _apiClient.GetAsync<DefectTypeListDto>(route);
-
-                if (!result.Success)
-                {
-                    _messageService.ShowError(result.Message ?? "불량유형 조회 중 오류가 발생했습니다.");
-                    return;
-                }
-
-                Items.Clear();
-
-                var source = result.Data?.Items ?? [];
-
-                foreach (var item in source)
-                {
-                    Items.Add(item);
-                }
-
-                if (SelectedItem != null && !Items.Any(x => x.DefectTypeId == SelectedItem.DefectTypeId))
-                {
-                    SelectedItem = null;
-                }
+                _messageService.ShowError(result.Message ?? "불량유형 조회 오류");
+                return;
             }
-            finally
-            {
-                IsLoading = false;
-            }
+
+            Items.Clear();
+            foreach (var item in result.Data?.Items ?? [])
+                Items.Add(item);
         }
 
-        private void Reset()
+        protected override void OnSelectedItemChanged(DefectTypeDto? item)
+        {
+            LoadToEditModel(item);
+        }
+
+        protected override void Reset()
         {
             SearchKeyword = string.Empty;
             SelectedUseYn = "사용";
@@ -144,7 +164,7 @@ namespace Mes.Wpf.Modules.DefectTypes.ViewModels
             IsCodeEditable = true;
         }
 
-        private void New()
+        protected override void New()
         {
             SelectedItem = null;
             EditModel.Clear();
