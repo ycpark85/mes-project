@@ -164,21 +164,16 @@ namespace Mes.Wpf.Modules.Processes.ViewModels
                 return;
             }
 
-            var confirm = System.Windows.MessageBox.Show(
+            var confirmed = _messageService.Confirm(
                 $"[{SelectedItem.ProcessCode}] {SelectedItem.ProcessName} 항목을 삭제하시겠습니까?",
-                "삭제 확인",
-                System.Windows.MessageBoxButton.YesNo,
-                System.Windows.MessageBoxImage.Question);
+                "삭제 확인");
 
-            if (confirm != System.Windows.MessageBoxResult.Yes)
-                return;
+            if (!confirmed) return;
 
             IsLoading = true;
-
             try
             {
                 var result = await _apiClient.DeleteAsync($"{ApiRoutes.Processes}/{SelectedItem.ProcessId}");
-
                 if (!result.Success || !result.Data)
                 {
                     _messageService.ShowError(result.Message ?? "공정 삭제 중 오류가 발생했습니다.");
@@ -186,11 +181,9 @@ namespace Mes.Wpf.Modules.Processes.ViewModels
                 }
 
                 await SearchAsync();
-
                 SelectedItem = null;
                 EditModel.Clear();
                 IsCodeEditable = true;
-
                 _messageService.ShowInfo("삭제되었습니다.");
             }
             finally

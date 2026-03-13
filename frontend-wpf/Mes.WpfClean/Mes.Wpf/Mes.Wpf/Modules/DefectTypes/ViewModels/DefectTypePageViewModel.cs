@@ -205,21 +205,16 @@ namespace Mes.Wpf.Modules.DefectTypes.ViewModels
                 return;
             }
 
-            var confirm = System.Windows.MessageBox.Show(
+            var confirmed = _messageService.Confirm(
                 $"[{SelectedItem.DefectCode}] {SelectedItem.DefectName} 항목을 삭제하시겠습니까?",
-                "삭제 확인",
-                System.Windows.MessageBoxButton.YesNo,
-                System.Windows.MessageBoxImage.Question);
+                "삭제 확인");
 
-            if (confirm != System.Windows.MessageBoxResult.Yes)
-                return;
+            if (!confirmed) return;
 
             IsLoading = true;
-
             try
             {
                 var result = await _apiClient.DeleteAsync($"{ApiRoutes.DefectTypes}/{SelectedItem.DefectTypeId}");
-
                 if (!result.Success || !result.Data)
                 {
                     _messageService.ShowError(result.Message ?? "불량유형 삭제 중 오류가 발생했습니다.");
@@ -230,7 +225,6 @@ namespace Mes.Wpf.Modules.DefectTypes.ViewModels
                 SelectedItem = null;
                 EditModel.Clear();
                 IsCodeEditable = true;
-
                 _messageService.ShowInfo("삭제되었습니다.");
             }
             finally

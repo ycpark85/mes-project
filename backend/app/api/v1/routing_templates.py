@@ -165,7 +165,7 @@ def list_steps(
     return {"items": items, "total": total, "page": page, "size": size}
 
 
-@router.patch("/routing-templates/{routing_template_id}/steps/{routing_template_step_id}", response_model=RoutingTemplateStepOut)
+@router.patch("/{routing_template_id}/steps/{routing_template_step_id}", response_model=RoutingTemplateStepOut)
 def update_step(
     routing_template_id: int,
     routing_template_step_id: int,
@@ -267,10 +267,11 @@ def delete_step(
         .first()
     )
     if not obj:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="RoutingTemplateStep not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="RoutingTemplateStep not found"
+        )
 
-    # Step은 "soft delete"로 처리 (is_active=False)
-    obj.is_active = False
+    db.delete(obj)
     db.commit()
-    db.refresh(obj)
     return obj

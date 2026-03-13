@@ -96,5 +96,22 @@ namespace Mes.Wpf.Views.Shell
             HeaderTitle.Text = "불량유형 관리";
             HeaderSubtitle.Text = "불량유형 마스터 등록 / 조회 / 수정 / 삭제";
         }
+
+        private async void RoutingTemplateStep_Click(object sender, RoutedEventArgs e)
+        {
+            var routingTemplateStepPage = new RoutingTemplateStepPage();
+            var routingTemplateStepViewModel = new RoutingTemplateStepPageViewModel(_apiClient, _messageService);
+
+            routingTemplateStepPage.DataContext = routingTemplateStepViewModel;
+            MainContent.Content = routingTemplateStepPage;
+            MainContent.Visibility = Visibility.Visible;
+
+            HeaderTitle.Text = "라우팅 Step 관리";
+            HeaderSubtitle.Text = "라우팅 템플릿별 Step 등록 / 조회 / 수정 / 삭제";
+
+            await routingTemplateStepViewModel.InitializeAsync();
+        }
+
+
     }
 }
