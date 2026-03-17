@@ -7,6 +7,8 @@ using Mes.Wpf.Modules.Processes.ViewModels;
 using Mes.Wpf.Modules.Processes.Views;
 using Mes.Wpf.Modules.RoutingTemplates.ViewModels;
 using Mes.Wpf.Modules.RoutingTemplates.Views;
+using Mes.Wpf.Modules.Partners.ViewModels;
+using Mes.Wpf.Modules.Partners.Views;
 
 namespace Mes.Wpf.Views.Shell
 {
@@ -46,6 +48,8 @@ namespace Mes.Wpf.Views.Shell
             HeaderSubtitle.Text = "프론트엔드 아키텍처 베이스";
         }
 
+
+
         private void DefectType_Click(object sender, RoutedEventArgs e)
         {
             ShowDefectType();
@@ -66,6 +70,22 @@ namespace Mes.Wpf.Views.Shell
             HeaderSubtitle.Text = "공정 마스터 등록 / 조회 / 수정 / 삭제";
 
             await processViewModel.InitializeAsync();
+        }
+
+        private async void Partner_Click(object sender, RoutedEventArgs e)
+        {
+            var partnerPage = new PartnerPage();
+            var partnerViewModel = new PartnerPageViewModel(_apiClient, _messageService);
+
+            partnerPage.DataContext = partnerViewModel;
+
+            MainContent.Content = partnerPage;
+            MainContent.Visibility = Visibility.Visible;
+
+            HeaderTitle.Text = "거래처 관리";
+            HeaderSubtitle.Text = "거래처 마스터 등록 / 조회 / 수정 / 삭제 / 벌크업로드";
+
+            await partnerViewModel.InitializeAsync();
         }
 
         private async void RoutingTemplate_Click(object sender, RoutedEventArgs e)
@@ -111,6 +131,8 @@ namespace Mes.Wpf.Views.Shell
 
             await routingTemplateStepViewModel.InitializeAsync();
         }
+
+
 
 
     }

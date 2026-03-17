@@ -3,11 +3,35 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import func, or_
 from fastapi import Path, Query
+
 from app.db.session import get_db
 from app.models.partner import Partner
-from app.schemas.partner import PartnerCreate, PartnerOut,PartnerListOut,PartnerUpdate
+from app.schemas.partner import (
+    PartnerCreate,
+    PartnerOut,
+    PartnerListOut,
+    PartnerUpdate,
+    PartnerBulkCreateRequest,
+    PartnerBulkCreateResult,
+)
+from app.services.bulk.partner_bulk_service import partner_bulk_service
 
 router = APIRouter(prefix="/partners", tags=["Partner"])
+
+
+@router.post("/bulk", response_model=PartnerBulkCreateResult, status_code=status.HTTP_201_CREATED)
+def create_partners_bulk(
+    payload: PartnerBulkCreateRequest,
+    db: Session = Depends(get_db),
+):
+    try:
+        return partner_bulk_service.create_bulk(db, payload)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="business_no already exists",
+        )
 
 
 @router.post("", response_model=PartnerOut, status_code=status.HTTP_201_CREATED)
@@ -21,20 +45,18 @@ def create_partner(
         business_no=payload.business_no,
         is_active=payload.is_active,
     )
-
     try:
         db.add(partner)
         db.commit()
     except IntegrityError:
         db.rollback()
-        # business_no UNIQUE 충돌
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="business_no already exists",
         )
-    
     db.refresh(partner)
     return partner
+
 
 @router.get("/{partner_id}", response_model=PartnerOut)
 def get_partner(
@@ -49,13 +71,11 @@ def get_partner(
         )
         .first()
     )
-
     if not partner:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Partner not found",
         )
-
     return partner
 
 
@@ -64,7 +84,7 @@ def list_partners(
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
     q: str | None = Query(None),
-    is_active: bool | None = Query(True),  # ✅ 기본은 활성만
+    is_active: bool | None = Query(True),
     db: Session = Depends(get_db),
 ):
     base = db.query(Partner)
@@ -81,10 +101,8 @@ def list_partners(
             )
         )
 
-    # total count (별도 쿼리)
     total = base.with_entities(func.count()).scalar() or 0
 
-    # paging query
     items = (
         base.order_by(Partner.partner_id.desc())
         .offset((page - 1) * size)
@@ -102,6 +120,7 @@ def update_partner(
     db: Session = Depends(get_db),
 ):
     partner = db.query(Partner).filter(Partner.partner_id == partner_id).first()
+
     if not partner:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Partner not found")
 
@@ -130,6 +149,7 @@ def deactivate_partner(
     db: Session = Depends(get_db),
 ):
     partner = db.query(Partner).filter(Partner.partner_id == partner_id).first()
+
     if not partner:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Partner not found")
 

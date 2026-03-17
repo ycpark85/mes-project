@@ -6,5 +6,7 @@
         public const string Processes = "api/v1/processes";
         public const string RoutingTemplates = "api/v1/routing-templates";
         public const string RoutingTemplateSteps = "api/v1/routing-template-steps";
+        public const string Partners = "api/v1/partners";
+        public const string PartnersBulk = "api/v1/partners/bulk";
     }
 }

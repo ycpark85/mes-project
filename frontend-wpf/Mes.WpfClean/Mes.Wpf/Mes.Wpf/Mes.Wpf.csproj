@@ -18,6 +18,12 @@
     <None Update="appsettings.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-  </ItemGroup>	
+  </ItemGroup>
+
+  <ItemGroup>
+	<PackageReference Include="ClosedXML" Version="0.104.2" />
+  </ItemGroup>
+	
+	
 
 </Project>
