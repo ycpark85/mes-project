@@ -1,16 +1,16 @@
-﻿using Mes.Wpf.Core.Common;
+﻿using ClosedXML.Excel;
+using Mes.Wpf.Core.Common;
 using Mes.Wpf.Core.Common.ViewModels;
 using Mes.Wpf.Core.Constants;
 using Mes.Wpf.Core.Interfaces;
 using Mes.Wpf.Modules.Partners.Dtos;
+using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Threading.Tasks;
-using System.Linq;
-using Microsoft.Win32;
-using ClosedXML.Excel;
 using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace Mes.Wpf.Modules.Partners.ViewModels
 {
@@ -21,6 +21,9 @@ namespace Mes.Wpf.Modules.Partners.ViewModels
 
         private string _searchKeyword = string.Empty;
         private string _selectedUseYn = "사용";
+        private string _bulkFilePath = string.Empty;
+        private string _bulkSummaryText = "대기 중";
+        private string _loadingMessage = "처리 중입니다...";
 
         public PartnerPageViewModel(IApiClient apiClient, IMessageService messageService)
         {
@@ -35,14 +38,12 @@ namespace Mes.Wpf.Modules.Partners.ViewModels
             SaveCommand = new AsyncRelayCommand(SaveAsync);
             DeleteCommand = new AsyncRelayCommand(DeleteAsync);
 
-            // 👉 여기부터 추가
             BulkRows = new ObservableCollection<PartnerBulkUploadRowModel>();
+            DownloadTemplateCommand = new AsyncRelayCommand(DownloadTemplateAsync);
+            SelectBulkFileCommand = new AsyncRelayCommand(SelectBulkFileAsync);
             UploadBulkCommand = new AsyncRelayCommand(UploadBulkAsync);
             ClearBulkRowsCommand = new RelayCommand(ClearBulkRows);
-            SelectBulkFileCommand = new AsyncRelayCommand(SelectBulkFileAsync);
         }
-
-
 
         public ObservableCollection<PartnerDto> Items { get; }
 
@@ -52,26 +53,19 @@ namespace Mes.Wpf.Modules.Partners.ViewModels
 
         public PartnerEditModel EditModel { get; }
 
+        public ObservableCollection<PartnerBulkUploadRowModel> BulkRows { get; }
+
         public AsyncRelayCommand SaveCommand { get; }
 
         public AsyncRelayCommand DeleteCommand { get; }
 
-        public ObservableCollection<PartnerBulkUploadRowModel> BulkRows { get; }
+        public AsyncRelayCommand DownloadTemplateCommand { get; }
+
+        public AsyncRelayCommand SelectBulkFileCommand { get; }
 
         public AsyncRelayCommand UploadBulkCommand { get; }
 
         public RelayCommand ClearBulkRowsCommand { get; }
-
-        public AsyncRelayCommand SelectBulkFileCommand { get; }
-
-        private string _bulkFilePath = string.Empty;
-        public string BulkFilePath
-        {
-            get => _bulkFilePath;
-            set => SetProperty(ref _bulkFilePath, value);
-
-        }
-
 
         public string SearchKeyword
         {
@@ -83,6 +77,24 @@ namespace Mes.Wpf.Modules.Partners.ViewModels
         {
             get => _selectedUseYn;
             set => SetProperty(ref _selectedUseYn, value);
+        }
+
+        public string BulkFilePath
+        {
+            get => _bulkFilePath;
+            set => SetProperty(ref _bulkFilePath, value);
+        }
+
+        public string BulkSummaryText
+        {
+            get => _bulkSummaryText;
+            set => SetProperty(ref _bulkSummaryText, value);
+        }
+
+        public string LoadingMessage
+        {
+            get => _loadingMessage;
+            set => SetProperty(ref _loadingMessage, value);
         }
 
         public async Task InitializeAsync()
@@ -143,6 +155,8 @@ namespace Mes.Wpf.Modules.Partners.ViewModels
                 return;
 
             IsLoading = true;
+            LoadingMessage = EditModel.PartnerId.HasValue ? "거래처 수정 중..." : "거래처 저장 중...";
+            await Task.Yield();
 
             try
             {
@@ -158,6 +172,7 @@ namespace Mes.Wpf.Modules.Partners.ViewModels
             finally
             {
                 IsLoading = false;
+                LoadingMessage = "처리 중입니다...";
             }
         }
 
@@ -210,73 +225,42 @@ namespace Mes.Wpf.Modules.Partners.ViewModels
             await SearchAsync();
             SelectedItem = null;
             EditModel.Clear();
-            _messageService.ShowInfo("저장되었습니다.");
+            _messageService.ShowInfo("수정되었습니다.");
         }
 
-        private Task DeleteAsync()
+        private async Task DeleteAsync()
         {
-            _messageService.ShowWarning("현재 Partner 삭제 API 응답 형식이 프론트 IApiClient.DeleteAsync 계약과 달라서 삭제 기능은 별도 정합화 후 연결해야 합니다.");
-            return Task.CompletedTask;
-        }
+            if (SelectedItem == null)
+                return;
 
-        private bool ValidateForSave()
-        {
-            if (string.IsNullOrWhiteSpace(EditModel.Name))
+            if (!_messageService.Confirm("삭제하시겠습니까?"))
+                return;
+
+            IsLoading = true;
+            LoadingMessage = "거래처 삭제 중...";
+            await Task.Yield();
+
+            try
             {
-                _messageService.ShowWarning("거래처명은 필수입니다.");
-                return false;
+                var result = await _apiClient.DeleteAsync($"{ApiRoutes.Partners}/{SelectedItem.PartnerId}");
+
+                if (!result.Success)
+                {
+                    _messageService.ShowError(result.Message ?? "거래처 삭제 중 오류가 발생했습니다.");
+                    return;
+                }
+
+                await SearchAsync();
+                SelectedItem = null;
+                EditModel.Clear();
+
+                _messageService.ShowInfo("삭제되었습니다.");
             }
-
-            if (string.IsNullOrWhiteSpace(EditModel.PartnerType))
+            finally
             {
-                _messageService.ShowWarning("거래처구분은 필수입니다.");
-                return false;
+                IsLoading = false;
+                LoadingMessage = "처리 중입니다...";
             }
-
-            if (EditModel.PartnerType != "CUSTOMER" && EditModel.PartnerType != "VENDOR")
-            {
-                _messageService.ShowWarning("거래처구분은 CUSTOMER 또는 VENDOR 여야 합니다.");
-                return false;
-            }
-
-            return true;
-        }
-
-        private void NormalizeEditModel()
-        {
-            EditModel.PartnerType = (EditModel.PartnerType ?? "CUSTOMER").Trim().ToUpperInvariant();
-            EditModel.Name = (EditModel.Name ?? string.Empty).Trim();
-            EditModel.BusinessNo = EditModel.BusinessNo?.Trim();
-        }
-
-        private string BuildListUrl()
-        {
-            var queryParts = new List<string>
-            {
-                "page=1",
-                "size=100"
-            };
-
-            if (!string.IsNullOrWhiteSpace(SearchKeyword))
-            {
-                queryParts.Add($"q={Uri.EscapeDataString(SearchKeyword.Trim())}");
-            }
-
-            if (SelectedUseYn == "사용")
-            {
-                queryParts.Add("is_active=true");
-            }
-            else if (SelectedUseYn == "미사용")
-            {
-                queryParts.Add("is_active=false");
-            }
-
-            return $"{ApiRoutes.Partners}?{string.Join("&", queryParts)}";
-        }
-
-        private static string? EmptyToNull(string? value)
-        {
-            return string.IsNullOrWhiteSpace(value) ? null : value;
         }
 
         public void LoadBulkRows(IEnumerable<PartnerBulkUploadRowModel> rows, string filePath)
@@ -290,12 +274,120 @@ namespace Mes.Wpf.Modules.Partners.ViewModels
             }
 
             BulkFilePath = filePath;
+            BulkSummaryText = $"불러온 건수: {BulkRows.Count}건";
         }
 
         private void ClearBulkRows()
         {
             BulkRows.Clear();
             BulkFilePath = string.Empty;
+            BulkSummaryText = "대기 중";
+        }
+
+        private async Task DownloadTemplateAsync()
+        {
+            var dialog = new SaveFileDialog
+            {
+                Title = "거래처 업로드 템플릿 저장",
+                Filter = "Excel Files (*.xlsx)|*.xlsx",
+                FileName = "partner_upload_template.xlsx",
+                DefaultExt = ".xlsx"
+            };
+
+            if (dialog.ShowDialog() != true)
+                return;
+
+            IsLoading = true;
+            LoadingMessage = "템플릿 생성 중...";
+            await Task.Yield();
+
+            try
+            {
+                var targetPath = dialog.FileName;
+
+                await Task.Run(() =>
+                {
+                    using var workbook = new XLWorkbook();
+                    var worksheet = workbook.Worksheets.Add("Partners");
+
+                    worksheet.Cell(1, 1).Value = "거래처구분";
+                    worksheet.Cell(1, 2).Value = "거래처명";
+                    worksheet.Cell(1, 3).Value = "사업자번호";
+                    worksheet.Cell(1, 4).Value = "사용여부";
+
+                    worksheet.Cell(2, 1).Value = "CUSTOMER";
+                    worksheet.Cell(2, 2).Value = "샘플거래처";
+                    worksheet.Cell(2, 3).Value = "123-45-67890";
+                    worksheet.Cell(2, 4).Value = "사용";
+
+                    worksheet.Range(1, 1, 1, 4).Style.Font.Bold = true;
+                    worksheet.Columns().AdjustToContents();
+
+                    workbook.SaveAs(targetPath);
+                });
+
+                _messageService.ShowInfo("템플릿 파일이 저장되었습니다.");
+            }
+            catch (Exception ex)
+            {
+                _messageService.ShowError($"템플릿 저장 중 오류가 발생했습니다.\n{ex.Message}");
+            }
+            finally
+            {
+                IsLoading = false;
+                LoadingMessage = "처리 중입니다...";
+            }
+        }
+
+        private async Task SelectBulkFileAsync()
+        {
+            var dialog = new OpenFileDialog
+            {
+                Title = "거래처 엑셀 파일 선택",
+                Filter = "Excel Files (*.xlsx;*.xls)|*.xlsx;*.xls",
+                Multiselect = false,
+                CheckFileExists = true
+            };
+
+            if (dialog.ShowDialog() != true)
+                return;
+
+            IsLoading = true;
+            LoadingMessage = "엑셀 파일 읽는 중...";
+            await Task.Yield();
+
+            try
+            {
+                var selectedPath = dialog.FileName;
+
+                var rows = await Task.Run(() =>
+                {
+                    var tempPath = CopyToTempFile(selectedPath);
+                    try
+                    {
+                        return ParseBulkRowsFromExcel(tempPath).ToList();
+                    }
+                    finally
+                    {
+                        TryDeleteTempFile(tempPath);
+                    }
+                });
+
+                LoadBulkRows(rows, selectedPath);
+                _messageService.ShowInfo($"엑셀 파일을 불러왔습니다. ({BulkRows.Count}건)");
+            }
+            catch (Exception ex)
+            {
+                BulkRows.Clear();
+                BulkFilePath = string.Empty;
+                BulkSummaryText = "대기 중";
+                _messageService.ShowError($"엑셀 파일을 읽는 중 오류가 발생했습니다.\n{ex.Message}");
+            }
+            finally
+            {
+                IsLoading = false;
+                LoadingMessage = "처리 중입니다...";
+            }
         }
 
         private async Task UploadBulkAsync()
@@ -312,6 +404,8 @@ namespace Mes.Wpf.Modules.Partners.ViewModels
             }
 
             IsLoading = true;
+            LoadingMessage = "데이터 업로드 중...";
+            await Task.Yield();
 
             try
             {
@@ -338,7 +432,6 @@ namespace Mes.Wpf.Modules.Partners.ViewModels
                 }
 
                 ApplyBulkResult(result.Data);
-
                 await SearchAsync();
 
                 _messageService.ShowInfo(
@@ -347,6 +440,7 @@ namespace Mes.Wpf.Modules.Partners.ViewModels
             finally
             {
                 IsLoading = false;
+                LoadingMessage = "처리 중입니다...";
             }
         }
 
@@ -399,6 +493,10 @@ namespace Mes.Wpf.Modules.Partners.ViewModels
 
                 seenBusinessNos[row.BusinessNo] = row.RowNumber;
             }
+
+            var invalidCount = BulkRows.Count(x => !x.IsValid);
+            var validCount = BulkRows.Count - invalidCount;
+            BulkSummaryText = $"검증 완료 - 전체: {BulkRows.Count}건 / 유효: {validCount}건 / 오류: {invalidCount}건";
         }
 
         private void ApplyBulkResult(PartnerBulkCreateResultDto result)
@@ -421,42 +519,14 @@ namespace Mes.Wpf.Modules.Partners.ViewModels
                 else
                     target.ErrorMessage += $"\n{error.Field}: {error.Message}";
             }
+
+            BulkSummaryText = $"업로드 결과 - 전체: {result.TotalCount}건 / 성공: {result.SuccessCount}건 / 실패: {result.FailureCount}건";
         }
 
         private void MarkBulkRowError(PartnerBulkUploadRowModel row, string message)
         {
             row.IsValid = false;
             row.ErrorMessage = message;
-        }
-
-        private Task SelectBulkFileAsync()
-        {
-            var dialog = new OpenFileDialog
-            {
-                Title = "거래처 엑셀 파일 선택",
-                Filter = "Excel Files (*.xlsx;*.xls)|*.xlsx;*.xls",
-                Multiselect = false,
-                CheckFileExists = true
-            };
-
-            if (dialog.ShowDialog() != true)
-                return Task.CompletedTask;
-
-            try
-            {
-                var rows = ParseBulkRowsFromExcel(dialog.FileName);
-                LoadBulkRows(rows, dialog.FileName);
-
-                _messageService.ShowInfo($"엑셀 파일을 불러왔습니다. ({BulkRows.Count}건)");
-            }
-            catch (Exception ex)
-            {
-                BulkRows.Clear();
-                BulkFilePath = string.Empty;
-                _messageService.ShowError($"엑셀 파일을 읽는 중 오류가 발생했습니다.\n{ex.Message}");
-            }
-
-            return Task.CompletedTask;
         }
 
         private IEnumerable<PartnerBulkUploadRowModel> ParseBulkRowsFromExcel(string filePath)
@@ -596,6 +666,86 @@ namespace Mes.Wpf.Modules.Partners.ViewModels
 
                 _ => true
             };
+        }
+
+        private bool ValidateForSave()
+        {
+            if (string.IsNullOrWhiteSpace(EditModel.Name))
+            {
+                _messageService.ShowWarning("거래처명은 필수입니다.");
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(EditModel.PartnerType))
+            {
+                _messageService.ShowWarning("거래처구분은 필수입니다.");
+                return false;
+            }
+
+            if (EditModel.PartnerType != "CUSTOMER" && EditModel.PartnerType != "VENDOR")
+            {
+                _messageService.ShowWarning("거래처구분은 CUSTOMER 또는 VENDOR 여야 합니다.");
+                return false;
+            }
+
+            return true;
+        }
+
+        private void NormalizeEditModel()
+        {
+            EditModel.PartnerType = (EditModel.PartnerType ?? "CUSTOMER").Trim().ToUpperInvariant();
+            EditModel.Name = (EditModel.Name ?? string.Empty).Trim();
+            EditModel.BusinessNo = EditModel.BusinessNo?.Trim();
+        }
+
+        private string BuildListUrl()
+        {
+            var queryParts = new List<string>
+            {
+                "page=1",
+                "size=100"
+            };
+
+            if (!string.IsNullOrWhiteSpace(SearchKeyword))
+            {
+                queryParts.Add($"q={Uri.EscapeDataString(SearchKeyword.Trim())}");
+            }
+
+            if (SelectedUseYn == "사용")
+            {
+                queryParts.Add("is_active=true");
+            }
+            else if (SelectedUseYn == "미사용")
+            {
+                queryParts.Add("is_active=false");
+            }
+
+            return $"{ApiRoutes.Partners}?{string.Join("&", queryParts)}";
+        }
+
+        private static string? EmptyToNull(string? value)
+        {
+            return string.IsNullOrWhiteSpace(value) ? null : value;
+        }
+
+        private static string CopyToTempFile(string sourcePath)
+        {
+            var extension = Path.GetExtension(sourcePath);
+            var tempPath = Path.Combine(Path.GetTempPath(), $"partner-upload-{Guid.NewGuid():N}{extension}");
+            File.Copy(sourcePath, tempPath, true);
+            return tempPath;
+        }
+
+        private static void TryDeleteTempFile(string tempPath)
+        {
+            try
+            {
+                if (File.Exists(tempPath))
+                    File.Delete(tempPath);
+            }
+            catch
+            {
+            }
         }
     }
 }
