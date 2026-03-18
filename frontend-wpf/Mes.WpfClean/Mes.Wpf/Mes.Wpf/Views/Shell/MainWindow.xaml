@@ -58,7 +58,12 @@
                             <Button Content="라우팅템플릿스텝"
                                     Style="{StaticResource BaseButtonStyle}"
                                     Margin="0,0,0,10"
-                                    Click="RoutingTemplateStep_Click"/>                 
+                                    Click="RoutingTemplateStep_Click"/>
+
+                            <Button Content="도면관리"
+                                    Style="{StaticResource BaseButtonStyle}"
+                                    Margin="0,0,0,10"
+                                    Click="Drawing_Click"/>             
 
 
                             <Button Content="불량유형"

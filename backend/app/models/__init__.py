@@ -14,6 +14,7 @@ from .inspection_result import InspectionResult
 from .inspection_defect import InspectionDefect
 from .inspection_defect_attachment import InspectionDefectAttachment
 from .inspection_certificate import InspectionCertificate
+from .drawing_rivision_file import DrawingRevisionFile
 
 __all__ = [
     "Process", 
@@ -32,6 +33,7 @@ __all__ = [
     "InspectionDefect",
     "InspectionDefectAttachment",
     "InspectionCertificate",
+    "DrawingRevisionFile"
 
 
     ]

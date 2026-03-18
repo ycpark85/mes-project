@@ -193,5 +193,81 @@ namespace Mes.Wpf.Infrastructure.Api
                 };
             }
         }
+
+        public async Task<ApiResult<T>> PostMultipartAsync<T>(string relativeUrl, MultipartFormDataContent content)
+        {
+            try
+            {
+                var response = await _httpClient.PostAsync(relativeUrl, content);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    return new ApiResult<T>
+                    {
+                        Success = false,
+                        Message = $"POST Multipart 요청 실패: {(int)response.StatusCode}"
+                    };
+                }
+
+                var data = await response.Content.ReadFromJsonAsync<T>();
+
+                return new ApiResult<T>
+                {
+                    Success = true,
+                    Data = data
+                };
+            }
+            catch (Exception ex)
+            {
+                return new ApiResult<T>
+                {
+                    Success = false,
+                    Message = $"예외 발생: {ex.Message}"
+                };
+            }
+        }
+
+        public async Task<ApiResult<T>> PatchMultipartAsync<T>(string relativeUrl, MultipartFormDataContent content)
+        {
+            try
+            {
+                using var requestMessage = new HttpRequestMessage(HttpMethod.Patch, relativeUrl)
+                {
+                    Content = content
+                };
+
+                var response = await _httpClient.SendAsync(requestMessage);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    return new ApiResult<T>
+                    {
+                        Success = false,
+                        Message = $"PATCH Multipart 요청 실패: {(int)response.StatusCode}"
+                    };
+                }
+
+                var data = await response.Content.ReadFromJsonAsync<T>();
+
+                return new ApiResult<T>
+                {
+                    Success = true,
+                    Data = data
+                };
+            }
+            catch (Exception ex)
+            {
+                return new ApiResult<T>
+                {
+                    Success = false,
+                    Message = $"예외 발생: {ex.Message}"
+                };
+            }
+        }
+
+        public string BuildAbsoluteUrl(string relativeUrl)
+        {
+            return new Uri(_httpClient.BaseAddress!, relativeUrl).ToString();
+        }
     }
 }

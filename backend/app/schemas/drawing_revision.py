@@ -1,5 +1,12 @@
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+from app.schemas.drawing_revision_file import DrawingRevisionFileOut
+
+
+class DrawingRevisionCreate(BaseModel):
+    rev_no: str = Field(..., max_length=20)
+    set_as_current: bool = True
 
 
 class DrawingRevisionOut(BaseModel):
@@ -8,6 +15,7 @@ class DrawingRevisionOut(BaseModel):
     rev_no: str
     file_uri: str
     created_at: datetime
+    files: list[DrawingRevisionFileOut] = []
 
     class Config:
         from_attributes = True

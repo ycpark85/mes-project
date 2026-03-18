@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System.Net.Http;
+using System.Threading.Tasks;
 using Mes.Wpf.Core.Models;
 
 namespace Mes.Wpf.Core.Interfaces
@@ -10,5 +11,10 @@ namespace Mes.Wpf.Core.Interfaces
         Task<ApiResult<TResponse>> PutAsync<TRequest, TResponse>(string relativeUrl, TRequest request);
         Task<ApiResult<TResponse>> PatchAsync<TRequest, TResponse>(string relativeUrl, TRequest request);
         Task<ApiResult<bool>> DeleteAsync(string relativeUrl);
+
+        Task<ApiResult<T>> PostMultipartAsync<T>(string relativeUrl, MultipartFormDataContent content);
+        Task<ApiResult<T>> PatchMultipartAsync<T>(string relativeUrl, MultipartFormDataContent content);
+
+        string BuildAbsoluteUrl(string relativeUrl);
     }
 }

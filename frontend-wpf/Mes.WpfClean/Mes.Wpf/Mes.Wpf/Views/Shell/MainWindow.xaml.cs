@@ -9,6 +9,8 @@ using Mes.Wpf.Modules.RoutingTemplates.ViewModels;
 using Mes.Wpf.Modules.RoutingTemplates.Views;
 using Mes.Wpf.Modules.Partners.ViewModels;
 using Mes.Wpf.Modules.Partners.Views;
+using Mes.Wpf.Modules.Drawings.ViewModels;
+using Mes.Wpf.Modules.Drawings.Views;
 
 namespace Mes.Wpf.Views.Shell
 {
@@ -131,6 +133,24 @@ namespace Mes.Wpf.Views.Shell
 
             await routingTemplateStepViewModel.InitializeAsync();
         }
+
+        private async void Drawing_Click(object sender, RoutedEventArgs e)
+        {
+            var drawingPage = new DrawingPage();
+            var drawingViewModel = new DrawingPageViewModel(_apiClient, _messageService);
+
+            drawingPage.DataContext = drawingViewModel;
+
+            MainContent.Content = drawingPage;
+            MainContent.Visibility = Visibility.Visible;
+
+            HeaderTitle.Text = "도면 관리";
+            HeaderSubtitle.Text = "도면 / 리비전 / 파일 등록 / 조회 / 수정";
+
+            await drawingViewModel.InitializeAsync();
+        }
+
+
 
 
 

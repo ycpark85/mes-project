@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 from sqlalchemy import BigInteger, DateTime, ForeignKey, String, UniqueConstraint, Index, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -33,3 +33,9 @@ class DrawingRevision(Base):
     )
 
     drawing = relationship("Drawing", back_populates="revisions",foreign_keys=[drawing_id])
+
+    files: Mapped[List["DrawingRevisionFile"]] = relationship(
+    "DrawingRevisionFile",
+    back_populates="revision",
+    cascade="all, delete-orphan",
+    )
