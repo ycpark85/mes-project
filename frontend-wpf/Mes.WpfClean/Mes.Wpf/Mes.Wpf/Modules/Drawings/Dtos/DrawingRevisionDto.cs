@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
 namespace Mes.Wpf.Modules.Drawings.Dtos
@@ -16,6 +17,9 @@ namespace Mes.Wpf.Modules.Drawings.Dtos
 
         [JsonPropertyName("file_uri")]
         public string FileUri { get; set; } = string.Empty;
+
+        [JsonPropertyName("created_at")]
+        public DateTime? CreatedAt { get; set; }
 
         [JsonPropertyName("files")]
         public List<DrawingRevisionFileDto> Files { get; set; } = new();

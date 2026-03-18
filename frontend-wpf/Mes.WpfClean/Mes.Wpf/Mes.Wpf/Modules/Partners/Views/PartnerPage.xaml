@@ -5,8 +5,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d"
              d:DesignHeight="900"
-             d:DesignWidth="1400"
-             Background="#F5F6FA">
+             d:DesignWidth="1400">
 
     <Grid Margin="16">
         <Grid.RowDefinitions>
@@ -20,8 +19,7 @@
         <!-- 검색 영역 -->
         <Border Grid.Row="0"
                 Padding="16,12"
-                Background="White"
-                BorderBrush="#DDDDDD"
+                BorderBrush="#DDD" 
                 BorderThickness="1"
                 CornerRadius="8">
             <Grid>
@@ -92,8 +90,7 @@
 
             <Border Grid.Column="0"
                     Padding="12"
-                    Background="White"
-                    BorderBrush="#DDDDDD"
+                    BorderBrush="#DDD" 
                     BorderThickness="1"
                     CornerRadius="8">
                 <Grid>
@@ -140,8 +137,7 @@
 
             <Border Grid.Column="2"
                     Padding="16"
-                    Background="White"
-                    BorderBrush="#DDDDDD"
+                    BorderBrush="#DDD" 
                     BorderThickness="1"
                     CornerRadius="8">
                 <Grid>
@@ -235,8 +231,7 @@
         <!-- 벌크 업로드 영역 -->
         <Border Grid.Row="4"
                 Padding="16"
-                Background="White"
-                BorderBrush="#DDDDDD"
+                BorderBrush="#DDD" 
                 BorderThickness="1"
                 CornerRadius="8">
             <Grid>
@@ -296,8 +291,7 @@
 
                 <Border Grid.Row="4"
                         Padding="10,6"
-                        Background="#F7F9FC"
-                        BorderBrush="#D9E2F1"
+                        BorderBrush="#DDD" 
                         BorderThickness="1"
                         CornerRadius="4">
                     <TextBlock Text="{Binding BulkSummaryText}"

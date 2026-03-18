@@ -26,11 +26,18 @@ namespace Mes.Wpf.Modules.Drawings.ViewModels
         private string _selectedUseYn = "사용";
         private bool _isCodeEditable = true;
 
+        private bool _isEditMode;
+        private bool _isNewMode;
+
         private DrawingRevisionDto? _selectedRevision;
 
         private string _drawingUploadPath = string.Empty;
         private string _originalUploadPath = string.Empty;
         private string _plateUploadPath = string.Empty;
+
+        private bool _isDrawingFileDirty;
+        private bool _isOriginalFileDirty;
+        private bool _isPlateFileDirty;
 
         private string _loadingMessage = "처리 중입니다...";
 
@@ -49,7 +56,13 @@ namespace Mes.Wpf.Modules.Drawings.ViewModels
             SaveCommand = new AsyncRelayCommand(SaveAsync);
             DeleteCommand = new AsyncRelayCommand(DeleteAsync);
 
-            CreateRevisionCommand = new AsyncRelayCommand(CreateRevisionAsync);
+            EditCommand = new RelayCommand(BeginEdit);
+            CancelEditCommand = new RelayCommand(CancelEdit);
+
+            NewRevisionCommand = new RelayCommand(NewRevision);
+
+            CreateRevisionCommand = new AsyncRelayCommand(SaveRevisionBundleAsync);
+            SaveRevisionBundleCommand = new AsyncRelayCommand(SaveRevisionBundleAsync);
             SetCurrentRevisionCommand = new AsyncRelayCommand(SetCurrentRevisionAsync);
 
             BrowseDrawingFileCommand = new RelayCommand(BrowseDrawingFile);
@@ -64,11 +77,11 @@ namespace Mes.Wpf.Modules.Drawings.ViewModels
             ReplaceOriginalFileCommand = new AsyncRelayCommand(ReplaceOriginalFileAsync);
             ReplacePlateFileCommand = new AsyncRelayCommand(ReplacePlateFileAsync);
 
-            OpenDrawingFileCommand = new RelayCommand(OpenDrawingFile);
-            OpenOriginalFileCommand = new RelayCommand(OpenOriginalFile);
-            OpenPlateFileCommand = new RelayCommand(OpenPlateFile);
+            SaveChangedFilesCommand = new AsyncRelayCommand(SaveChangedFilesAsync);
 
-            NewRevisionCommand = new RelayCommand(NewRevision);
+            OpenDrawingFileCommand = new RelayCommand(() => _ = OpenDrawingFileAsync());
+            OpenOriginalFileCommand = new RelayCommand(() => _ = OpenOriginalFileAsync());
+            OpenPlateFileCommand = new RelayCommand(() => _ = OpenPlateFileAsync());
         }
 
         public ObservableCollection<DrawingDto> Items { get; }
@@ -81,7 +94,11 @@ namespace Mes.Wpf.Modules.Drawings.ViewModels
         public AsyncRelayCommand SaveCommand { get; }
         public AsyncRelayCommand DeleteCommand { get; }
 
+        public RelayCommand EditCommand { get; }
+        public RelayCommand CancelEditCommand { get; }
+
         public AsyncRelayCommand CreateRevisionCommand { get; }
+        public AsyncRelayCommand SaveRevisionBundleCommand { get; }
         public AsyncRelayCommand SetCurrentRevisionCommand { get; }
 
         public RelayCommand BrowseDrawingFileCommand { get; }
@@ -95,6 +112,8 @@ namespace Mes.Wpf.Modules.Drawings.ViewModels
         public AsyncRelayCommand ReplaceDrawingFileCommand { get; }
         public AsyncRelayCommand ReplaceOriginalFileCommand { get; }
         public AsyncRelayCommand ReplacePlateFileCommand { get; }
+
+        public AsyncRelayCommand SaveChangedFilesCommand { get; }
 
         public RelayCommand OpenDrawingFileCommand { get; }
         public RelayCommand OpenOriginalFileCommand { get; }
@@ -120,6 +139,18 @@ namespace Mes.Wpf.Modules.Drawings.ViewModels
             set => SetProperty(ref _isCodeEditable, value);
         }
 
+        public bool IsEditMode
+        {
+            get => _isEditMode;
+            set => SetProperty(ref _isEditMode, value);
+        }
+
+        public bool IsNewMode
+        {
+            get => _isNewMode;
+            set => SetProperty(ref _isNewMode, value);
+        }
+
         public DrawingRevisionDto? SelectedRevision
         {
             get => _selectedRevision;
@@ -139,8 +170,10 @@ namespace Mes.Wpf.Modules.Drawings.ViewModels
             {
                 if (SetProperty(ref _drawingUploadPath, value))
                 {
+                    IsDrawingFileDirty = !string.IsNullOrWhiteSpace(value);
                     OnPropertyChanged(nameof(DrawingUploadFileName));
                     OnPropertyChanged(nameof(DrawingDisplayFileName));
+                    OnPropertyChanged(nameof(CanSaveChangedFiles));
                 }
             }
         }
@@ -152,8 +185,10 @@ namespace Mes.Wpf.Modules.Drawings.ViewModels
             {
                 if (SetProperty(ref _originalUploadPath, value))
                 {
+                    IsOriginalFileDirty = !string.IsNullOrWhiteSpace(value);
                     OnPropertyChanged(nameof(OriginalUploadFileName));
                     OnPropertyChanged(nameof(OriginalDisplayFileName));
+                    OnPropertyChanged(nameof(CanSaveChangedFiles));
                 }
             }
         }
@@ -165,10 +200,30 @@ namespace Mes.Wpf.Modules.Drawings.ViewModels
             {
                 if (SetProperty(ref _plateUploadPath, value))
                 {
+                    IsPlateFileDirty = !string.IsNullOrWhiteSpace(value);
                     OnPropertyChanged(nameof(PlateUploadFileName));
                     OnPropertyChanged(nameof(PlateDisplayFileName));
+                    OnPropertyChanged(nameof(CanSaveChangedFiles));
                 }
             }
+        }
+
+        public bool IsDrawingFileDirty
+        {
+            get => _isDrawingFileDirty;
+            set => SetProperty(ref _isDrawingFileDirty, value);
+        }
+
+        public bool IsOriginalFileDirty
+        {
+            get => _isOriginalFileDirty;
+            set => SetProperty(ref _isOriginalFileDirty, value);
+        }
+
+        public bool IsPlateFileDirty
+        {
+            get => _isPlateFileDirty;
+            set => SetProperty(ref _isPlateFileDirty, value);
         }
 
         public string DrawingUploadFileName =>
@@ -205,6 +260,14 @@ namespace Mes.Wpf.Modules.Drawings.ViewModels
         public bool CanCreateRevision => EditModel.DrawingId.HasValue;
         public bool CanManageRevisionFiles => RevisionEditModel.RevisionId.HasValue;
 
+        public bool CanSaveChangedFiles =>
+            RevisionEditModel.RevisionId.HasValue &&
+            (
+                (IsDrawingFileDirty && !string.IsNullOrWhiteSpace(DrawingUploadPath)) ||
+                (IsOriginalFileDirty && !string.IsNullOrWhiteSpace(OriginalUploadPath)) ||
+                (IsPlateFileDirty && !string.IsNullOrWhiteSpace(PlateUploadPath))
+            );
+
         public async Task InitializeAsync()
         {
             await SearchAsync();
@@ -240,16 +303,14 @@ namespace Mes.Wpf.Modules.Drawings.ViewModels
             RevisionEditModel.Clear();
             RevisionItems.Clear();
             ClearUploadPaths();
+            ClearDirtyFlags();
 
             IsCodeEditable = true;
+            IsEditMode = false;
+            IsNewMode = false;
             LoadingMessage = "처리 중입니다...";
 
-            OnPropertyChanged(nameof(DrawingDisplayFileName));
-            OnPropertyChanged(nameof(OriginalDisplayFileName));
-            OnPropertyChanged(nameof(PlateDisplayFileName));
-            OnPropertyChanged(nameof(IsRevisionSectionEnabled));
-            OnPropertyChanged(nameof(CanCreateRevision));
-            OnPropertyChanged(nameof(CanManageRevisionFiles));
+            RaiseAllStates();
         }
 
         protected override void New()
@@ -261,42 +322,66 @@ namespace Mes.Wpf.Modules.Drawings.ViewModels
             RevisionEditModel.Clear();
             RevisionItems.Clear();
             ClearUploadPaths();
+            ClearDirtyFlags();
 
             IsCodeEditable = true;
+            IsEditMode = true;
+            IsNewMode = true;
             LoadingMessage = "처리 중입니다...";
 
-            OnPropertyChanged(nameof(DrawingDisplayFileName));
-            OnPropertyChanged(nameof(OriginalDisplayFileName));
-            OnPropertyChanged(nameof(PlateDisplayFileName));
-            OnPropertyChanged(nameof(IsRevisionSectionEnabled));
-            OnPropertyChanged(nameof(CanCreateRevision));
-            OnPropertyChanged(nameof(CanManageRevisionFiles));
+            RaiseAllStates();
         }
 
         protected override void OnSelectedItemChanged(DrawingDto? item)
         {
             LoadToEditModel(item);
 
+            IsEditMode = false;
+            IsNewMode = false;
+
             if (item == null)
             {
                 RevisionItems.Clear();
                 RevisionEditModel.Clear();
                 ClearUploadPaths();
-
-                OnPropertyChanged(nameof(DrawingDisplayFileName));
-                OnPropertyChanged(nameof(OriginalDisplayFileName));
-                OnPropertyChanged(nameof(PlateDisplayFileName));
-                OnPropertyChanged(nameof(IsRevisionSectionEnabled));
-                OnPropertyChanged(nameof(CanCreateRevision));
-                OnPropertyChanged(nameof(CanManageRevisionFiles));
+                ClearDirtyFlags();
+                RaiseAllStates();
                 return;
             }
 
             _ = LoadRevisionListAsync(item.DrawingId);
+            RaiseAllStates();
+        }
 
-            OnPropertyChanged(nameof(IsRevisionSectionEnabled));
-            OnPropertyChanged(nameof(CanCreateRevision));
-            OnPropertyChanged(nameof(CanManageRevisionFiles));
+        private void BeginEdit()
+        {
+            if (SelectedItem == null || !EditModel.DrawingId.HasValue)
+            {
+                _messageService.ShowWarning("수정할 도면을 선택하세요.");
+                return;
+            }
+
+            IsEditMode = true;
+            IsNewMode = false;
+            IsCodeEditable = true;
+        }
+
+        private void CancelEdit()
+        {
+            if (SelectedItem == null)
+            {
+                EditModel.Clear();
+                IsCodeEditable = true;
+                IsEditMode = false;
+                IsNewMode = false;
+                RaiseAllStates();
+                return;
+            }
+
+            LoadToEditModel(SelectedItem);
+            IsEditMode = false;
+            IsNewMode = false;
+            RaiseAllStates();
         }
 
         private async Task SaveAsync()
@@ -306,21 +391,34 @@ namespace Mes.Wpf.Modules.Drawings.ViewModels
             if (!ValidateForSave())
                 return;
 
+            if (!IsNewMode && !IsEditMode)
+            {
+                _messageService.ShowWarning("신규 또는 수정 상태에서만 저장할 수 있습니다.");
+                return;
+            }
+
             IsLoading = true;
             LoadingMessage = "도면 저장 중...";
             await Task.Yield();
 
+            string? successMessage = null;
+
             try
             {
-                if (EditModel.DrawingId.HasValue)
-                    await UpdateAsync(EditModel.DrawingId.Value);
+                if (IsNewMode || !EditModel.DrawingId.HasValue)
+                    successMessage = await CreateAsync();
                 else
-                    await CreateAsync();
+                    successMessage = await UpdateAsync(EditModel.DrawingId.Value);
             }
             finally
             {
                 IsLoading = false;
                 LoadingMessage = "처리 중입니다...";
+            }
+
+            if (!string.IsNullOrWhiteSpace(successMessage))
+            {
+                _messageService.ShowInfo(successMessage);
             }
         }
 
@@ -329,6 +427,12 @@ namespace Mes.Wpf.Modules.Drawings.ViewModels
             if (SelectedItem == null || !EditModel.DrawingId.HasValue)
             {
                 _messageService.ShowWarning("삭제할 항목을 먼저 선택하세요.");
+                return;
+            }
+
+            if (!EditModel.IsActive)
+            {
+                _messageService.ShowWarning("이미 미사용 처리된 도면입니다.");
                 return;
             }
 
@@ -342,6 +446,8 @@ namespace Mes.Wpf.Modules.Drawings.ViewModels
             IsLoading = true;
             LoadingMessage = "도면 삭제 중...";
             await Task.Yield();
+
+            var deleted = false;
 
             try
             {
@@ -360,23 +466,29 @@ namespace Mes.Wpf.Modules.Drawings.ViewModels
                 RevisionEditModel.Clear();
                 RevisionItems.Clear();
                 ClearUploadPaths();
+                ClearDirtyFlags();
 
                 IsCodeEditable = true;
+                IsEditMode = false;
+                IsNewMode = false;
 
-                OnPropertyChanged(nameof(DrawingDisplayFileName));
-                OnPropertyChanged(nameof(OriginalDisplayFileName));
-                OnPropertyChanged(nameof(PlateDisplayFileName));
+                RaiseAllStates();
 
-                _messageService.ShowInfo("삭제되었습니다.");
+                deleted = true;
             }
             finally
             {
                 IsLoading = false;
                 LoadingMessage = "처리 중입니다...";
             }
+
+            if (deleted)
+            {
+                _messageService.ShowInfo("삭제되었습니다.");
+            }
         }
 
-        private async Task CreateAsync()
+        private async Task<string?> CreateAsync()
         {
             var request = new DrawingCreateRequest
             {
@@ -391,19 +503,24 @@ namespace Mes.Wpf.Modules.Drawings.ViewModels
             if (!result.Success || result.Data == null)
             {
                 _messageService.ShowError(result.Message ?? "도면 저장 중 오류가 발생했습니다.");
-                return;
+                return null;
             }
 
             await SearchAsync();
 
-            SelectedItem = null;
-            EditModel.Clear();
-            IsCodeEditable = true;
+            SelectedItem = Items.FirstOrDefault(x => x.DrawingId == result.Data.DrawingId) ?? result.Data;
+            LoadToEditModel(result.Data);
 
-            _messageService.ShowInfo("저장되었습니다.");
+            IsCodeEditable = false;
+            IsEditMode = false;
+            IsNewMode = false;
+
+            RaiseAllStates();
+
+            return "저장되었습니다.";
         }
 
-        private async Task UpdateAsync(long drawingId)
+        private async Task<string?> UpdateAsync(long drawingId)
         {
             var request = new DrawingUpdateRequest
             {
@@ -418,16 +535,21 @@ namespace Mes.Wpf.Modules.Drawings.ViewModels
             if (!result.Success || result.Data == null)
             {
                 _messageService.ShowError(result.Message ?? "도면 수정 중 오류가 발생했습니다.");
-                return;
+                return null;
             }
 
             await SearchAsync();
 
-            SelectedItem = null;
-            EditModel.Clear();
-            IsCodeEditable = true;
+            SelectedItem = Items.FirstOrDefault(x => x.DrawingId == drawingId) ?? result.Data;
+            LoadToEditModel(result.Data);
 
-            _messageService.ShowInfo("저장되었습니다.");
+            IsCodeEditable = false;
+            IsEditMode = false;
+            IsNewMode = false;
+
+            RaiseAllStates();
+
+            return "저장되었습니다.";
         }
 
         private async Task LoadRevisionListAsync(long drawingId)
@@ -441,7 +563,7 @@ namespace Mes.Wpf.Modules.Drawings.ViewModels
                 return;
             }
 
-            var currentSelectedRevisionId = SelectedRevision?.RevisionId;
+            var currentSelectedRevisionId = SelectedRevision?.RevisionId ?? RevisionEditModel.RevisionId;
 
             RevisionItems.Clear();
             foreach (var item in result.Data?.Items ?? new List<DrawingRevisionDto>())
@@ -455,11 +577,19 @@ namespace Mes.Wpf.Modules.Drawings.ViewModels
             }
         }
 
-        private async Task CreateRevisionAsync()
+        private async Task SaveRevisionBundleAsync()
         {
             if (!EditModel.DrawingId.HasValue)
             {
                 _messageService.ShowWarning("먼저 도면을 저장하세요.");
+                return;
+            }
+
+            // 이미 선택된 리비전이 있으면 신규 생성이 아니라 기존 리비전 선택 상태일 가능성이 큼
+            // 이 버튼은 '신규 리비전 저장' 용도로만 사용
+            if (RevisionEditModel.RevisionId.HasValue)
+            {
+                _messageService.ShowWarning("기존 리비전이 선택되어 있습니다. 신규 리비전을 저장하려면 리비전 관리에서 [신규]를 먼저 누르세요.");
                 return;
             }
 
@@ -471,9 +601,13 @@ namespace Mes.Wpf.Modules.Drawings.ViewModels
                 return;
             }
 
+            var drawingId = EditModel.DrawingId.Value;
+
             IsLoading = true;
-            LoadingMessage = "리비전 생성 중...";
+            LoadingMessage = "리비전 저장 중...";
             await Task.Yield();
+
+            var completed = false;
 
             try
             {
@@ -484,7 +618,7 @@ namespace Mes.Wpf.Modules.Drawings.ViewModels
                 };
 
                 var result = await _apiClient.PostAsync<DrawingRevisionCreateRequest, DrawingRevisionDto>(
-                    $"{ApiRoutes.Drawings}/{EditModel.DrawingId.Value}/revisions",
+                    $"{ApiRoutes.Drawings}/{drawingId}/revisions",
                     request);
 
                 if (!result.Success || result.Data == null)
@@ -493,15 +627,48 @@ namespace Mes.Wpf.Modules.Drawings.ViewModels
                     return;
                 }
 
-                await LoadRevisionListAsync(EditModel.DrawingId.Value);
-                SelectedRevision = RevisionItems.FirstOrDefault(x => x.RevisionId == result.Data.RevisionId);
+                var createdRevision = result.Data;
 
-                _messageService.ShowInfo("리비전이 생성되었습니다.");
+                if (!string.IsNullOrWhiteSpace(DrawingUploadPath))
+                {
+                    var ok = await UploadRevisionFileInternalAsync(createdRevision.RevisionId, "DRAWING", DrawingUploadPath);
+                    if (!ok) return;
+                }
+
+                if (!string.IsNullOrWhiteSpace(OriginalUploadPath))
+                {
+                    var ok = await UploadRevisionFileInternalAsync(createdRevision.RevisionId, "ORIGINAL", OriginalUploadPath);
+                    if (!ok) return;
+                }
+
+                if (!string.IsNullOrWhiteSpace(PlateUploadPath))
+                {
+                    var ok = await UploadRevisionFileInternalAsync(createdRevision.RevisionId, "PLATE", PlateUploadPath);
+                    if (!ok) return;
+                }
+
+                await LoadRevisionListAsync(drawingId);
+
+                SelectedRevision = RevisionItems.FirstOrDefault(x => x.RevisionId == createdRevision.RevisionId);
+                if (SelectedRevision != null)
+                {
+                    LoadRevisionToEditModel(SelectedRevision);
+                }
+
+                ClearUploadPaths();
+                ClearDirtyFlags();
+
+                completed = true;
             }
             finally
             {
                 IsLoading = false;
                 LoadingMessage = "처리 중입니다...";
+            }
+
+            if (completed)
+            {
+                _messageService.ShowInfo("리비전이 저장되었습니다.");
             }
         }
 
@@ -513,14 +680,19 @@ namespace Mes.Wpf.Modules.Drawings.ViewModels
                 return;
             }
 
+            var drawingId = EditModel.DrawingId.Value;
+            var revisionId = RevisionEditModel.RevisionId.Value;
+
             IsLoading = true;
             LoadingMessage = "현재 리비전 지정 중...";
             await Task.Yield();
 
+            var completed = false;
+
             try
             {
                 var result = await _apiClient.PostAsync<object, DrawingRevisionDto>(
-                    $"{ApiRoutes.Drawings}/{EditModel.DrawingId.Value}/current-revision/{RevisionEditModel.RevisionId.Value}",
+                    $"{ApiRoutes.Drawings}/{drawingId}/current-revision/{revisionId}",
                     new { });
 
                 if (!result.Success || result.Data == null)
@@ -530,14 +702,27 @@ namespace Mes.Wpf.Modules.Drawings.ViewModels
                 }
 
                 await SearchAsync();
-                await LoadRevisionListAsync(EditModel.DrawingId.Value);
+                await LoadRevisionListAsync(drawingId);
 
-                _messageService.ShowInfo("현재 리비전으로 지정되었습니다.");
+                SelectedItem = Items.FirstOrDefault(x => x.DrawingId == drawingId);
+                if (SelectedItem != null)
+                {
+                    LoadToEditModel(SelectedItem);
+                }
+
+                SelectedRevision = RevisionItems.FirstOrDefault(x => x.RevisionId == revisionId);
+
+                completed = true;
             }
             finally
             {
                 IsLoading = false;
                 LoadingMessage = "처리 중입니다...";
+            }
+
+            if (completed)
+            {
+                _messageService.ShowInfo("현재 리비전으로 지정되었습니다.");
             }
         }
 
@@ -571,6 +756,74 @@ namespace Mes.Wpf.Modules.Drawings.ViewModels
             await ReplaceRevisionFileAsync("PLATE", PlateUploadPath);
         }
 
+        private async Task SaveChangedFilesAsync()
+        {
+            if (!RevisionEditModel.RevisionId.HasValue)
+            {
+                _messageService.ShowWarning("먼저 리비전을 선택하세요.");
+                return;
+            }
+
+            if (!CanSaveChangedFiles)
+            {
+                _messageService.ShowWarning("변경된 파일이 없습니다.");
+                return;
+            }
+
+            IsLoading = true;
+            LoadingMessage = "변경 파일 저장 중...";
+            await Task.Yield();
+
+            var completed = false;
+
+            try
+            {
+                if (IsDrawingFileDirty && !string.IsNullOrWhiteSpace(DrawingUploadPath))
+                {
+                    var ok = await SaveChangedFileInternalAsync("DRAWING", DrawingUploadPath);
+                    if (!ok) return;
+                }
+
+                if (IsOriginalFileDirty && !string.IsNullOrWhiteSpace(OriginalUploadPath))
+                {
+                    var ok = await SaveChangedFileInternalAsync("ORIGINAL", OriginalUploadPath);
+                    if (!ok) return;
+                }
+
+                if (IsPlateFileDirty && !string.IsNullOrWhiteSpace(PlateUploadPath))
+                {
+                    var ok = await SaveChangedFileInternalAsync("PLATE", PlateUploadPath);
+                    if (!ok) return;
+                }
+
+                await ReloadSelectedRevisionAsync();
+                ClearUploadPaths();
+                ClearDirtyFlags();
+
+                completed = true;
+            }
+            finally
+            {
+                IsLoading = false;
+                LoadingMessage = "처리 중입니다...";
+            }
+
+            if (completed)
+            {
+                _messageService.ShowInfo("변경된 파일이 저장되었습니다.");
+            }
+        }
+
+        private async Task<bool> SaveChangedFileInternalAsync(string fileKind, string filePath)
+        {
+            if (HasRevisionFile(fileKind))
+            {
+                return await ReplaceRevisionFileInternalAsync(fileKind, filePath);
+            }
+
+            return await UploadRevisionFileInternalAsync(RevisionEditModel.RevisionId!.Value, fileKind, filePath);
+        }
+
         private async Task UploadRevisionFileAsync(string fileKind, string filePath)
         {
             if (!EditModel.DrawingId.HasValue || !RevisionEditModel.RevisionId.HasValue)
@@ -589,29 +842,26 @@ namespace Mes.Wpf.Modules.Drawings.ViewModels
             LoadingMessage = $"{GetFileKindDisplayName(fileKind)} 업로드 중...";
             await Task.Yield();
 
+            var completed = false;
+
             try
             {
-                using var content = BuildMultipartFileContent(fileKind, filePath, true);
-
-                var result = await _apiClient.PostMultipartAsync<DrawingRevisionFileDto>(
-                    $"{ApiRoutes.Drawings}/{EditModel.DrawingId.Value}/revisions/{RevisionEditModel.RevisionId.Value}/files",
-                    content);
-
-                if (!result.Success || result.Data == null)
-                {
-                    _messageService.ShowError(result.Message ?? $"{GetFileKindDisplayName(fileKind)} 업로드 중 오류가 발생했습니다.");
-                    return;
-                }
+                completed = await UploadRevisionFileInternalAsync(RevisionEditModel.RevisionId.Value, fileKind, filePath);
+                if (!completed) return;
 
                 await ReloadSelectedRevisionAsync();
                 ClearUploadPath(fileKind);
-
-                _messageService.ShowInfo("파일이 업로드되었습니다.");
+                ClearDirtyFlag(fileKind);
             }
             finally
             {
                 IsLoading = false;
                 LoadingMessage = "처리 중입니다...";
+            }
+
+            if (completed)
+            {
+                _messageService.ShowInfo("파일이 업로드되었습니다.");
             }
         }
 
@@ -633,48 +883,97 @@ namespace Mes.Wpf.Modules.Drawings.ViewModels
             LoadingMessage = $"{GetFileKindDisplayName(fileKind)} 교체 중...";
             await Task.Yield();
 
+            var completed = false;
+
             try
             {
-                using var content = BuildMultipartFileContent(fileKind, filePath, false);
-
-                var result = await _apiClient.PatchMultipartAsync<DrawingRevisionFileDto>(
-                    $"{ApiRoutes.Drawings}/{EditModel.DrawingId.Value}/revisions/{RevisionEditModel.RevisionId.Value}/files/{fileKind}",
-                    content);
-
-                if (!result.Success || result.Data == null)
-                {
-                    _messageService.ShowError(result.Message ?? $"{GetFileKindDisplayName(fileKind)} 교체 중 오류가 발생했습니다.");
-                    return;
-                }
+                completed = await ReplaceRevisionFileInternalAsync(fileKind, filePath);
+                if (!completed) return;
 
                 await ReloadSelectedRevisionAsync();
                 ClearUploadPath(fileKind);
-
-                _messageService.ShowInfo("파일이 교체되었습니다.");
+                ClearDirtyFlag(fileKind);
             }
             finally
             {
                 IsLoading = false;
                 LoadingMessage = "처리 중입니다...";
             }
+
+            if (completed)
+            {
+                _messageService.ShowInfo("파일이 교체되었습니다.");
+            }
         }
 
-        private void OpenDrawingFile()
+        private async Task<bool> UploadRevisionFileInternalAsync(long revisionId, string fileKind, string filePath)
         {
-            OpenRevisionFile(RevisionEditModel.DrawingFileId);
+            if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
+            {
+                _messageService.ShowWarning("업로드할 파일을 선택하세요.");
+                return false;
+            }
+
+            using var content = BuildMultipartFileContent(fileKind, filePath, true);
+
+            var result = await _apiClient.PostMultipartAsync<DrawingRevisionFileDto>(
+                $"{ApiRoutes.Drawings}/{EditModel.DrawingId.Value}/revisions/{revisionId}/files",
+                content);
+
+            if (!result.Success || result.Data == null)
+            {
+                _messageService.ShowError(result.Message ?? $"{GetFileKindDisplayName(fileKind)} 업로드 중 오류가 발생했습니다.");
+                return false;
+            }
+
+            return true;
         }
 
-        private void OpenOriginalFile()
+        private async Task<bool> ReplaceRevisionFileInternalAsync(string fileKind, string filePath)
         {
-            OpenRevisionFile(RevisionEditModel.OriginalFileId);
+            if (!EditModel.DrawingId.HasValue || !RevisionEditModel.RevisionId.HasValue)
+            {
+                _messageService.ShowWarning("먼저 리비전을 선택하세요.");
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
+            {
+                _messageService.ShowWarning("교체할 파일을 선택하세요.");
+                return false;
+            }
+
+            using var content = BuildMultipartFileContent(fileKind, filePath, false);
+
+            var result = await _apiClient.PatchMultipartAsync<DrawingRevisionFileDto>(
+                $"{ApiRoutes.Drawings}/{EditModel.DrawingId.Value}/revisions/{RevisionEditModel.RevisionId.Value}/files/{fileKind}",
+                content);
+
+            if (!result.Success || result.Data == null)
+            {
+                _messageService.ShowError(result.Message ?? $"{GetFileKindDisplayName(fileKind)} 교체 중 오류가 발생했습니다.");
+                return false;
+            }
+
+            return true;
         }
 
-        private void OpenPlateFile()
+        private async Task OpenDrawingFileAsync()
         {
-            OpenRevisionFile(RevisionEditModel.PlateFileId);
+            await OpenRevisionFileAsync(RevisionEditModel.DrawingFileId, RevisionEditModel.DrawingFileName);
         }
 
-        private void OpenRevisionFile(long? revisionFileId)
+        private async Task OpenOriginalFileAsync()
+        {
+            await OpenRevisionFileAsync(RevisionEditModel.OriginalFileId, RevisionEditModel.OriginalFileName);
+        }
+
+        private async Task OpenPlateFileAsync()
+        {
+            await OpenRevisionFileAsync(RevisionEditModel.PlateFileId, RevisionEditModel.PlateFileName);
+        }
+
+        private async Task OpenRevisionFileAsync(long? revisionFileId, string? fileName)
         {
             if (!revisionFileId.HasValue)
             {
@@ -684,17 +983,63 @@ namespace Mes.Wpf.Modules.Drawings.ViewModels
 
             var url = _apiClient.BuildAbsoluteUrl($"{ApiRoutes.Drawings}/revision-files/{revisionFileId.Value}/download");
 
+            IsLoading = true;
+            LoadingMessage = "파일 여는 중...";
+            await Task.Yield();
+
             try
             {
+                using var httpClient = new HttpClient();
+                using var response = await httpClient.GetAsync(url);
+                response.EnsureSuccessStatusCode();
+
+                var bytes = await response.Content.ReadAsByteArrayAsync();
+
+                var safeFileName = string.IsNullOrWhiteSpace(fileName)
+                    ? $"drawing_file_{revisionFileId.Value}"
+                    : fileName;
+
+                var extension = Path.GetExtension(safeFileName);
+                if (string.IsNullOrWhiteSpace(extension))
+                {
+                    var mediaType = response.Content.Headers.ContentType?.MediaType ?? string.Empty;
+
+                    extension = mediaType switch
+                    {
+                        "application/pdf" => ".pdf",
+                        "image/png" => ".png",
+                        "image/jpeg" => ".jpg",
+                        "image/jpg" => ".jpg",
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" => ".xlsx",
+                        "application/vnd.ms-excel" => ".xls",
+                        "application/msword" => ".doc",
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document" => ".docx",
+                        _ => string.Empty
+                    };
+
+                    safeFileName += extension;
+                }
+
+                var tempFolder = Path.Combine(Path.GetTempPath(), "Mes.Wpf", "Drawings");
+                Directory.CreateDirectory(tempFolder);
+
+                var tempFilePath = Path.Combine(tempFolder, safeFileName);
+                await File.WriteAllBytesAsync(tempFilePath, bytes);
+
                 Process.Start(new ProcessStartInfo
                 {
-                    FileName = url,
+                    FileName = tempFilePath,
                     UseShellExecute = true
                 });
             }
             catch (Exception ex)
             {
                 _messageService.ShowError($"파일 열기 중 오류가 발생했습니다.\n{ex.Message}");
+            }
+            finally
+            {
+                IsLoading = false;
+                LoadingMessage = "처리 중입니다...";
             }
         }
 
@@ -718,11 +1063,9 @@ namespace Mes.Wpf.Modules.Drawings.ViewModels
             SelectedRevision = null;
             RevisionEditModel.Clear();
             ClearUploadPaths();
+            ClearDirtyFlags();
 
-            OnPropertyChanged(nameof(DrawingDisplayFileName));
-            OnPropertyChanged(nameof(OriginalDisplayFileName));
-            OnPropertyChanged(nameof(PlateDisplayFileName));
-            OnPropertyChanged(nameof(CanManageRevisionFiles));
+            RaiseFileStates();
         }
 
         private async Task ReloadSelectedRevisionAsync()
@@ -735,9 +1078,7 @@ namespace Mes.Wpf.Modules.Drawings.ViewModels
             await LoadRevisionListAsync(EditModel.DrawingId.Value);
             SelectedRevision = RevisionItems.FirstOrDefault(x => x.RevisionId == selectedRevisionId);
 
-            OnPropertyChanged(nameof(DrawingDisplayFileName));
-            OnPropertyChanged(nameof(OriginalDisplayFileName));
-            OnPropertyChanged(nameof(PlateDisplayFileName));
+            RaiseFileStates();
         }
 
         private static MultipartFormDataContent BuildMultipartFileContent(string fileKind, string filePath, bool includeKind)
@@ -774,26 +1115,20 @@ namespace Mes.Wpf.Modules.Drawings.ViewModels
             {
                 RevisionEditModel.Clear();
                 ClearUploadPaths();
-
-                OnPropertyChanged(nameof(DrawingDisplayFileName));
-                OnPropertyChanged(nameof(OriginalDisplayFileName));
-                OnPropertyChanged(nameof(PlateDisplayFileName));
-                OnPropertyChanged(nameof(CanManageRevisionFiles));
+                ClearDirtyFlags();
+                RaiseFileStates();
                 return;
             }
 
             RevisionEditModel.LoadFromDto(item);
             ClearUploadPaths();
-
-            OnPropertyChanged(nameof(DrawingDisplayFileName));
-            OnPropertyChanged(nameof(OriginalDisplayFileName));
-            OnPropertyChanged(nameof(PlateDisplayFileName));
-            OnPropertyChanged(nameof(CanManageRevisionFiles));
+            ClearDirtyFlags();
+            RaiseFileStates();
         }
 
         private bool ValidateForSave()
         {
-            if (!EditModel.DrawingId.HasValue && string.IsNullOrWhiteSpace(EditModel.DrawingNo))
+            if (string.IsNullOrWhiteSpace(EditModel.DrawingNo))
             {
                 _messageService.ShowWarning("도면번호는 필수입니다.");
                 return false;
@@ -834,9 +1169,15 @@ namespace Mes.Wpf.Modules.Drawings.ViewModels
 
         private void ClearUploadPaths()
         {
-            DrawingUploadPath = string.Empty;
-            OriginalUploadPath = string.Empty;
-            PlateUploadPath = string.Empty;
+            _drawingUploadPath = string.Empty;
+            _originalUploadPath = string.Empty;
+            _plateUploadPath = string.Empty;
+
+            OnPropertyChanged(nameof(DrawingUploadPath));
+            OnPropertyChanged(nameof(OriginalUploadPath));
+            OnPropertyChanged(nameof(PlateUploadPath));
+
+            RaiseFileStates();
         }
 
         private void ClearUploadPath(string fileKind)
@@ -844,15 +1185,79 @@ namespace Mes.Wpf.Modules.Drawings.ViewModels
             switch (fileKind)
             {
                 case "DRAWING":
-                    DrawingUploadPath = string.Empty;
+                    _drawingUploadPath = string.Empty;
+                    OnPropertyChanged(nameof(DrawingUploadPath));
                     break;
                 case "ORIGINAL":
-                    OriginalUploadPath = string.Empty;
+                    _originalUploadPath = string.Empty;
+                    OnPropertyChanged(nameof(OriginalUploadPath));
                     break;
                 case "PLATE":
-                    PlateUploadPath = string.Empty;
+                    _plateUploadPath = string.Empty;
+                    OnPropertyChanged(nameof(PlateUploadPath));
                     break;
             }
+
+            RaiseFileStates();
+        }
+
+        private void ClearDirtyFlags()
+        {
+            IsDrawingFileDirty = false;
+            IsOriginalFileDirty = false;
+            IsPlateFileDirty = false;
+            OnPropertyChanged(nameof(CanSaveChangedFiles));
+        }
+
+        private void ClearDirtyFlag(string fileKind)
+        {
+            switch (fileKind)
+            {
+                case "DRAWING":
+                    IsDrawingFileDirty = false;
+                    break;
+                case "ORIGINAL":
+                    IsOriginalFileDirty = false;
+                    break;
+                case "PLATE":
+                    IsPlateFileDirty = false;
+                    break;
+            }
+
+            OnPropertyChanged(nameof(CanSaveChangedFiles));
+        }
+
+        private bool HasRevisionFile(string fileKind)
+        {
+            return fileKind switch
+            {
+                "DRAWING" => RevisionEditModel.DrawingFileId.HasValue,
+                "ORIGINAL" => RevisionEditModel.OriginalFileId.HasValue,
+                "PLATE" => RevisionEditModel.PlateFileId.HasValue,
+                _ => false
+            };
+        }
+
+        private void RaiseFileStates()
+        {
+            OnPropertyChanged(nameof(DrawingUploadFileName));
+            OnPropertyChanged(nameof(OriginalUploadFileName));
+            OnPropertyChanged(nameof(PlateUploadFileName));
+
+            OnPropertyChanged(nameof(DrawingDisplayFileName));
+            OnPropertyChanged(nameof(OriginalDisplayFileName));
+            OnPropertyChanged(nameof(PlateDisplayFileName));
+
+            OnPropertyChanged(nameof(CanManageRevisionFiles));
+            OnPropertyChanged(nameof(CanSaveChangedFiles));
+        }
+
+        private void RaiseAllStates()
+        {
+            RaiseFileStates();
+            OnPropertyChanged(nameof(IsRevisionSectionEnabled));
+            OnPropertyChanged(nameof(CanCreateRevision));
+            OnPropertyChanged(nameof(CanManageRevisionFiles));
         }
 
         private static string GetFileKindDisplayName(string fileKind)

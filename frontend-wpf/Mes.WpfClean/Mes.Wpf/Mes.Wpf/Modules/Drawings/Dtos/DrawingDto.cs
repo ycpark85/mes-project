@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Serialization;
+﻿using System;
+using System.Text.Json.Serialization;
 
 namespace Mes.Wpf.Modules.Drawings.Dtos
 {
@@ -15,5 +16,11 @@ namespace Mes.Wpf.Modules.Drawings.Dtos
 
         [JsonPropertyName("is_active")]
         public bool IsActive { get; set; }
+
+        [JsonPropertyName("created_at")]
+        public DateTime? CreatedAt { get; set; }
+
+        [JsonPropertyName("updated_at")]
+        public DateTime? UpdatedAt { get; set; }
     }
 }

@@ -3,396 +3,495 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             mc:Ignorable="d">
+             mc:Ignorable="d"
+             d:DesignHeight="900"
+             d:DesignWidth="1400">
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+
+        <Style x:Key="ActionButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="76"/>
+            <Setter Property="Height" Value="30"/>
+            <Setter Property="Margin" Value="0,0,8,0"/>
+        </Style>
+
+        <Style x:Key="WideActionButtonStyle" TargetType="Button" BasedOn="{StaticResource ActionButtonStyle}">
+            <Setter Property="Width" Value="88"/>
+        </Style>
+
+        <Style x:Key="FileButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="64"/>
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="Margin" Value="0,0,8,0"/>
+        </Style>
+
+        <Style x:Key="CenterTextBlockStyle" TargetType="TextBlock">
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="TextAlignment" Value="Center"/>
+        </Style>
+
+        <Style x:Key="CenterCheckBoxStyle" TargetType="CheckBox">
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
     </UserControl.Resources>
 
     <Grid Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="3*"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="2.4*"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="1.8*"/>
+            <RowDefinition Height="12"/>
+            <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
         <!-- 검색 영역 -->
         <Border Grid.Row="0"
-                Padding="12"
-                Margin="0,0,0,12"
-                BorderBrush="#DDD"
+                Padding="16,12"
+                BorderBrush="#DDD" 
                 BorderThickness="1"
-                CornerRadius="6">
+                CornerRadius="8">
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="90"/>
+                    <ColumnDefinition Width="70"/>
                     <ColumnDefinition Width="220"/>
-                    <ColumnDefinition Width="90"/>
+                    <ColumnDefinition Width="20"/>
+                    <ColumnDefinition Width="70"/>
                     <ColumnDefinition Width="140"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="90"/>
+                    <ColumnDefinition Width="8"/>
                     <ColumnDefinition Width="90"/>
+                    <ColumnDefinition Width="8"/>
                     <ColumnDefinition Width="90"/>
                 </Grid.ColumnDefinitions>
 
                 <TextBlock Grid.Column="0"
                            VerticalAlignment="Center"
-                           Text="도면번호"/>
+                           Text="검색어"
+                           FontWeight="SemiBold"/>
 
                 <TextBox Grid.Column="1"
-                         Margin="4,0,12,0"
-                         Text="{Binding SearchKeyword, UpdateSourceTrigger=PropertyChanged}"/>
+                         Height="30"
+                         VerticalContentAlignment="Center"
+                         Text="{Binding SearchKeyword, UpdateSourceTrigger=PropertyChanged}" />
 
-                <TextBlock Grid.Column="2"
+                <TextBlock Grid.Column="3"
                            VerticalAlignment="Center"
-                           Text="사용여부"/>
+                           Text="사용여부"
+                           FontWeight="SemiBold"/>
 
-                <ComboBox Grid.Column="3"
-                          Margin="4,0,12,0"
+                <ComboBox Grid.Column="4"
+                          Height="30"
                           ItemsSource="{Binding UseYnOptions}"
-                          SelectedItem="{Binding SelectedUseYn}"/>
+                          SelectedItem="{Binding SelectedUseYn}" />
 
-                <Button Grid.Column="5"
-                        Margin="4,0,0,0"
+                <Button Grid.Column="6"
+                        Width="90"
+                        Height="30"
                         Content="조회"
-                        Command="{Binding SearchCommand}"/>
+                        Command="{Binding SearchCommand}" />
 
-                <Button Grid.Column="6"
-                        Margin="4,0,0,0"
+                <Button Grid.Column="8"
+                        Width="90"
+                        Height="30"
                         Content="초기화"
-                        Command="{Binding ResetCommand}"/>
+                        Command="{Binding ResetCommand}" />
 
-                <Button Grid.Column="7"
-                        Margin="4,0,0,0"
+                <Button Grid.Column="10"
+                        Width="90"
+                        Height="30"
                         Content="신규"
-                        Command="{Binding NewCommand}"/>
+                        Command="{Binding NewCommand}" />
             </Grid>
         </Border>
 
-        <!-- 도면 목록 -->
-        <DataGrid Grid.Row="1"
-                  Margin="0,0,0,12"
-                  AutoGenerateColumns="False"
-                  IsReadOnly="True"
-                  ItemsSource="{Binding Items}"
-                  SelectedItem="{Binding SelectedItem, Mode=TwoWay}">
-            <DataGrid.Columns>
-                <DataGridTextColumn Header="ID"
-                                    Binding="{Binding DrawingId}"
-                                    Width="80"/>
-                <DataGridTextColumn Header="도면번호"
-                                    Binding="{Binding DrawingNo}"
-                                    Width="220"/>
-                <DataGridTextColumn Header="현재 Revision ID"
-                                    Binding="{Binding CurrentRevisionId}"
-                                    Width="140"/>
-                <DataGridCheckBoxColumn Header="사용"
-                                        Binding="{Binding IsActive}"
-                                        Width="80"/>
-            </DataGrid.Columns>
-        </DataGrid>
-
-        <!-- 도면 상세 -->
-        <Border Grid.Row="2"
-                Padding="12"
-                Margin="0,0,0,12"
-                BorderBrush="#DDD"
-                BorderThickness="1"
-                CornerRadius="6">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="90"/>
-                    <ColumnDefinition Width="220"/>
-                    <ColumnDefinition Width="90"/>
-                    <ColumnDefinition Width="120"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="90"/>
-                    <ColumnDefinition Width="90"/>
-                </Grid.ColumnDefinitions>
-
-                <TextBlock Grid.Column="0"
-                           VerticalAlignment="Center"
-                           Text="도면번호"/>
-
-                <TextBox Grid.Column="1"
-                         Margin="4,0,12,0"
-                         Text="{Binding EditModel.DrawingNo, UpdateSourceTrigger=PropertyChanged}"/>
-
-                <TextBlock Grid.Column="2"
-                           VerticalAlignment="Center"
-                           Text="사용"/>
-
-                <CheckBox Grid.Column="3"
-                          VerticalAlignment="Center"
-                          IsChecked="{Binding EditModel.IsActive}"/>
-
-                <Button Grid.Column="5"
-                        Margin="4,0,0,0"
-                        Content="저장"
-                        Command="{Binding SaveCommand}"/>
-
-                <Button Grid.Column="6"
-                        Margin="4,0,0,0"
-                        Content="삭제"
-                        Command="{Binding DeleteCommand}"/>
-            </Grid>
-        </Border>
-
-        <!-- 리비전 영역 -->
-        <Grid Grid.Row="3" Margin="0,0,0,12">
+        <!-- 본문 -->
+        <Grid Grid.Row="2">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="430"/>
+                <!-- 기존보다 약 20% 확장 -->
+                <ColumnDefinition Width="492"/>
                 <ColumnDefinition Width="12"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <!-- 리비전 입력 -->
+            <!-- 좌측 목록 -->
             <Border Grid.Column="0"
                     Padding="12"
-                    BorderBrush="#DDD"
+                    BorderBrush="#DDD" 
                     BorderThickness="1"
-                    CornerRadius="6">
-                <Grid IsEnabled="{Binding CanCreateRevision}">
+                    CornerRadius="8" Margin="-6,0,6,0">
+                <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="8"/>
+                        <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="90"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
 
-                    <TextBlock Grid.Row="0"
-                               Grid.Column="0"
-                               VerticalAlignment="Center"
-                               Text="Revision"/>
+                    <TextBlock Text="도면 목록"
+                               FontSize="16"
+                               FontWeight="SemiBold"/>
 
-                    <TextBox Grid.Row="0"
-                             Grid.Column="1"
-                             MinWidth="220"
-                             Margin="4,0,0,8"
-                             Text="{Binding RevisionEditModel.RevNo, UpdateSourceTrigger=PropertyChanged}"/>
+                    <DataGrid Grid.Row="2"
+                              AutoGenerateColumns="False"
+                              CanUserAddRows="False"
+                              IsReadOnly="True"
+                              ItemsSource="{Binding Items}"
+                              SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
+                              HeadersVisibility="Column"
+                              RowHeaderWidth="0"
+                              GridLinesVisibility="Horizontal"
+                              ScrollViewer.VerticalScrollBarVisibility="Auto"
+                              ScrollViewer.HorizontalScrollBarVisibility="Auto">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="도면번호"
+                                                Width="106"
+                                                Binding="{Binding DrawingNo}">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource CenterTextBlockStyle}"/>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
 
-                    <TextBlock Grid.Row="1"
-                               Grid.Column="0"
-                               VerticalAlignment="Center"
-                               Text="현재지정"/>
+                            <DataGridTemplateColumn Header="사용" Width="50">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <CheckBox IsChecked="{Binding IsActive}"
+                                                  IsHitTestVisible="False"
+                                                  Focusable="False"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"/>  
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
 
-                    <CheckBox Grid.Row="1"
-                              Grid.Column="1"
-                              VerticalAlignment="Center"
-                              Margin="4,0,0,8"
-                              IsChecked="{Binding RevisionEditModel.SetAsCurrent}"/>
+                            <DataGridTextColumn Header="등록일시"
+                                                Width="105"
+                                                Binding="{Binding CreatedAt, StringFormat=yyyy-MM-dd}">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource CenterTextBlockStyle}"/>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
 
-                    <Grid Grid.Row="2"
-                          Grid.Column="1"
-                          Margin="4,0,0,0"
-                          HorizontalAlignment="Left">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="80"/>
-                            <ColumnDefinition Width="8"/>
-                            <ColumnDefinition Width="110"/>
-                            <ColumnDefinition Width="8"/>
-                            <ColumnDefinition Width="90"/>
-                        </Grid.ColumnDefinitions>
+                            <DataGridTextColumn Header="수정일시"
+                                                Width="105"
+                                                Binding="{Binding UpdatedAt, StringFormat=yyyy-MM-dd}">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource CenterTextBlockStyle}"/>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
 
-                        <Button Grid.Column="0"
-                                Width="80"
-                                Content="신규"
-                                Command="{Binding NewRevisionCommand}"/>
-
-                        <Button Grid.Column="2"
-                                Width="110"
-                                Content="리비전생성"
-                                Command="{Binding CreateRevisionCommand}"/>
-
-                        <Button Grid.Column="4"
-                                Width="90"
-                                Content="현재지정"
-                                Command="{Binding SetCurrentRevisionCommand}"/>
-                    </Grid>
+                            <DataGridTextColumn Header="현재 Rev ID"
+                                                Width="85"
+                                                Binding="{Binding CurrentRevisionId}">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource CenterTextBlockStyle}"/>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
                 </Grid>
             </Border>
 
-            <!-- 리비전 목록 -->
-            <DataGrid Grid.Column="2"
-                      AutoGenerateColumns="False"
-                      IsReadOnly="True"
-                      ItemsSource="{Binding RevisionItems}"
-                      SelectedItem="{Binding SelectedRevision, Mode=TwoWay}"
-                      IsEnabled="{Binding IsRevisionSectionEnabled}">
-                <DataGrid.Columns>
-                    <DataGridTextColumn Header="Revision ID"
-                                        Binding="{Binding RevisionId}"
-                                        Width="120"/>
-                    <DataGridTextColumn Header="Rev No"
-                                        Binding="{Binding RevNo}"
-                                        Width="120"/>
-                    <DataGridTextColumn Header="파일수"
-                                        Binding="{Binding Files.Count}"
-                                        Width="100"/>
-                </DataGrid.Columns>
-            </DataGrid>
-        </Grid>
-
-        <!-- 파일 관리 -->
-        <Border Grid.Row="5"
-                MinHeight="165"
-                Padding="12"
-                BorderBrush="#DDD"
-                BorderThickness="1"
-                CornerRadius="6">
-            <Grid IsEnabled="{Binding CanManageRevisionFiles}">
+            <!-- 우측 -->
+            <Grid Grid.Column="2">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="12"/>
+                    <RowDefinition Height="1.2*"/>
+                    <RowDefinition Height="12"/>
+                    <RowDefinition Height="0.95*"/>
                 </Grid.RowDefinitions>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="80"/>
-                    <ColumnDefinition Width="220"/>
-                    <ColumnDefinition Width="90"/>
-                    <ColumnDefinition Width="90"/>
-                    <ColumnDefinition Width="90"/>
-                    <ColumnDefinition Width="90"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
 
-                <!-- 도면 파일 -->
-                <TextBlock Grid.Row="0"
-                           Grid.Column="0"
-                           VerticalAlignment="Center"
-                           Text="도면파일"/>
+                <!-- 도면 정보 -->
+                <Border Grid.Row="0"
+                        Padding="16"
+                        BorderBrush="#DDD" 
+                        BorderThickness="1"
+                        CornerRadius="8">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="14"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="12"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
 
-                <TextBox Grid.Row="0"
-                         Grid.Column="1"
-                         Margin="4,0,8,8"
-                         IsReadOnly="True"
-                         Text="{Binding DrawingDisplayFileName, Mode=OneWay}"
-                         ToolTip="{Binding DrawingDisplayFileName, Mode=OneWay}"/>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="80"/>
+                            <ColumnDefinition Width="220"/>
+                            <ColumnDefinition Width="90"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
 
-                <Button Grid.Row="0"
-                        Grid.Column="2"
-                        Margin="0,0,8,8"
-                        Content="선택"
-                        Command="{Binding BrowseDrawingFileCommand}"/>
+                        <TextBlock Grid.Row="0"
+                                   Grid.ColumnSpan="4"
+                                   Text="도면 정보"
+                                   FontSize="16"
+                                   FontWeight="SemiBold"/>
 
-                <Button Grid.Row="0"
-                        Grid.Column="3"
-                        Margin="0,0,8,8"
-                        Content="업로드"
-                        Command="{Binding UploadDrawingFileCommand}"/>
+                        <TextBlock Grid.Row="2"
+                                   Grid.Column="0"
+                                   VerticalAlignment="Center"
+                                   Text="도면번호"
+                                   FontWeight="SemiBold"/>
 
-                <Button Grid.Row="0"
-                        Grid.Column="4"
-                        Margin="0,0,8,8"
-                        Content="교체"
-                        Command="{Binding ReplaceDrawingFileCommand}"/>
+                        <TextBox Grid.Row="2"
+                                 Grid.Column="1"
+                                 Height="30"
+                                 VerticalContentAlignment="Center"
+                                 IsEnabled="{Binding IsCodeEditable}"
+                                 Text="{Binding EditModel.DrawingNo, UpdateSourceTrigger=PropertyChanged}" />
 
-                <Button Grid.Row="0"
-                        Grid.Column="5"
-                        Margin="0,0,8,8"
-                        Content="열기"
-                        Command="{Binding OpenDrawingFileCommand}"/>
+                        <CheckBox Grid.Row="2"
+                                  Grid.Column="2"
+                                  VerticalAlignment="Center"
+                                  Content="사용"
+                                  IsEnabled="{Binding IsCodeEditable}"
+                                  IsChecked="{Binding EditModel.IsActive}" 
+                                  Margin="4,0,10,0" />
 
-                <!-- 원본 파일 -->
-                <TextBlock Grid.Row="1"
-                           Grid.Column="0"
-                           VerticalAlignment="Center"
-                           Text="원본파일"/>
+                        <StackPanel Grid.Row="4"
+                                    Grid.Column="1"
+                                    Grid.ColumnSpan="3"
+                                    Orientation="Horizontal"
+                                    HorizontalAlignment="Left">
+                            <Button Style="{StaticResource ActionButtonStyle}"
+                                    Content="수정"
+                                    Command="{Binding EditCommand}" />
+                            <Button Style="{StaticResource ActionButtonStyle}"
+                                    Content="저장"
+                                    Command="{Binding SaveCommand}" />
+                            <Button Style="{StaticResource ActionButtonStyle}"
+                                    Content="삭제"
+                                    Command="{Binding DeleteCommand}" />
+                            <Button Style="{StaticResource ActionButtonStyle}"
+                                    Margin="0"
+                                    Content="취소"
+                                    Command="{Binding CancelEditCommand}" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
 
-                <TextBox Grid.Row="1"
-                         Grid.Column="1"
-                         Margin="4,0,8,8"
-                         IsReadOnly="True"
-                         Text="{Binding OriginalDisplayFileName, Mode=OneWay}"
-                         ToolTip="{Binding OriginalDisplayFileName, Mode=OneWay}"/>
+                <!-- 리비전 관리 -->
+                <Border Grid.Row="2"
+                        Padding="12"
+                        BorderBrush="#DDD" 
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        IsEnabled="{Binding IsRevisionSectionEnabled}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
 
-                <Button Grid.Row="1"
-                        Grid.Column="2"
-                        Margin="0,0,8,8"
-                        Content="선택"
-                        Command="{Binding BrowseOriginalFileCommand}"/>
+                        <TextBlock Text="리비전 관리"
+                                   FontSize="16"
+                                   FontWeight="SemiBold"/>
 
-                <Button Grid.Row="1"
-                        Grid.Column="3"
-                        Margin="0,0,8,8"
-                        Content="업로드"
-                        Command="{Binding UploadOriginalFileCommand}"/>
+                        <Grid Grid.Row="2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="80"/>
+                                <ColumnDefinition Width="130"/>
+                                <ColumnDefinition Width="85"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="76"/>
+                                <ColumnDefinition Width="8"/>
+                                <ColumnDefinition Width="88"/>
+                                <ColumnDefinition Width="8"/>
+                                <ColumnDefinition Width="88"/>
+                            </Grid.ColumnDefinitions>
 
-                <Button Grid.Row="1"
-                        Grid.Column="4"
-                        Margin="0,0,8,8"
-                        Content="교체"
-                        Command="{Binding ReplaceOriginalFileCommand}"/>
+                            <TextBlock Grid.Column="0"
+                                       VerticalAlignment="Center"
+                                       Text="리비전번호"
+                                       FontWeight="SemiBold"/>
 
-                <Button Grid.Row="1"
-                        Grid.Column="5"
-                        Margin="0,0,8,8"
-                        Content="열기"
-                        Command="{Binding OpenOriginalFileCommand}"/>
+                            <TextBox Grid.Column="1"
+                                     Height="30"
+                                     VerticalContentAlignment="Center"
+                                     Text="{Binding RevisionEditModel.RevNo, UpdateSourceTrigger=PropertyChanged}" />
 
-                <!-- 판작업 파일 -->
-                <TextBlock Grid.Row="2"
-                           Grid.Column="0"
-                           VerticalAlignment="Center"
-                           Text="판작업"/>
+                            <CheckBox Grid.Column="2"
+                                      VerticalAlignment="Center"
+                                      Content="현재지정"
+                                      IsChecked="{Binding RevisionEditModel.SetAsCurrent}" Grid.ColumnSpan="2" Margin="22,0,253,0" />
 
-                <TextBox Grid.Row="2"
-                         Grid.Column="1"
-                         Margin="4,0,8,0"
-                         IsReadOnly="True"
-                         Text="{Binding PlateDisplayFileName, Mode=OneWay}"
-                         ToolTip="{Binding PlateDisplayFileName, Mode=OneWay}"/>
+                            <Button Grid.Column="4"
+                                    Style="{StaticResource ActionButtonStyle}"
+                                    Margin="0"
+                                    Content="신규"
+                                    Command="{Binding NewRevisionCommand}" />
 
-                <Button Grid.Row="2"
-                        Grid.Column="2"
-                        Margin="0,0,8,0"
-                        Content="선택"
-                        Command="{Binding BrowsePlateFileCommand}"/>
+                            <Button Grid.Column="6"
+                                    Style="{StaticResource WideActionButtonStyle}"
+                                    Margin="0"
+                                    Content="리비전저장"
+                                    Command="{Binding SaveRevisionBundleCommand}" />
 
-                <Button Grid.Row="2"
-                        Grid.Column="3"
-                        Margin="0,0,8,0"
-                        Content="업로드"
-                        Command="{Binding UploadPlateFileCommand}"/>
+                            <Button Grid.Column="8"
+                                    Style="{StaticResource WideActionButtonStyle}"
+                                    Margin="0"
+                                    Content="현재지정"
+                                    Command="{Binding SetCurrentRevisionCommand}" />
+                        </Grid>
 
-                <Button Grid.Row="2"
-                        Grid.Column="4"
-                        Margin="0,0,8,0"
-                        Content="교체"
-                        Command="{Binding ReplacePlateFileCommand}"/>
+                        <DataGrid Grid.Row="4"
+                                  AutoGenerateColumns="False"
+                                  CanUserAddRows="False"
+                                  IsReadOnly="True"
+                                  ItemsSource="{Binding RevisionItems}"
+                                  SelectedItem="{Binding SelectedRevision, Mode=TwoWay}"
+                                  HeadersVisibility="Column"
+                                  RowHeaderWidth="0"
+                                  GridLinesVisibility="Horizontal"
+                                  ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                  ScrollViewer.HorizontalScrollBarVisibility="Auto">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Rev ID"
+                                                    Width="70"
+                                                    Binding="{Binding RevisionId}">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource CenterTextBlockStyle}"/>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
 
-                <Button Grid.Row="2"
-                        Grid.Column="5"
-                        Margin="0,0,8,0"
-                        Content="열기"
-                        Command="{Binding OpenPlateFileCommand}"/>
+                                <DataGridTextColumn Header="Rev No"
+                                                    Width="90"
+                                                    Binding="{Binding RevNo}">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource CenterTextBlockStyle}"/>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+
+                                <DataGridTextColumn Header="파일수"
+                                                    Width="60"
+                                                    Binding="{Binding Files.Count}">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource CenterTextBlockStyle}"/>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+
+                                <DataGridTextColumn Header="등록일시"
+                                                    Width="100"
+                                                    Binding="{Binding CreatedAt, StringFormat=yyyy-MM-dd}">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource CenterTextBlockStyle}"/>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </Border>
+
+                <!-- 파일 관리 -->
+                <Border Grid.Row="4"
+                        Padding="12"
+                        BorderBrush="#DDD" 
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        IsEnabled="{Binding CanCreateRevision}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="12"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="80"/>
+                            <!-- 텍스트박스 폭 축소 -->
+                            <ColumnDefinition Width="210"/>
+                            <ColumnDefinition Width="2"/>
+                            <ColumnDefinition Width="79"/>
+                            <ColumnDefinition Width="6"/>
+                            <ColumnDefinition Width="104"/>
+                            <ColumnDefinition/>
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Grid.Row="0"
+                                   Grid.ColumnSpan="7"
+                                   Text="파일 관리"
+                                   FontSize="16"
+                                   FontWeight="SemiBold"/>
+
+                        <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Text="도면파일" FontWeight="SemiBold" Height="16"/>
+                        <TextBox Grid.Row="1" Grid.Column="1" IsReadOnly="True" VerticalContentAlignment="Center"
+                                 Text="{Binding DrawingDisplayFileName, Mode=OneWay}" Margin="0,8,0,0" Grid.RowSpan="2" />
+                        <Button Grid.Row="1" Grid.Column="3" Style="{StaticResource FileButtonStyle}"
+                                Content="선택" Command="{Binding BrowseDrawingFileCommand}" Margin="12,8,3,0" Grid.RowSpan="2" />
+                        <Button Grid.Row="1" Grid.Column="5" Style="{StaticResource FileButtonStyle}"
+                                Margin="17,8,23,0"
+                                Content="열기" Command="{Binding OpenDrawingFileCommand}" Grid.RowSpan="2" />
+
+                        <TextBlock Grid.Row="4" Grid.Column="0" VerticalAlignment="Center" Text="원본파일" FontWeight="SemiBold" Height="16"/>
+                        <TextBox Grid.Row="3" Grid.Column="1" IsReadOnly="True" VerticalContentAlignment="Center"
+                                 Text="{Binding OriginalDisplayFileName, Mode=OneWay}" Margin="0,8,0,0" Grid.RowSpan="2" />
+                        <Button Grid.Row="3" Grid.Column="3" Style="{StaticResource FileButtonStyle}"
+                                Content="선택" Command="{Binding BrowseOriginalFileCommand}" Margin="12,8,3,0" Grid.RowSpan="2" />
+                        <Button Grid.Row="3" Grid.Column="5" Style="{StaticResource FileButtonStyle}"
+                                Margin="17,8,23,0"
+                                Content="열기" Command="{Binding OpenOriginalFileCommand}" Grid.RowSpan="2" />
+
+                        <TextBlock Grid.Row="6" Grid.Column="0" VerticalAlignment="Center" Text="판작업" FontWeight="SemiBold" Height="16"/>
+                        <TextBox Grid.Row="5" Grid.Column="1" IsReadOnly="True" VerticalContentAlignment="Center"
+                                 Text="{Binding PlateDisplayFileName, Mode=OneWay}" Margin="0,8,0,0" Grid.RowSpan="2" />
+                        <Button Grid.Row="5" Grid.Column="3" Style="{StaticResource FileButtonStyle}"
+                                Content="선택" Command="{Binding BrowsePlateFileCommand}" Margin="12,8,3,0" Grid.RowSpan="2" />
+                        <Button Grid.Row="5" Grid.Column="5" Style="{StaticResource FileButtonStyle}"
+                                Margin="17,8,23,0"
+                                Content="열기" Command="{Binding OpenPlateFileCommand}" Grid.RowSpan="2" />
+
+                        <StackPanel Grid.Row="4"
+                                    Grid.Column="5"
+                                    Orientation="Horizontal"
+                                    HorizontalAlignment="Left" Margin="95,16,0,6" Width="243" Grid.RowSpan="4" Grid.ColumnSpan="2">
+                            <Button Width="96"
+                                    Height="30"
+                                    Content="리비전저장"
+                                    Command="{Binding SaveRevisionBundleCommand}" />
+                        </StackPanel>
+                        <StackPanel Grid.Row="3"
+                                    Grid.Column="5"
+                                    Orientation="Horizontal"
+                                    HorizontalAlignment="Left" Margin="95,2,0,3" Width="243" Grid.RowSpan="2" Grid.ColumnSpan="2">
+                            <Button Width="116"
+                                    Height="30"
+                                    Content="변경 파일만 저장"
+                                    Command="{Binding SaveChangedFilesCommand}" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
             </Grid>
-        </Border>
+        </Grid>
 
-        <!-- 로딩 오버레이 -->
-        <Border Background="#66000000"
-                Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibilityConverter}}">
-            <Border HorizontalAlignment="Center"
-                    VerticalAlignment="Center"
-                    Width="240"
-                    Padding="16"
-                    Background="White"
-                    BorderBrush="#CCCCCC"
-                    BorderThickness="1"
-                    CornerRadius="8">
+        <!-- 로딩 -->
+        <Border Grid.RowSpan="3"
+        Background="#66000000"
+        Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibilityConverter}}"
+        d:Visibility="Collapsed">
+            <Border Width="280"
+            Padding="24"
+            Background="White"
+            CornerRadius="12"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center">
                 <StackPanel>
                     <ProgressBar Height="16"
-                                 IsIndeterminate="True"
-                                 Margin="0,0,0,12"/>
-                    <TextBlock Text="{Binding LoadingMessage}"
-                               HorizontalAlignment="Center"
-                               FontWeight="SemiBold"/>
+                         IsIndeterminate="True"/>
+                    <TextBlock Margin="0,12,0,0"
+                       HorizontalAlignment="Center"
+                       Text="{Binding LoadingMessage}" />
                 </StackPanel>
             </Border>
         </Border>
