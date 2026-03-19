@@ -1,16 +1,19 @@
-﻿using System.Windows;
-using Mes.Wpf.Core.Configuration;
+﻿using Mes.Wpf.Core.Configuration;
+using Mes.Wpf.Core.Interfaces;
 using Mes.Wpf.Infrastructure.Api;
 using Mes.Wpf.Infrastructure.Dialogs;
 using Mes.Wpf.Modules.DefectTypes.ViewModels;
-using Mes.Wpf.Modules.Processes.ViewModels;
-using Mes.Wpf.Modules.Processes.Views;
-using Mes.Wpf.Modules.RoutingTemplates.ViewModels;
-using Mes.Wpf.Modules.RoutingTemplates.Views;
-using Mes.Wpf.Modules.Partners.ViewModels;
-using Mes.Wpf.Modules.Partners.Views;
 using Mes.Wpf.Modules.Drawings.ViewModels;
 using Mes.Wpf.Modules.Drawings.Views;
+using Mes.Wpf.Modules.Partners.ViewModels;
+using Mes.Wpf.Modules.Partners.Views;
+using Mes.Wpf.Modules.Processes.ViewModels;
+using Mes.Wpf.Modules.Processes.Views;
+using Mes.Wpf.Modules.Products.ViewModels;
+using Mes.Wpf.Modules.Products.Views;
+using Mes.Wpf.Modules.RoutingTemplates.ViewModels;
+using Mes.Wpf.Modules.RoutingTemplates.Views;
+using System.Windows;
 
 namespace Mes.Wpf.Views.Shell
 {
@@ -137,7 +140,8 @@ namespace Mes.Wpf.Views.Shell
         private async void Drawing_Click(object sender, RoutedEventArgs e)
         {
             var drawingPage = new DrawingPage();
-            var drawingViewModel = new DrawingPageViewModel(_apiClient, _messageService);
+            var drawingFileOpener = new DrawingFileOpener(_messageService);
+            var drawingViewModel = new DrawingPageViewModel(_apiClient, _messageService, drawingFileOpener);
 
             drawingPage.DataContext = drawingViewModel;
 
@@ -148,6 +152,22 @@ namespace Mes.Wpf.Views.Shell
             HeaderSubtitle.Text = "도면 / 리비전 / 파일 등록 / 조회 / 수정";
 
             await drawingViewModel.InitializeAsync();
+        }
+
+        private async void Product_Click(object sender, RoutedEventArgs e)
+        {
+            var productPage = new ProductPage();
+            var drawingFileOpener = new DrawingFileOpener(_messageService);
+            var productViewModel = new ProductPageViewModel(_apiClient, _messageService, drawingFileOpener);
+
+            productPage.DataContext = productViewModel;
+            MainContent.Content = productPage;
+            MainContent.Visibility = Visibility.Visible;
+
+            HeaderTitle.Text = "품목 관리";
+            HeaderSubtitle.Text = "품목 마스터 등록 / 조회 / 수정 / 삭제 / 벌크업로드";
+
+            await productViewModel.InitializeAsync();
         }
 
 

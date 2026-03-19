@@ -21,6 +21,7 @@ namespace Mes.Wpf.Modules.Drawings.ViewModels
     {
         private readonly IApiClient _apiClient;
         private readonly IMessageService _messageService;
+        private readonly IDrawingFileOpener _drawingFileOpener;
 
         private string _searchKeyword = string.Empty;
         private string _selectedUseYn = "사용";
@@ -41,10 +42,11 @@ namespace Mes.Wpf.Modules.Drawings.ViewModels
 
         private string _loadingMessage = "처리 중입니다...";
 
-        public DrawingPageViewModel(IApiClient apiClient, IMessageService messageService)
+        public DrawingPageViewModel(IApiClient apiClient, IMessageService messageService, IDrawingFileOpener drawingFileOpener)
         {
             _apiClient = apiClient;
             _messageService = messageService;
+            _drawingFileOpener = drawingFileOpener;
 
             Items = new ObservableCollection<DrawingDto>();
             RevisionItems = new ObservableCollection<DrawingRevisionDto>();
@@ -981,7 +983,8 @@ namespace Mes.Wpf.Modules.Drawings.ViewModels
                 return;
             }
 
-            var url = _apiClient.BuildAbsoluteUrl($"{ApiRoutes.Drawings}/revision-files/{revisionFileId.Value}/download");
+            var url = _apiClient.BuildAbsoluteUrl(
+                $"{ApiRoutes.Drawings}/revision-files/{revisionFileId.Value}/download");
 
             IsLoading = true;
             LoadingMessage = "파일 여는 중...";
@@ -989,52 +992,7 @@ namespace Mes.Wpf.Modules.Drawings.ViewModels
 
             try
             {
-                using var httpClient = new HttpClient();
-                using var response = await httpClient.GetAsync(url);
-                response.EnsureSuccessStatusCode();
-
-                var bytes = await response.Content.ReadAsByteArrayAsync();
-
-                var safeFileName = string.IsNullOrWhiteSpace(fileName)
-                    ? $"drawing_file_{revisionFileId.Value}"
-                    : fileName;
-
-                var extension = Path.GetExtension(safeFileName);
-                if (string.IsNullOrWhiteSpace(extension))
-                {
-                    var mediaType = response.Content.Headers.ContentType?.MediaType ?? string.Empty;
-
-                    extension = mediaType switch
-                    {
-                        "application/pdf" => ".pdf",
-                        "image/png" => ".png",
-                        "image/jpeg" => ".jpg",
-                        "image/jpg" => ".jpg",
-                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" => ".xlsx",
-                        "application/vnd.ms-excel" => ".xls",
-                        "application/msword" => ".doc",
-                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document" => ".docx",
-                        _ => string.Empty
-                    };
-
-                    safeFileName += extension;
-                }
-
-                var tempFolder = Path.Combine(Path.GetTempPath(), "Mes.Wpf", "Drawings");
-                Directory.CreateDirectory(tempFolder);
-
-                var tempFilePath = Path.Combine(tempFolder, safeFileName);
-                await File.WriteAllBytesAsync(tempFilePath, bytes);
-
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = tempFilePath,
-                    UseShellExecute = true
-                });
-            }
-            catch (Exception ex)
-            {
-                _messageService.ShowError($"파일 열기 중 오류가 발생했습니다.\n{ex.Message}");
+                await _drawingFileOpener.OpenRevisionFileAsync(url, fileName);
             }
             finally
             {

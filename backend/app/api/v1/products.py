@@ -7,10 +7,38 @@ from app.db.session import get_db
 from app.models.product import Product
 from app.models.drawing import Drawing
 from app.models.routing_template import RoutingTemplate
-from app.schemas.product import ProductCreate, ProductUpdate, ProductOut, ProductListOut
+from app.schemas.product import (
+    ProductCreate,
+    ProductUpdate,
+    ProductOut,
+    ProductListOut,
+    ProductBulkCreateRequest,
+    ProductBulkCreateResult,
+)
 from app.crud.product import product_crud
+from app.services.bulk.product_bulk_service import product_bulk_service
+
+
 
 router = APIRouter(prefix="/products", tags=["Product"])
+
+def _to_product_out(obj: Product) -> ProductOut:
+    return ProductOut(
+        product_id=obj.product_id,
+        product_code=obj.product_code,
+        product_name=obj.product_name,
+        uom=obj.uom,
+        drawing_id=obj.drawing_id,
+        routing_template_id=obj.routing_template_id,
+        drawing_no=obj.drawing.drawing_no if obj.drawing else None,
+        routing_template_name=obj.routing_template.template_name if obj.routing_template else None,
+        panel_width_mm=obj.panel_width_mm,
+        panel_length_mm=obj.panel_length_mm,
+        product_spec=obj.product_spec,
+        cut_qty_per_panel=obj.cut_qty_per_panel,
+        is_active=obj.is_active,
+        memo=obj.memo,
+    )
 
 
 def _ensure_drawing_exists(db: Session, drawing_id: int):
@@ -50,7 +78,9 @@ def create_product(payload: ProductCreate, db: Session = Depends(get_db)):
     )
 
     try:
-        return product_crud.create(db, obj)
+        created = product_crud.create(db, obj)
+        db.refresh(created, attribute_names=["drawing", "routing_template"])
+        return _to_product_out(created)
     except IntegrityError:
         db.rollback()
 
@@ -64,11 +94,20 @@ def create_product(payload: ProductCreate, db: Session = Depends(get_db)):
 
         # 그 외
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="conflict")
+    
+
+@router.post("/bulk", response_model=ProductBulkCreateResult, status_code=status.HTTP_201_CREATED)
+def create_products_bulk(
+    payload: ProductBulkCreateRequest,
+    db: Session = Depends(get_db),
+):
+    return product_bulk_service.create_bulk(db, payload)    
 
 
 @router.get("/{product_id}", response_model=ProductOut)
 def get_product(product_id: int = Path(..., ge=1), db: Session = Depends(get_db)):
-    return product_crud.get_or_404(db, product_id, active_only=True)
+    obj = product_crud.get_or_404(db, product_id, active_only=True)
+    return _to_product_out(obj)
 
 
 @router.get("", response_model=ProductListOut)
@@ -80,7 +119,12 @@ def list_products(
     db: Session = Depends(get_db),
 ):
     items, total = product_crud.list_paged(db, page=page, size=size, q=q, is_active=is_active)
-    return {"items": items, "total": total, "page": page, "size": size}
+    return {
+        "items": [_to_product_out(item) for item in items],
+        "total": total,
+        "page": page,
+        "size": size,
+    }
 
 
 @router.patch("/{product_id}", response_model=ProductOut)
@@ -122,7 +166,9 @@ def update_product(
         obj.memo = payload.memo
 
     try:
-        return product_crud.commit(db, obj)
+        updated = product_crud.commit(db, obj)
+        db.refresh(updated, attribute_names=["drawing", "routing_template"])
+        return _to_product_out(updated)
     except IntegrityError:
         db.rollback()
 
@@ -145,4 +191,6 @@ def update_product(
 @router.delete("/{product_id}", response_model=ProductOut)
 def delete_product(product_id: int = Path(..., ge=1), db: Session = Depends(get_db)):
     # soft delete
-    return product_crud.soft_delete(db, product_id)
+    deleted = product_crud.soft_delete(db, product_id)
+    db.refresh(deleted, attribute_names=["drawing", "routing_template"])
+    return _to_product_out(deleted)

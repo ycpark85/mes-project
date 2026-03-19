@@ -70,6 +70,11 @@
                                     Style="{StaticResource BaseButtonStyle}"
                                     Margin="0,0,0,10"
                                     Click="DefectType_Click"/>
+                            <Button Content="품목관리"
+                                    Style="{StaticResource BaseButtonStyle}"
+                                    Margin="0,0,0,10"   
+                                    Click="Product_Click"/>
+                            
                         </StackPanel>
                     </Expander>
                 </StackPanel>
