@@ -22,7 +22,7 @@ namespace Mes.Wpf.Modules.Products.ViewModels
     {
         private readonly IApiClient _apiClient;
         private readonly IMessageService _messageService;
-        private readonly IDrawingFileOpener _drawingFileOpener;
+        private readonly IDrawingViewer _drawingViewer;
 
         private string _searchKeyword = string.Empty;
         private string _selectedUseYn = "사용";
@@ -36,11 +36,11 @@ namespace Mes.Wpf.Modules.Products.ViewModels
         private long? _selectedDrawingCurrentRevisionId;
         private CancellationTokenSource? _drawingSearchCts;
 
-        public ProductPageViewModel(IApiClient apiClient, IMessageService messageService, IDrawingFileOpener drawingFileOpener)
+        public ProductPageViewModel(IApiClient apiClient, IMessageService messageService, IDrawingViewer drawingViewer)
         {
             _apiClient = apiClient;
             _messageService = messageService;
-            _drawingFileOpener = drawingFileOpener;
+            _drawingViewer = drawingViewer;
             Items = new ObservableCollection<ProductDto>();
             UseYnOptions = new ObservableCollection<string> { "사용", "미사용" };
             UomOptions = new ObservableCollection<string> { "EA", "Roll" };
@@ -488,40 +488,13 @@ namespace Mes.Wpf.Modules.Products.ViewModels
                 return;
             }
 
-            if (!SelectedDrawingCurrentRevisionId.HasValue || SelectedDrawingCurrentRevisionId.Value <= 0)
-            {
-                _messageService.ShowWarning("현재 리비전이 없는 도면입니다.");
-                return;
-            }
-
             IsLoading = true;
             LoadingMessage = "파일 여는 중...";
             await Task.Yield();
 
             try
             {
-                var filesResult = await _apiClient.GetAsync<PagedResult<DrawingRevisionFileDto>>(
-                    $"{ApiRoutes.Drawings}/{EditModel.DrawingId.Value}/revisions/{SelectedDrawingCurrentRevisionId.Value}/files");
-
-                if (!filesResult.Success || filesResult.Data == null)
-                {
-                    _messageService.ShowError(filesResult.Message ?? "도면 파일 정보를 조회할 수 없습니다.");
-                    return;
-                }
-
-                var drawingFile = filesResult.Data.Items
-                    .FirstOrDefault(x => string.Equals(x.FileKind, "DRAWING", StringComparison.OrdinalIgnoreCase));
-
-                if (drawingFile == null || drawingFile.RevisionFileId <= 0)
-                {
-                    _messageService.ShowWarning("열 수 있는 도면 파일이 없습니다.");
-                    return;
-                }
-
-                var url = _apiClient.BuildAbsoluteUrl(
-                    $"{ApiRoutes.Drawings}/revision-files/{drawingFile.RevisionFileId}/download");
-
-                await _drawingFileOpener.OpenRevisionFileAsync(url, drawingFile.OriginalFilename);
+                await _drawingViewer.OpenCurrentDrawingAsync(EditModel.DrawingId.Value);
             }
             finally
             {

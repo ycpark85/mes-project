@@ -13,6 +13,9 @@ using Mes.Wpf.Modules.Products.ViewModels;
 using Mes.Wpf.Modules.Products.Views;
 using Mes.Wpf.Modules.RoutingTemplates.ViewModels;
 using Mes.Wpf.Modules.RoutingTemplates.Views;
+using Mes.Wpf.Modules.OrderLines.ViewModels;
+using Mes.Wpf.Modules.OrderLines.Views;
+
 using System.Windows;
 
 namespace Mes.Wpf.Views.Shell
@@ -141,6 +144,7 @@ namespace Mes.Wpf.Views.Shell
         {
             var drawingPage = new DrawingPage();
             var drawingFileOpener = new DrawingFileOpener(_messageService);
+
             var drawingViewModel = new DrawingPageViewModel(_apiClient, _messageService, drawingFileOpener);
 
             drawingPage.DataContext = drawingViewModel;
@@ -158,7 +162,12 @@ namespace Mes.Wpf.Views.Shell
         {
             var productPage = new ProductPage();
             var drawingFileOpener = new DrawingFileOpener(_messageService);
-            var productViewModel = new ProductPageViewModel(_apiClient, _messageService, drawingFileOpener);
+            var drawingViewer = new DrawingViewer(_apiClient, _messageService, drawingFileOpener);
+
+            var productViewModel = new ProductPageViewModel(
+                _apiClient,
+                _messageService,
+                drawingViewer);
 
             productPage.DataContext = productViewModel;
             MainContent.Content = productPage;
@@ -168,6 +177,27 @@ namespace Mes.Wpf.Views.Shell
             HeaderSubtitle.Text = "품목 마스터 등록 / 조회 / 수정 / 삭제 / 벌크업로드";
 
             await productViewModel.InitializeAsync();
+        }
+
+        private async void OrderLineCreate_Click(object sender, RoutedEventArgs e)
+        {
+            var page = new OrderLineCreatePage();
+            var drawingFileOpener = new DrawingFileOpener(_messageService);
+            var drawingViewer = new DrawingViewer(_apiClient, _messageService, drawingFileOpener);
+
+            var viewModel = new OrderLineCreatePageViewModel(
+                _apiClient,
+                _messageService,
+                drawingViewer);
+
+            page.DataContext = viewModel;
+            MainContent.Content = page;
+            MainContent.Visibility = Visibility.Visible;
+
+            HeaderTitle.Text = "수주 등록";
+            HeaderSubtitle.Text = "수주 헤더 / 수주 라인 등록";
+
+            await viewModel.InitializeAsync();
         }
 
 
