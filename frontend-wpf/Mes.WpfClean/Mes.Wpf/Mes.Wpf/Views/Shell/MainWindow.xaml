@@ -4,6 +4,10 @@
         xmlns:defectViews="clr-namespace:Mes.Wpf.Modules.DefectTypes.Views"
         xmlns:routingViews="clr-namespace:Mes.Wpf.Modules.RoutingTemplates.Views"
         Title="MES"
+        Width="1500"
+        Height="900"
+        MinWidth="1400"
+        MinHeight="860"
         Style="{StaticResource ShellWindowStyle}"
         WindowStartupLocation="CenterScreen">
 

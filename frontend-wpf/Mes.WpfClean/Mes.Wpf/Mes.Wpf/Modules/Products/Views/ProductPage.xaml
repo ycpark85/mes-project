@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+            
              mc:Ignorable="d">
 
     <UserControl.Resources>
@@ -13,9 +14,9 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="12" />
-            <RowDefinition Height="*" />
+            <RowDefinition Height="1.0*" />
             <RowDefinition Height="12" />
-            <RowDefinition Height="Auto" />
+            <RowDefinition Height="1.35*" />
         </Grid.RowDefinitions>
 
         <!-- 검색 영역 -->
@@ -81,10 +82,11 @@
         <!-- 품목 목록 -->
         <Border Grid.Row="2"
                 Padding="12"
+                MinHeight="240"
                 BorderBrush="#DDDDDD"
                 BorderThickness="1"
                 CornerRadius="6"
-                Background="White">
+                Background="White"> 
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -98,7 +100,8 @@
                            Text="품목 목록" />
 
                 <DataGrid Grid.Row="2"
-                          MinHeight="320"
+                          MinHeight="200"
+                          Margin="0,0,0,10"
                           AutoGenerateColumns="False"
                           CanUserAddRows="False"
                           CanUserDeleteRows="False"
@@ -109,7 +112,7 @@
                           RowHeaderWidth="0"
                           HeadersVisibility="Column"
                           ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                          ScrollViewer.VerticalScrollBarVisibility="Auto">
+                          ScrollViewer.VerticalScrollBarVisibility="Auto">    
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="품목코드" Binding="{Binding ProductCode}" Width="100" />
                         <DataGridTextColumn Header="품목명" Binding="{Binding ProductName}" Width="180" />
