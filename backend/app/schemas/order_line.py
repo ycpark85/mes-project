@@ -66,10 +66,14 @@ class OrderLineOut(OrderLineBase):
     created_at: datetime
     updated_at: datetime
 
-    # join으로 붙여주는 표시용 필드(조회 성능/UX)
+        # join으로 붙여주는 표시용 필드(조회 성능/UX)
     partner_name: Optional[str] = None
     product_code: Optional[str] = None
     product_name: Optional[str] = None
+
+    # OrderLineList 액션 버튼 분기용
+    has_lot: bool = False
+    lot_count: int = 0
 
     class Config:
         from_attributes = True

@@ -31,7 +31,7 @@
                                Margin="0,0,0,24" />
 
                     <Expander Header="메뉴"
-                              IsExpanded="True"
+                              IsExpanded="False"
                               Margin="0,0,0,12">
                         <StackPanel Margin="0,10,0,0">
                             <Button Content="대시보드"
@@ -42,7 +42,7 @@
                     </Expander>
 
                     <Expander Header="기초등록 (마스터DB)"
-                              IsExpanded="True"
+                              IsExpanded="False"
                               Margin="0,0,0,12">
                         <StackPanel Margin="0,10,0,0">
                             <Button Content="거래처관리"
@@ -74,6 +74,7 @@
                                     Style="{StaticResource BaseButtonStyle}"
                                     Margin="0,0,0,10"
                                     Click="DefectType_Click"/>
+                            
                             <Button Content="품목관리"
                                     Style="{StaticResource BaseButtonStyle}"
                                     Margin="0,0,0,10"   
@@ -81,14 +82,18 @@
                             
                         </StackPanel>
                     </Expander>
-                    <Expander Header="메뉴"
-                              IsExpanded="True"
+                    <Expander Header="발주메뉴"
+                              IsExpanded="False"
                               Margin="0,0,0,12">    
                         <StackPanel Margin="0,10,0,0">
                             <Button Content="발주등록"
                                     Style="{StaticResource BaseButtonStyle}"
                                     Margin="0,0,0,10"
-                                    Click="OrderLineCreate_Click"/>       
+                                    Click="OrderLineCreate_Click"/>
+                            <Button Content="발주리스트"
+                                    Style="{StaticResource BaseButtonStyle}"
+                                    Margin="0,0,0,10"
+                                    Click="OrderLineList_Click"/>       
                         </StackPanel>
                     </Expander>
                 </StackPanel>

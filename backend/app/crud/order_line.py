@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.models.order_line import OrderLine
 from app.models.partner import Partner
 from app.models.product import Product
-
+from app.models.lot import Lot
 
 class OrderLineCRUD:
     def get(self, db: Session, order_line_id: int) -> Optional[OrderLine]:
@@ -53,22 +53,31 @@ class OrderLineCRUD:
     ) -> Tuple[List[dict], int]:
         """
         반환:
-          - items: dict 리스트(주요 컬럼 + partner_name/product_code/product_name)
+          - items: dict 리스트(주요 컬럼 + partner_name/product_code/product_name + has_lot/lot_count)
           - total: 전체 건수
         """
-        # base select with joins for display fields
+        lot_agg_sq = (
+            select(
+                Lot.order_line_id.label("order_line_id"),
+                func.count(Lot.lot_id).label("lot_count"),
+            )
+            .group_by(Lot.order_line_id)
+            .subquery()
+        )
+
         stmt = (
             select(
                 OrderLine,
                 Partner.name.label("partner_name"),
                 Product.product_code.label("product_code"),
                 Product.product_name.label("product_name"),
+                func.coalesce(lot_agg_sq.c.lot_count, 0).label("lot_count"),
             )
             .join(Partner, Partner.partner_id == OrderLine.partner_id)
             .join(Product, Product.product_id == OrderLine.product_id)
+            .outerjoin(lot_agg_sq, lot_agg_sq.c.order_line_id == OrderLine.order_line_id)
         )
 
-        # filters
         conds = []
         if is_active is not None:
             conds.append(OrderLine.is_active == is_active)
@@ -104,7 +113,6 @@ class OrderLineCRUD:
         if conds:
             stmt = stmt.where(*conds)
 
-        # count
         count_stmt = (
             select(func.count())
             .select_from(OrderLine)
@@ -116,16 +124,20 @@ class OrderLineCRUD:
 
         total = db.execute(count_stmt).scalar_one()
 
-        # paging + ordering
-        stmt = stmt.order_by(OrderLine.due_date.asc(), OrderLine.order_no.asc(), OrderLine.line_no.asc())
+        stmt = stmt.order_by(
+            OrderLine.due_date.asc(),
+            OrderLine.order_no.asc(),
+            OrderLine.line_no.asc(),
+        )
         stmt = stmt.offset((page - 1) * size).limit(size)
 
         rows = db.execute(stmt).all()
 
         items: List[dict] = []
-        for ol, partner_name, product_code, product_name in rows:
+        for ol, partner_name, product_code, product_name, lot_count in rows:
+            lot_count_int = int(lot_count or 0)
+
             d = {
-                # ORM -> dict for response
                 "order_line_id": ol.order_line_id,
                 "order_no": ol.order_no,
                 "line_no": ol.line_no,
@@ -145,6 +157,8 @@ class OrderLineCRUD:
                 "partner_name": partner_name,
                 "product_code": product_code,
                 "product_name": product_name,
+                "has_lot": lot_count_int > 0,
+                "lot_count": lot_count_int,
             }
             items.append(d)
 

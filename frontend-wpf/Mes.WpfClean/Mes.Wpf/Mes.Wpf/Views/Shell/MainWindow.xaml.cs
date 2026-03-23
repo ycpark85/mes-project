@@ -15,6 +15,10 @@ using Mes.Wpf.Modules.RoutingTemplates.ViewModels;
 using Mes.Wpf.Modules.RoutingTemplates.Views;
 using Mes.Wpf.Modules.OrderLines.ViewModels;
 using Mes.Wpf.Modules.OrderLines.Views;
+using Mes.Wpf.Modules.OrderLineList.ViewModels;
+using Mes.Wpf.Modules.OrderLineList.Views;
+
+
 
 using System.Windows;
 
@@ -45,6 +49,7 @@ namespace Mes.Wpf.Views.Shell
         {
             await _defectTypePageViewModel.InitializeAsync();
             ShowDefectType();
+           
         }
 
         private void Dashboard_Click(object sender, RoutedEventArgs e)
@@ -198,6 +203,40 @@ namespace Mes.Wpf.Views.Shell
             HeaderSubtitle.Text = "수주 헤더 / 수주 라인 등록";
 
             await viewModel.InitializeAsync();
+        }
+
+        private async void OrderLineList_Click(object sender, RoutedEventArgs e)
+        {
+            await OpenOrderLineListAsync();
+        }
+        private async Task OpenOrderLineListAsync()
+        {
+            var page = new OrderLineListPage();
+            var vm = new OrderLineListPageViewModel(
+                _apiClient,
+                _messageService,
+                async orderLineId => await OpenOrderLineDetailAsync(orderLineId)
+            );
+
+            page.DataContext = vm;
+            MainContent.Content = page;
+
+            await vm.InitializeAsync();
+        }
+
+        private async Task OpenOrderLineDetailAsync(long orderLineId)
+        {
+            var page = new OrderLineDetailPage();
+            var vm = new OrderLineDetailPageViewModel(
+                _apiClient,
+                _messageService,
+                async () => await OpenOrderLineListAsync()
+            );
+
+            page.DataContext = vm;
+            MainContent.Content = page;
+
+            await vm.InitializeAsync(orderLineId);
         }
 
 
