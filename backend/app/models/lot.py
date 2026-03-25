@@ -1,7 +1,7 @@
-# app/models/lot.py
 from __future__ import annotations
 
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Optional, List
 
 from sqlalchemy import (
@@ -9,7 +9,7 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
-    Integer,
+    Numeric,
     String,
     Text,
     Index,
@@ -33,16 +33,21 @@ class Lot(Base):
     __tablename__ = "lot"
     __table_args__ = (
         CheckConstraint("lot_qty > 0", name="ck_lot__lot_qty_gt_0"),
+        CheckConstraint(
+            "material_used_qty IS NULL OR material_used_qty > 0",
+            name="ck_lot__material_used_qty_gt_0",
+        ),
         Index("ix_lot__order_line_id", "order_line_id"),
         Index("ix_lot__product_id", "product_id"),
         Index("ix_lot__created_date", "created_date"),
         Index("ix_lot__lot_no", "lot_no"),
-        Index("ix_lot__due_date", "due_date"), 
+        Index("ix_lot__due_date", "due_date"),
+        Index("ix_lot__material_lot_no", "material_lot_no"),
     )
 
     lot_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
 
-    # ✅ lot_no: CT + YY + M + DD + E + NN (서비스에서 생성)
+    # lot_no: CT + YY + MM + DD + E + NN (서비스에서 생성)
     lot_no: Mapped[str] = mapped_column(String(20), nullable=False, unique=True)
 
     # SSOT 참조
@@ -70,29 +75,42 @@ class Lot(Base):
     lot_qty: Mapped[int] = mapped_column(BigInteger, nullable=False)
     uom: Mapped[str] = mapped_column(String(10), nullable=False)
 
+    # 원단 사용 정보
+    material_lot_no: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    material_used_qty: Mapped[Optional[Decimal]] = mapped_column(
+        Numeric(18, 3),
+        nullable=True,
+    )
+    material_uom: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+
     # 업무 기준 생성일
     created_date: Mapped[date] = mapped_column(Date, nullable=False)
-
     memo: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
     )
+
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="WAITING")
+
+    # OrderLine 납기 스냅샷
+    due_date: Mapped[date] = mapped_column(Date, nullable=False)
 
     # 관계
     order_line = relationship("OrderLine", back_populates="lots")
     product = relationship("Product")
     parent_lot = relationship("Lot", remote_side="Lot.lot_id")
-
     steps: Mapped[List["LotStep"]] = relationship(
         "LotStep",
         back_populates="lot",
         cascade="all, delete-orphan",
         order_by="LotStep.step_seq",
     )
-     #✅ OrderLine 납기 스냅샷
-    due_date: Mapped[date] = mapped_column(Date, nullable=False)  # ✅ 추가

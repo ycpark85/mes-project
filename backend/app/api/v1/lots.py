@@ -1,35 +1,25 @@
-# app/api/v1/lots.py
 from __future__ import annotations
 
 from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status as http_status
+from sqlalchemy import desc, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-from sqlalchemy import select, desc
 
-from app.db.session import get_db
 from app.crud.lot import lot_crud
+from app.db.session import get_db
 from app.models.lot import Lot
 from app.models.lot_step import LotStep
 from app.models.order_line import OrderLine
-from app.models.product import Product
 from app.models.partner import Partner
-from app.models.routing_template_step import RoutingTemplateStep
 from app.models.process import Process
-
+from app.models.product import Product
+from app.models.routing_template_step import RoutingTemplateStep
 from app.schemas.lot import LotCreate, LotOut, LotDetailOut, LotListOut, PageMeta
 
-
 router = APIRouter(prefix="/lots", tags=["Lot"])
-
-
-# ===== LOT NO 생성 (MVP)
-# lot_no: CT + YY + MM + DD + E + NN
-# - E는 MVP에서 "0" 고정
-# - NN은 (해당 prefix 내) 01~99 증가
-# app/api/v1/lots.py (create_lot 최종본)
 
 
 def _generate_lot_no(db: Session, created_date: date, e_fixed: str = "0") -> str:
@@ -108,45 +98,74 @@ def _create_lot_steps_from_routing(db: Session, lot_id: int, routing_template_id
         )
 
 
+def _normalize_optional_str(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    value = value.strip()
+    return value or None
+
+
+def _validate_material_fields(payload: LotCreate) -> tuple[Optional[str], Optional[float], Optional[str]]:
+    material_lot_no = _normalize_optional_str(payload.material_lot_no)
+    material_uom = _normalize_optional_str(payload.material_uom)
+    material_used_qty = payload.material_used_qty
+
+    has_lot_no = material_lot_no is not None
+    has_used_qty = material_used_qty is not None
+    has_uom = material_uom is not None
+
+    if has_lot_no and not has_used_qty:
+        raise HTTPException(status_code=409, detail="material_used_qty is required when material_lot_no is provided")
+
+    if has_used_qty and not has_lot_no:
+        raise HTTPException(status_code=409, detail="material_lot_no is required when material_used_qty is provided")
+
+    if (has_lot_no or has_used_qty) and not has_uom:
+        raise HTTPException(status_code=409, detail="material_uom is required when material usage is provided")
+
+    return material_lot_no, material_used_qty, material_uom
+
+
 @router.post("", response_model=LotDetailOut, status_code=http_status.HTTP_201_CREATED)
 def create_lot(payload: LotCreate, db: Session = Depends(get_db)):
     ol = _ensure_order_line(db, payload.order_line_id)
 
-    # product 스냅샷
     product = db.get(Product, ol.product_id)
     if not product or not product.is_active:
         raise HTTPException(status_code=409, detail="Product not found or inactive")
 
     created_date = payload.created_date or date.today()
-
-    # ✅ parent_lot_id=0 같은 값 방지
     parent_lot_id_in = payload.parent_lot_id or None
     is_rework = parent_lot_id_in is not None
-
-    # ✅ lot_qty는 primary/rework 모두 사용자 입력
     lot_qty = int(payload.lot_qty)
+
+    material_lot_no, material_used_qty, material_uom = _validate_material_fields(payload)
 
     parent_lot_id = None
 
-    # ✅ Primary LOT 생성은 OPEN에서만 허용
     if not is_rework and ol.status != "OPEN":
         raise HTTPException(status_code=409, detail="Primary LOT can only be created when OrderLine is OPEN")
 
-    # Rework일 때만 부모 검증
     if is_rework:
         parent = _ensure_parent_lot(db, parent_lot_id_in)
 
-        # 같은 order_line 아래에서만 허용(권장)
         if parent.order_line_id != ol.order_line_id:
             raise HTTPException(status_code=409, detail="Parent LOT must belong to same OrderLine")
 
+        if parent.parent_lot_id is not None:
+            raise HTTPException(status_code=409, detail="Parent LOT must be a primary LOT")
+
+        if parent.status not in ("DONE", "CANCELED"):
+            raise HTTPException(
+                status_code=409,
+                detail="Rework LOT can only be created when parent LOT is DONE or CANCELED",
+            )
+
         parent_lot_id = parent.lot_id
 
-        # ✅ DONE 상태에서 재작업 시작하면 CLOSED로 되돌림(확정 정책)
         if ol.status == "DONE":
             ol.status = "CLOSED"
 
-    # LOT 생성 (동시성 대비 lot_no 충돌 재시도)
     for _ in range(3):
         lot_no = _generate_lot_no(db, created_date, e_fixed="0")
 
@@ -157,6 +176,9 @@ def create_lot(payload: LotCreate, db: Session = Depends(get_db)):
             parent_lot_id=parent_lot_id,
             lot_qty=lot_qty,
             uom=ol.uom,
+            material_lot_no=material_lot_no,
+            material_used_qty=material_used_qty,
+            material_uom=material_uom,
             created_date=created_date,
             due_date=ol.due_date,
             memo=payload.memo,
@@ -167,23 +189,22 @@ def create_lot(payload: LotCreate, db: Session = Depends(get_db)):
             lot_crud.create(db, lot)
             _create_lot_steps_from_routing(db, lot.lot_id, product.routing_template_id)
 
-            # ✅ Primary 생성 성공 시 OPEN → CLOSED
             if not is_rework and ol.status == "OPEN":
                 ol.status = "CLOSED"
 
             db.commit()
             db.refresh(lot)
             break
+
         except IntegrityError:
             db.rollback()
             continue
     else:
         raise HTTPException(status_code=409, detail="Failed to generate unique lot_no (retry exceeded)")
 
-    # 응답(steps 포함)
     out = LotDetailOut.model_validate(lot, from_attributes=True)
-    partner = db.get(Partner, ol.partner_id)
 
+    partner = db.get(Partner, ol.partner_id)
     out.order_no = ol.order_no
     out.line_no = ol.line_no
     out.partner_id = ol.partner_id
@@ -222,7 +243,11 @@ def list_lots(
         created_date_from=created_date_from,
         created_date_to=created_date_to,
     )
-    return LotListOut(items=[LotOut(**x) for x in items], meta=PageMeta(page=page, size=size, total=total))
+
+    return LotListOut(
+        items=[LotOut(**x) for x in items],
+        meta=PageMeta(page=page, size=size, total=total),
+    )
 
 
 @router.get("/{lot_id}", response_model=LotDetailOut)
@@ -236,13 +261,16 @@ def get_lot(lot_id: int, db: Session = Depends(get_db)):
     partner = db.get(Partner, ol.partner_id) if ol else None
 
     out = LotDetailOut.model_validate(lot, from_attributes=True)
+
     if ol:
         out.order_no = ol.order_no
         out.line_no = ol.line_no
         out.partner_id = ol.partner_id
         out.partner_name = partner.name if partner else None
+
     if product:
         out.product_code = product.product_code
         out.product_name = product.product_name
+
     out.steps = [s for s in lot.steps]
     return out

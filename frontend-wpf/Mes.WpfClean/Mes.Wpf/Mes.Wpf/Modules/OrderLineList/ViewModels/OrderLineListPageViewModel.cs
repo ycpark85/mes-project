@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
-using System.Linq;
 
 namespace Mes.Wpf.Modules.OrderLineList.ViewModels
 {
@@ -16,6 +15,7 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
         private readonly IApiClient _apiClient;
         private readonly IMessageService _messageService;
         private readonly Func<long, Task>? _openDetailAsync;
+        private readonly Func<OrderLineListItemDto, Task>? _openLotCreateAsync;
 
         private string _searchKeyword = string.Empty;
         private string _selectedStatus = "전체";
@@ -30,25 +30,19 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
         public OrderLineListPageViewModel(
             IApiClient apiClient,
             IMessageService messageService,
-            Func<long, Task>? openDetailAsync = null)
+            Func<long, Task>? openDetailAsync = null,
+            Func<OrderLineListItemDto, Task>? openLotCreateAsync = null)
         {
             _apiClient = apiClient;
             _messageService = messageService;
             _openDetailAsync = openDetailAsync;
+            _openLotCreateAsync = openLotCreateAsync;
 
             Items = new ObservableCollection<OrderLineListItemDto>();
-            StatusOptions = new ObservableCollection<string>
-            {
-                "전체",
-                "OPEN",
-                "IN_PROGRESS",
-                "DONE",
-                "CANCELED"
-            };
+            StatusOptions = new ObservableCollection<string> { "전체", "OPEN", "IN_PROGRESS", "DONE", "CANCELED" };
 
             SearchCommand = new AsyncRelayCommand(SearchAsync);
             ResetCommand = new RelayCommand(Reset);
-
             OpenOrderDetailCommand = new AsyncRelayCommand(OpenOrderDetailAsync);
             OpenLotActionCommand = new AsyncRelayCommand(OpenLotActionAsync);
             PreviousPageCommand = new AsyncRelayCommand(GoPreviousPageAsync);
@@ -56,19 +50,13 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
         }
 
         public ObservableCollection<OrderLineListItemDto> Items { get; }
-
         public ObservableCollection<string> StatusOptions { get; }
 
         public AsyncRelayCommand SearchCommand { get; }
-
         public RelayCommand ResetCommand { get; }
-
         public AsyncRelayCommand OpenOrderDetailCommand { get; }
-
         public AsyncRelayCommand OpenLotActionCommand { get; }
-
         public AsyncRelayCommand PreviousPageCommand { get; }
-
         public AsyncRelayCommand NextPageCommand { get; }
 
         public string SearchKeyword
@@ -132,7 +120,9 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
             get
             {
                 if (SelectedItem == null)
+                {
                     return "LOT 생성";
+                }
 
                 return SelectedItem.HasLot ? "LOT 상세" : "LOT 생성";
             }
@@ -157,12 +147,13 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
             Items.Clear();
 
             foreach (var item in result.Data.Items)
+            {
                 Items.Add(item);
+            }
 
             Page = result.Data.Page;
             Size = result.Data.Size;
             Total = result.Data.Total;
-
             CanGoPreviousPage = Page > 1;
             CanGoNextPage = Page * Size < Total;
 
@@ -187,7 +178,6 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
 
         protected override void New()
         {
-            // OrderLineList 화면은 신규 등록 화면이 아니라 조회 허브이므로 비움
         }
 
         protected override void OnSelectedItemChanged(OrderLineListItemDto? item)
@@ -220,32 +210,36 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
                 return;
             }
 
-            await Task.CompletedTask;
+            if (!string.Equals(SelectedItem.Status, "OPEN", StringComparison.OrdinalIgnoreCase))
+            {
+                _messageService.ShowWarning("LOT 생성은 OPEN 상태의 수주라인에서만 가능합니다.");
+                return;
+            }
 
-            if (SelectedItem.HasLot)
+            if (_openLotCreateAsync == null)
             {
-                // 다음 단계에서 Lots 모듈 상세/목록 진입 연결
-                _messageService.ShowInfo(
-                    $"LOT 상세 연결 예정: OrderLineId={SelectedItem.OrderLineId}, LotCount={SelectedItem.LotCount}");
+                _messageService.ShowWarning("LOT 생성 창 연결이 아직 설정되지 않았습니다.");
+                return;
             }
-            else
-            {
-                // 다음 단계에서 LOT 생성 화면/팝업 연결
-                _messageService.ShowInfo(
-                    $"LOT 생성 연결 예정: OrderLineId={SelectedItem.OrderLineId}");
-            }
+
+            await _openLotCreateAsync(SelectedItem);
         }
 
         private string BuildListUrl()
         {
+            var safePage = Page <= 0 ? 1 : Page;
+            var safeSize = Size <= 0 ? 20 : Size;
+
             var queryParts = new List<string>
             {
-                "page=1",
-                "size=20"
+                $"page={safePage}",
+                $"size={safeSize}"
             };
 
             if (!string.IsNullOrWhiteSpace(SearchKeyword))
+            {
                 queryParts.Add($"q={Uri.EscapeDataString(SearchKeyword.Trim())}");
+            }
 
             if (!string.IsNullOrWhiteSpace(SelectedStatus) && SelectedStatus != "전체")
             {
@@ -254,10 +248,14 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
             }
 
             if (OrderDateFrom.HasValue)
+            {
                 queryParts.Add($"order_date_from={OrderDateFrom.Value:yyyy-MM-dd}");
+            }
 
             if (OrderDateTo.HasValue)
+            {
                 queryParts.Add($"order_date_to={OrderDateTo.Value:yyyy-MM-dd}");
+            }
 
             return $"{ApiRoutes.OrderLines}?{string.Join("&", queryParts)}";
         }
@@ -265,7 +263,9 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
         private async Task GoPreviousPageAsync()
         {
             if (!CanGoPreviousPage)
+            {
                 return;
+            }
 
             Page--;
             await SearchAsync();
@@ -274,12 +274,12 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
         private async Task GoNextPageAsync()
         {
             if (!CanGoNextPage)
+            {
                 return;
+            }
 
             Page++;
             await SearchAsync();
         }
-
-
     }
 }

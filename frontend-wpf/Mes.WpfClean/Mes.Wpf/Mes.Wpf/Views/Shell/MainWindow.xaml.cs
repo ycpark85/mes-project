@@ -18,6 +18,10 @@ using Mes.Wpf.Modules.OrderLines.Views;
 using Mes.Wpf.Modules.OrderLineList.ViewModels;
 using Mes.Wpf.Modules.OrderLineList.Views;
 
+using Mes.Wpf.Modules.Lots.ViewModels;
+using Mes.Wpf.Modules.Lots.Views;
+using Mes.Wpf.Modules.OrderLineList.Dtos;
+
 
 
 using System.Windows;
@@ -209,20 +213,6 @@ namespace Mes.Wpf.Views.Shell
         {
             await OpenOrderLineListAsync();
         }
-        private async Task OpenOrderLineListAsync()
-        {
-            var page = new OrderLineListPage();
-            var vm = new OrderLineListPageViewModel(
-                _apiClient,
-                _messageService,
-                async orderLineId => await OpenOrderLineDetailAsync(orderLineId)
-            );
-
-            page.DataContext = vm;
-            MainContent.Content = page;
-
-            await vm.InitializeAsync();
-        }
 
         private async Task OpenOrderLineDetailAsync(long orderLineId)
         {
@@ -237,6 +227,49 @@ namespace Mes.Wpf.Views.Shell
             MainContent.Content = page;
 
             await vm.InitializeAsync(orderLineId);
+        }
+
+        private async Task OpenOrderLineListAsync()
+        {
+            var page = new OrderLineListPage();
+            var vm = new OrderLineListPageViewModel(
+                _apiClient,
+                _messageService,
+                async orderLineId => await OpenOrderLineDetailAsync(orderLineId),
+                async item => await OpenLotCreateWindowAsync(item)
+            );
+
+            page.DataContext = vm;
+            MainContent.Content = page;
+            MainContent.Visibility = Visibility.Visible;
+            HeaderTitle.Text = "발주리스트";
+            HeaderSubtitle.Text = "수주라인 조회 / 발주상세 / LOT 생성";
+
+            await vm.InitializeAsync();
+        }
+
+
+
+        private async Task OpenLotCreateWindowAsync(OrderLineListItemDto item)
+        {
+            var drawingFileOpener = new DrawingFileOpener(_messageService);
+            var drawingViewer = new DrawingViewer(_apiClient, _messageService, drawingFileOpener);
+
+            var vm = new LotCreateWindowViewModel(
+                _apiClient,
+                _messageService,
+                drawingViewer,
+                drawingFileOpener);
+
+            var window = new LotCreateWindow(vm)
+            {
+                Owner = this
+            };
+
+            await vm.InitializeAsync(item.OrderLineId);
+            window.ShowDialog();
+
+            await OpenOrderLineListAsync();
         }
 
 

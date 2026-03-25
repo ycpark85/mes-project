@@ -1,7 +1,7 @@
-# app/schemas/lot.py
 from __future__ import annotations
 
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Optional, List
 
 from pydantic import BaseModel, Field
@@ -17,28 +17,31 @@ class LotStepOut(BaseModel):
     status: str
     started_at: Optional[datetime] = None
     ended_at: Optional[datetime] = None
-    
+
     class Config:
         from_attributes = True
 
 
 class LotCreate(BaseModel):
     """
-    - 일반 LOT: order_line 기준 1건 생성, lot_qty는 order_qty로 서버가 강제
-    - 재작업 LOT: parent_lot_id 필수 + lot_qty는 사용자가 입력(확정 정책)
+    - 일반 LOT: order_line 기준 1건 생성
+    - 재작업 LOT: parent_lot_id 필수
     """
-    order_line_id: int
-    parent_lot_id: Optional[int] = None # 재작업일 때 필수
 
-    lot_qty: int = Field(..., gt=0)   
+    order_line_id: int
+    parent_lot_id: Optional[int] = None
+    lot_qty: int = Field(..., gt=0)
     created_date: Optional[date] = None
     memo: Optional[str] = None
+
+    material_lot_no: Optional[str] = None
+    material_used_qty: Optional[Decimal] = Field(default=None, gt=0)
+    material_uom: Optional[str] = None
 
 
 class LotOut(BaseModel):
     lot_id: int
     lot_no: str
-
     order_line_id: int
     product_id: int
     parent_lot_id: Optional[int]
@@ -46,9 +49,13 @@ class LotOut(BaseModel):
     lot_qty: int
     uom: str
 
+    material_lot_no: Optional[str] = None
+    material_used_qty: Optional[Decimal] = None
+    material_uom: Optional[str] = None
+
     created_date: date
     due_date: date
-    status: str 
+    status: str
     memo: Optional[str] = None
 
     created_at: datetime
