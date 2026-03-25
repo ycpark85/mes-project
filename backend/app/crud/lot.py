@@ -31,6 +31,7 @@ class LotCRUD:
         page: int,
         size: int,
         q: Optional[str] = None,
+        status: Optional[str] = None,
         order_line_id: Optional[int] = None,
         product_id: Optional[int] = None,
         partner_id: Optional[int] = None,
@@ -61,6 +62,9 @@ class LotCRUD:
             conds.append(Lot.product_id == product_id)
         if partner_id:
             conds.append(OrderLine.partner_id == partner_id)
+
+        if status:
+            conds.append(Lot.status == status)    
 
         if due_date_from:
             conds.append(Lot.due_date >= due_date_from)

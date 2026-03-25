@@ -144,9 +144,9 @@ def start_step(lot_step_id: int, db: Session = Depends(get_db)):
 
     try:
         # ✅ lot.status 캐시 갱신(SSOT=lot_step)
+        db.flush()  # step 변경 먼저 반영
         recalc_lot_status(db, lot)
-
-        db.flush()
+        db.flush()  # lot.status 반영
         db.commit()
         db.refresh(step)
         return LotStepOut.model_validate(step, from_attributes=True)
@@ -171,7 +171,9 @@ def complete_step(lot_step_id: int, db: Session = Depends(get_db)):
     # ✅ lot.status 캐시 갱신
     recalc_lot_status(db, lot)
 
-    db.flush()
+    db.flush()  # step 변경 먼저 반영
+    recalc_lot_status(db, lot)
+    db.flush()  # lot.status 반영
     db.commit()
     db.refresh(step)
     return LotStepOut.model_validate(step, from_attributes=True)

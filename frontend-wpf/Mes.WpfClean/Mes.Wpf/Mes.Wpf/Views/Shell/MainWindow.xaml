@@ -5,7 +5,7 @@
         xmlns:routingViews="clr-namespace:Mes.Wpf.Modules.RoutingTemplates.Views"
         Title="MES"
         Width="1500"
-        Height="900"
+        Height="980"
         MinWidth="1400"
         MinHeight="860"
         Style="{StaticResource ShellWindowStyle}"

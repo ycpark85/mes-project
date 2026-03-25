@@ -7,35 +7,8 @@ namespace Mes.Wpf.Modules.Lots.Dtos
 {
     public class LotProcessSearchModel : ViewModelBase
     {
-        private DateTime? _createdDateFrom;
-        private DateTime? _createdDateTo;
-        private DateTime? _dueDateFrom;
-        private DateTime? _dueDateTo;
         private string _keyword = string.Empty;
-
-        public DateTime? CreatedDateFrom
-        {
-            get => _createdDateFrom;
-            set => SetProperty(ref _createdDateFrom, value);
-        }
-
-        public DateTime? CreatedDateTo
-        {
-            get => _createdDateTo;
-            set => SetProperty(ref _createdDateTo, value);
-        }
-
-        public DateTime? DueDateFrom
-        {
-            get => _dueDateFrom;
-            set => SetProperty(ref _dueDateFrom, value);
-        }
-
-        public DateTime? DueDateTo
-        {
-            get => _dueDateTo;
-            set => SetProperty(ref _dueDateTo, value);
-        }
+        private string _selectedStatus = "전체";
 
         public string Keyword
         {
@@ -43,13 +16,16 @@ namespace Mes.Wpf.Modules.Lots.Dtos
             set => SetProperty(ref _keyword, value);
         }
 
+        public string SelectedStatus
+        {
+            get => _selectedStatus;
+            set => SetProperty(ref _selectedStatus, value);
+        }
+
         public void Clear()
         {
-            CreatedDateFrom = null;
-            CreatedDateTo = null;
-            DueDateFrom = null;
-            DueDateTo = null;
             Keyword = string.Empty;
+            SelectedStatus = "전체";
         }
     }
 
@@ -58,17 +34,24 @@ namespace Mes.Wpf.Modules.Lots.Dtos
         [JsonPropertyName("items")]
         public List<LotListItemDto> Items { get; set; } = new();
 
-        [JsonPropertyName("total")]
-        public int Total { get; set; }
-
+        [JsonPropertyName("meta")]
+        public PageMetaDto? Meta { get; set; }
+    }
+    public class PageMetaDto
+    {
         [JsonPropertyName("page")]
         public int Page { get; set; }
 
         [JsonPropertyName("size")]
         public int Size { get; set; }
+
+        [JsonPropertyName("total")]
+        public int Total { get; set; }
     }
 
-    public class LotListItemDto
+
+
+public class LotListItemDto
     {
         [JsonPropertyName("lot_id")]
         public long LotId { get; set; }

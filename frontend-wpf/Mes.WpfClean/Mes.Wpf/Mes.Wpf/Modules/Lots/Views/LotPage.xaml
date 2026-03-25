@@ -5,158 +5,360 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d">
 
-    <Grid Margin="20">
+    <UserControl.Resources>
+        <Style x:Key="SectionBorderStyle" TargetType="Border">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#E5E7EB"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="16"/>
+            <Setter Property="Margin" Value="0,0,0,12"/>
+        </Style>
+
+        <Style x:Key="PrimaryButtonStyle" TargetType="Button">
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="MinWidth" Value="88"/>
+            <Setter Property="Padding" Value="14,0"/>
+            <Setter Property="Margin" Value="0,0,8,0"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        </Style>
+
+        <Style x:Key="GridTextStyle" TargetType="TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="TextAlignment" Value="Center"/>
+        </Style>
+
+        <Style x:Key="SearchComboBoxStyle" TargetType="ComboBox">
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        </Style>
+
+        <Style x:Key="SearchComboBoxItemStyle" TargetType="ComboBoxItem">
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        </Style>
+
+        <Style TargetType="DataGridColumnHeader">
+            <Setter Property="Background" Value="#F8FAFC"/>
+            <Setter Property="BorderBrush" Value="#E5E7EB"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Height" Value="38"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        </Style>
+
+        <Style TargetType="DataGridRow">
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <Style TargetType="DataGridCell">
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="TextBlock.TextAlignment" Value="Center"/>
+            <Setter Property="Padding" Value="6,0,6,0"/>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Background="#F5F7FA">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="12"/>
-            <RowDefinition Height="2*"/>
-            <RowDefinition Height="12"/>
-            <RowDefinition Height="3*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <GroupBox Header="검색 영역" Padding="12">
+        <!-- 검색 영역 -->
+        <Border Grid.Row="0"
+                Style="{StaticResource SectionBorderStyle}"
+                Margin="20,20,20,12">
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="120"/>
-                    <ColumnDefinition Width="140"/>
-                    <ColumnDefinition Width="20"/>
-                    <ColumnDefinition Width="140"/>
-                    <ColumnDefinition Width="24"/>
-                    <ColumnDefinition Width="120"/>
-                    <ColumnDefinition Width="140"/>
-                    <ColumnDefinition Width="20"/>
-                    <ColumnDefinition Width="140"/>
+                    <ColumnDefinition Width="60"/>
+                    <ColumnDefinition Width="420"/>
+                    <ColumnDefinition Width="50"/>
+                    <ColumnDefinition Width="110"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
 
+                <TextBlock Grid.Column="0"
+                           VerticalAlignment="Center"
+                           FontWeight="SemiBold"
+                           Text="검색"/>
+
+                <TextBox Grid.Column="1"
+                         Height="34"
+                         Margin="0,0,12,0"
+                         VerticalAlignment="Center"
+                         VerticalContentAlignment="Center"
+                         Text="{Binding SearchModel.Keyword, UpdateSourceTrigger=PropertyChanged}"/>
+
+                <TextBlock Grid.Column="2"
+                           VerticalAlignment="Center"
+                           HorizontalAlignment="Center"
+                           Margin="0,0,8,0"
+                           FontWeight="SemiBold"
+                           Text="상태"/>
+
+                <ComboBox Grid.Column="3"
+                          Height="34"
+                          Width="90"
+                          Margin="0,0,12,0"
+                          Style="{StaticResource SearchComboBoxStyle}"
+                          ItemContainerStyle="{StaticResource SearchComboBoxItemStyle}"
+                          ItemsSource="{Binding StatusOptions}"
+                          SelectedItem="{Binding SearchModel.SelectedStatus}"/>
+
+                <Button Grid.Column="4"
+                        Style="{StaticResource PrimaryButtonStyle}"
+                        Content="조회"
+                        Command="{Binding SearchCommand}"/>
+
+                <Button Grid.Column="5"
+                        Style="{StaticResource PrimaryButtonStyle}"
+                        Margin="0"
+                        Content="초기화"
+                        Command="{Binding ResetCommand}"/>
+            </Grid>
+        </Border>
+
+        <!-- LOT 목록 -->
+        <Border Grid.Row="1"
+                Style="{StaticResource SectionBorderStyle}"
+                Margin="20,0,20,12">
+            <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="12"/>
+                    <RowDefinition Height="382"/>
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
-                <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="생성일(From~To)"/>
-                <DatePicker Grid.Row="0" Grid.Column="1" SelectedDate="{Binding SearchModel.CreatedDateFrom}"/>
-                <TextBlock Grid.Row="0" Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Center" Text="~"/>
-                <DatePicker Grid.Row="0" Grid.Column="3" SelectedDate="{Binding SearchModel.CreatedDateTo}"/>
+                <DockPanel Margin="0,0,0,12">
+                    <TextBlock DockPanel.Dock="Left"
+                               FontSize="15"
+                               FontWeight="SemiBold"
+                               Text="LOT 목록"/>
+                    <TextBlock DockPanel.Dock="Right"
+                               VerticalAlignment="Center"
+                               Foreground="#6B7280"
+                               Text="{Binding PageDisplayText}"/>
+                </DockPanel>
 
-                <TextBlock Grid.Row="0" Grid.Column="5" VerticalAlignment="Center" Text="납기일(From~To)"/>
-                <DatePicker Grid.Row="0" Grid.Column="6" SelectedDate="{Binding SearchModel.DueDateFrom}"/>
-                <TextBlock Grid.Row="0" Grid.Column="7" VerticalAlignment="Center" HorizontalAlignment="Center" Text="~"/>
-                <DatePicker Grid.Row="0" Grid.Column="8" SelectedDate="{Binding SearchModel.DueDateTo}"/>
+                <DataGrid Grid.Row="1"
+                          ItemsSource="{Binding Items}"
+                          SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
+                          AutoGenerateColumns="False"
+                          IsReadOnly="True"
+                          CanUserAddRows="False"
+                          CanUserDeleteRows="False"
+                          CanUserResizeRows="False"
+                          HeadersVisibility="Column"
+                          GridLinesVisibility="Horizontal"
+                          BorderThickness="0"
+                          Background="White"
+                          RowHeight="34"
+                          ColumnHeaderHeight="38"
+                          ScrollViewer.CanContentScroll="True"
+                          ScrollViewer.VerticalScrollBarVisibility="Visible"
+                          ScrollViewer.HorizontalScrollBarVisibility="Auto">
 
-                <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Text="검색어"/>
-                <TextBox Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="8"
-                         Text="{Binding SearchModel.Keyword, UpdateSourceTrigger=PropertyChanged}"/>
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="LOT번호"
+                                            Binding="{Binding LotNo}"
+                                            Width="160"
+                                            ElementStyle="{StaticResource GridTextStyle}"/>
 
-                <StackPanel Grid.Row="2" Grid.Column="9"
-                            Orientation="Horizontal"
-                            HorizontalAlignment="Right">
-                    <Button Width="90"
-                            Height="32"
-                            Margin="0,0,8,0"
-                            Content="조회"
-                            Command="{Binding SearchCommand}"/>
-                    <Button Width="90"
-                            Height="32"
-                            Content="초기화"
-                            Command="{Binding ResetCommand}"/>
-                </StackPanel>
+                        <DataGridTextColumn Header="상태"
+                                            Binding="{Binding Status}"
+                                            Width="110"
+                                            ElementStyle="{StaticResource GridTextStyle}"/>
+
+                        <DataGridTextColumn Header="거래처"
+                                            Binding="{Binding PartnerName}"
+                                            Width="170"
+                                            ElementStyle="{StaticResource GridTextStyle}"/>
+
+                        <DataGridTextColumn Header="품목코드"
+                                            Binding="{Binding ProductCode}"
+                                            Width="130"
+                                            ElementStyle="{StaticResource GridTextStyle}"/>
+
+                        <DataGridTextColumn Header="품목명"
+                                            Binding="{Binding ProductName}"
+                                            Width="*"
+                                            ElementStyle="{StaticResource GridTextStyle}"/>
+
+                        <DataGridTextColumn Header="LOT수량"
+                                            Binding="{Binding LotQty, StringFormat=N0}"
+                                            Width="120"
+                                            ElementStyle="{StaticResource GridTextStyle}"/>
+
+                        <DataGridTextColumn Header="납기일"
+                                            Binding="{Binding DueDate, StringFormat=yyyy-MM-dd}"
+                                            Width="130"
+                                            ElementStyle="{StaticResource GridTextStyle}"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+
+                <DockPanel Grid.Row="2" Margin="0,12,0,0">
+                    <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
+                        <Button Style="{StaticResource PrimaryButtonStyle}"
+                                Content="이전"
+                                Command="{Binding PrevPageCommand}"/>
+                        <Button Style="{StaticResource PrimaryButtonStyle}"
+                                Margin="0"
+                                Content="다음"
+                                Command="{Binding NextPageCommand}"/>
+                    </StackPanel>
+                </DockPanel>
             </Grid>
-        </GroupBox>
+        </Border>
 
-        <GroupBox Grid.Row="2" Header="LOT 목록" Padding="8">
-            <DataGrid ItemsSource="{Binding Items}"
-                      SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
-                      AutoGenerateColumns="False"
-                      IsReadOnly="True"
-                      SelectionMode="Single"
-                      CanUserAddRows="False">
-                <DataGrid.Columns>
-                    <DataGridTextColumn Header="LOT번호" Binding="{Binding LotNo}" Width="160"/>
-                    <DataGridTextColumn Header="상태" Binding="{Binding Status}" Width="110"/>
-                    <DataGridTextColumn Header="주문번호" Binding="{Binding OrderNo}" Width="140"/>
-                    <DataGridTextColumn Header="거래처" Binding="{Binding PartnerName}" Width="140"/>
-                    <DataGridTextColumn Header="품목코드" Binding="{Binding ProductCode}" Width="120"/>
-                    <DataGridTextColumn Header="품목명" Binding="{Binding ProductName}" Width="160"/>
-                    <DataGridTextColumn Header="LOT수량" Binding="{Binding LotQty, StringFormat=N0}" Width="100"/>
-                    <DataGridTextColumn Header="단위" Binding="{Binding Uom}" Width="80"/>
-                    <DataGridTextColumn Header="납기일" Binding="{Binding DueDate, StringFormat=yyyy-MM-dd}" Width="120"/>
-                </DataGrid.Columns>
-            </DataGrid>
-        </GroupBox>
+        <!-- 공정 상세 -->
+        <Border Grid.Row="2"
+                Style="{StaticResource SectionBorderStyle}"
+                Margin="20,0,20,20">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="190"/>
+                </Grid.RowDefinitions>
 
-        <GroupBox Grid.Row="4" Header="공정 상세" Padding="8">
-            <DataGrid ItemsSource="{Binding Steps}"
-                      AutoGenerateColumns="False"
-                      IsReadOnly="True"
-                      CanUserAddRows="False">
-                <DataGrid.Columns>
-                    <DataGridTextColumn Header="순서" Binding="{Binding StepSeq}" Width="70"/>
-                    <DataGridTextColumn Header="공정코드" Binding="{Binding ProcessCode}" Width="120"/>
-                    <DataGridTextColumn Header="공정명" Binding="{Binding ProcessName}" Width="180"/>
-                    <DataGridTextColumn Header="공정유형" Binding="{Binding ProcessType}" Width="110"/>
-                    <DataGridTextColumn Header="상태" Binding="{Binding Status}" Width="120"/>
-                    <DataGridTextColumn Header="시작" Binding="{Binding StartedAt, StringFormat=yyyy-MM-dd HH:mm}" Width="150"/>
-                    <DataGridTextColumn Header="완료" Binding="{Binding EndedAt, StringFormat=yyyy-MM-dd HH:mm}" Width="150"/>
+                <TextBlock Margin="0,0,0,12"
+                           FontSize="15"
+                           FontWeight="SemiBold"
+                           Text="공정 상세"/>
 
-                    <DataGridTemplateColumn Header="액션" Width="180">
-                        <DataGridTemplateColumn.CellTemplate>
-                            <DataTemplate>
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                                    <Button Content="시작"
+                <DataGrid Grid.Row="1"
+                          ItemsSource="{Binding Steps}"
+                          AutoGenerateColumns="False"
+                          IsReadOnly="True"
+                          CanUserAddRows="False"
+                          CanUserDeleteRows="False"
+                          CanUserResizeRows="False"
+                          HeadersVisibility="Column"
+                          GridLinesVisibility="Horizontal"
+                          BorderThickness="0"
+                          Background="White"
+                          RowHeight="34"
+                          ColumnHeaderHeight="38"
+                          ScrollViewer.CanContentScroll="True"
+                          ScrollViewer.VerticalScrollBarVisibility="Auto"
+                          ScrollViewer.HorizontalScrollBarVisibility="Auto">
+
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="순서"
+                                            Binding="{Binding StepSeq}"
                                             Width="70"
-                                            Margin="0,0,6,0"
-                                            Command="{Binding DataContext.StartStepCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                            CommandParameter="{Binding}">
-                                        <Button.Style>
-                                            <Style TargetType="Button">
-                                                <Setter Property="Visibility" Value="Collapsed"/>
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding CanStart}" Value="True">
-                                                        <Setter Property="Visibility" Value="Visible"/>
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </Button.Style>
-                                    </Button>
+                                            ElementStyle="{StaticResource GridTextStyle}"/>
 
-                                    <Button Content="완료"
-                                            Width="70"
-                                            Command="{Binding DataContext.CompleteStepCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                            CommandParameter="{Binding}">
-                                        <Button.Style>
-                                            <Style TargetType="Button">
-                                                <Setter Property="Visibility" Value="Collapsed"/>
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding CanComplete}" Value="True">
-                                                        <Setter Property="Visibility" Value="Visible"/>
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </Button.Style>
-                                    </Button>
+                        <DataGridTextColumn Header="공정코드"
+                                            Binding="{Binding ProcessCode}"
+                                            Width="95"
+                                            ElementStyle="{StaticResource GridTextStyle}"/>
 
-                                    <TextBlock VerticalAlignment="Center"
-                                               Foreground="Gray"
-                                               Text="확인만">
-                                        <TextBlock.Style>
-                                            <Style TargetType="TextBlock">
-                                                <Setter Property="Visibility" Value="Collapsed"/>
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding IsOutsource}" Value="False">
-                                                        <Setter Property="Visibility" Value="Visible"/>
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </TextBlock.Style>
-                                    </TextBlock>
-                                </StackPanel>
-                            </DataTemplate>
-                        </DataGridTemplateColumn.CellTemplate>
-                    </DataGridTemplateColumn>
-                </DataGrid.Columns>
-            </DataGrid>
-        </GroupBox>
+                        <DataGridTextColumn Header="공정명"
+                                            Binding="{Binding ProcessName}"
+                                            Width="125"
+                                            ElementStyle="{StaticResource GridTextStyle}"/>
+
+                        <DataGridTextColumn Header="공정유형"
+                                            Binding="{Binding ProcessType}"
+                                            Width="110"
+                                            ElementStyle="{StaticResource GridTextStyle}"/>
+
+                        <DataGridTextColumn Header="상태"
+                                            Binding="{Binding Status}"
+                                            Width="110"
+                                            ElementStyle="{StaticResource GridTextStyle}"/>
+
+                        <DataGridTextColumn Header="시작"
+                                            Binding="{Binding StartedAt, StringFormat=yyyy-MM-dd HH:mm}"
+                                            Width="150"
+                                            ElementStyle="{StaticResource GridTextStyle}"/>
+
+                        <DataGridTextColumn Header="완료"
+                                            Binding="{Binding EndedAt, StringFormat=yyyy-MM-dd HH:mm}"
+                                            Width="150"
+                                            ElementStyle="{StaticResource GridTextStyle}"/>
+
+                        <DataGridTemplateColumn Header="액션" Width="190">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Grid HorizontalAlignment="Center"
+                                          VerticalAlignment="Center">
+                                        <Button Content="시작"
+                                                Width="70"
+                                                Height="28"
+                                                VerticalAlignment="Center"
+                                                HorizontalAlignment="Center"
+                                                Command="{Binding DataContext.StartStepCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}">
+                                            <Button.Style>
+                                                <Style TargetType="Button">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                    <Setter Property="VerticalContentAlignment" Value="Center"/>
+                                                    <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding CanStart}" Value="True">
+                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                        </Button>
+
+                                        <Button Content="완료"
+                                                Width="70"
+                                                Height="28"
+                                                VerticalAlignment="Center"
+                                                HorizontalAlignment="Center"
+                                                Command="{Binding DataContext.CompleteStepCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}">
+                                            <Button.Style>
+                                                <Style TargetType="Button">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                    <Setter Property="VerticalContentAlignment" Value="Center"/>
+                                                    <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding CanComplete}" Value="True">
+                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                        </Button>
+
+                                        <Border Background="#F3F4F6"
+                                                CornerRadius="10"
+                                                Padding="8,2"
+                                                HorizontalAlignment="Center"
+                                                VerticalAlignment="Center">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsOutsource}" Value="False">
+                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <TextBlock Foreground="#6B7280"
+                                                       VerticalAlignment="Center"
+                                                       Text="확인만"/>
+                                        </Border>
+                                    </Grid>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
+        </Border>
     </Grid>
 </UserControl>

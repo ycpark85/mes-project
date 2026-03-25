@@ -86,19 +86,37 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
         public int Page
         {
             get => _page;
-            set => SetProperty(ref _page, value);
+            set
+            {
+                if (SetProperty(ref _page, value))
+                {
+                    OnPropertyChanged(nameof(PageInfoText));
+                }
+            }
         }
 
         public int Size
         {
             get => _size;
-            set => SetProperty(ref _size, value);
+            set
+            {
+                if (SetProperty(ref _size, value))
+                {
+                    OnPropertyChanged(nameof(PageInfoText));
+                }
+            }
         }
 
         public int Total
         {
             get => _total;
-            set => SetProperty(ref _total, value);
+            set
+            {
+                if (SetProperty(ref _total, value))
+                {
+                    OnPropertyChanged(nameof(PageInfoText));
+                }
+            }
         }
 
         public bool CanGoPreviousPage
