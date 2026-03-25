@@ -252,8 +252,6 @@
                         <RowDefinition Height="8"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="8"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="8"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
@@ -275,17 +273,39 @@
 
                     <TextBlock Grid.Row="4"
                                Grid.Column="0"
-                               VerticalAlignment="Center"
-                               Text="원단 사용량"/>
-                    <StackPanel Grid.Row="4"
-                                Grid.Column="1"
-                                Orientation="Horizontal">
-                        <TextBox Width="140"
-                                 Text="{Binding EditModel.MaterialUsedQty, UpdateSourceTrigger=PropertyChanged}"/>
-                        <TextBox Width="100"
-                                 Margin="8,0,0,0"
-                                 Text="{Binding EditModel.MaterialUom, UpdateSourceTrigger=PropertyChanged}"/>
-                    </StackPanel>
+                               VerticalAlignment="Top"
+                               Text="원단 정보"/>   
+
+                    <Grid Grid.Row="4" Grid.Column="1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="140"/>
+                            <ColumnDefinition Width="16"/>
+                            <ColumnDefinition Width="100"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="4"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0"
+               Grid.Column="0"
+               Text="사용량"/>
+
+                        <TextBlock Grid.Row="0"
+               Grid.Column="2"
+               Text="시트수"/>
+
+                        <TextBox Grid.Row="2"
+             Grid.Column="0"
+             Text="{Binding EditModel.MaterialUsedQty, UpdateSourceTrigger=PropertyChanged}"/>
+
+                        <TextBox Grid.Row="2"
+             Grid.Column="2"
+             Text="{Binding EditModel.MaterialSheetCount, UpdateSourceTrigger=PropertyChanged}"/>
+                    </Grid>
 
                     <TextBlock Grid.Row="6"
                                Grid.Column="0"
@@ -295,19 +315,13 @@
                              Grid.Column="1"
                              Text="{Binding EditModel.PlanQty, UpdateSourceTrigger=PropertyChanged}"/>
 
-                    <TextBlock Grid.Row="8"
-                               Grid.Column="0"
-                               VerticalAlignment="Center"
-                               Text="상태"/>
-                    <TextBlock Grid.Row="8"
-                               Grid.Column="1"
-                               Text="{Binding EditModel.ParentLotStatus}"/>
+                    
 
-                    <TextBlock Grid.Row="10"
+                    <TextBlock Grid.Row="8"
                                Grid.Column="0"
                                VerticalAlignment="Top"
                                Text="메모"/>
-                    <TextBox Grid.Row="10"
+                    <TextBox Grid.Row="8"
                              Grid.Column="1"
                              Height="120"
                              AcceptsReturn="True"

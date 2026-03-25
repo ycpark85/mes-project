@@ -37,6 +37,10 @@ class Lot(Base):
             "material_used_qty IS NULL OR material_used_qty > 0",
             name="ck_lot__material_used_qty_gt_0",
         ),
+        CheckConstraint(
+            "material_sheet_count IS NULL OR material_sheet_count > 0",
+            name="ck_lot__material_sheet_count_gt_0",
+        ),
         Index("ix_lot__order_line_id", "order_line_id"),
         Index("ix_lot__product_id", "product_id"),
         Index("ix_lot__created_date", "created_date"),
@@ -81,7 +85,7 @@ class Lot(Base):
         Numeric(18, 3),
         nullable=True,
     )
-    material_uom: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    material_sheet_count: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
 
     # 업무 기준 생성일
     created_date: Mapped[date] = mapped_column(Date, nullable=False)

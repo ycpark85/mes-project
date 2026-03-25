@@ -26,7 +26,7 @@ namespace Mes.Wpf.Modules.Lots.Dtos
         [JsonPropertyName("material_used_qty")]
         public decimal? MaterialUsedQty { get; set; }
 
-        [JsonPropertyName("material_uom")]
-        public string? MaterialUom { get; set; }
+        [JsonPropertyName("material_sheet_count")]
+        public int? MaterialSheetCount { get; set; }
     }
 }

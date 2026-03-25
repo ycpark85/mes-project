@@ -20,6 +20,7 @@
         public const string OrderLines = "api/v1/order-lines";
 
         public const string Lots = "api/v1/lots";
+        public const string LotSteps = "api/v1/lot-steps";
 
 
     }

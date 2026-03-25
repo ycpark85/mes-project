@@ -105,14 +105,14 @@ def _normalize_optional_str(value: Optional[str]) -> Optional[str]:
     return value or None
 
 
-def _validate_material_fields(payload: LotCreate) -> tuple[Optional[str], Optional[float], Optional[str]]:
+def _validate_material_fields(payload: LotCreate):
     material_lot_no = _normalize_optional_str(payload.material_lot_no)
-    material_uom = _normalize_optional_str(payload.material_uom)
     material_used_qty = payload.material_used_qty
+    material_sheet_count = payload.material_sheet_count
 
     has_lot_no = material_lot_no is not None
     has_used_qty = material_used_qty is not None
-    has_uom = material_uom is not None
+    has_sheet_count = material_sheet_count is not None
 
     if has_lot_no and not has_used_qty:
         raise HTTPException(status_code=409, detail="material_used_qty is required when material_lot_no is provided")
@@ -120,10 +120,10 @@ def _validate_material_fields(payload: LotCreate) -> tuple[Optional[str], Option
     if has_used_qty and not has_lot_no:
         raise HTTPException(status_code=409, detail="material_lot_no is required when material_used_qty is provided")
 
-    if (has_lot_no or has_used_qty) and not has_uom:
-        raise HTTPException(status_code=409, detail="material_uom is required when material usage is provided")
+    if has_sheet_count and not has_lot_no:
+        raise HTTPException(status_code=409, detail="material_lot_no is required when material_sheet_count is provided")
 
-    return material_lot_no, material_used_qty, material_uom
+    return material_lot_no, material_used_qty, material_sheet_count
 
 
 @router.post("", response_model=LotDetailOut, status_code=http_status.HTTP_201_CREATED)
@@ -139,7 +139,7 @@ def create_lot(payload: LotCreate, db: Session = Depends(get_db)):
     is_rework = parent_lot_id_in is not None
     lot_qty = int(payload.lot_qty)
 
-    material_lot_no, material_used_qty, material_uom = _validate_material_fields(payload)
+    material_lot_no, material_used_qty, material_sheet_count = _validate_material_fields(payload)
 
     parent_lot_id = None
 
@@ -178,7 +178,7 @@ def create_lot(payload: LotCreate, db: Session = Depends(get_db)):
             uom=ol.uom,
             material_lot_no=material_lot_no,
             material_used_qty=material_used_qty,
-            material_uom=material_uom,
+            material_sheet_count=material_sheet_count,
             created_date=created_date,
             due_date=ol.due_date,
             memo=payload.memo,

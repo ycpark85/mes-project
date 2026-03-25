@@ -38,7 +38,7 @@ namespace Mes.Wpf.Modules.Lots.Dtos
 
         private string _materialLotNo = string.Empty;
         private decimal? _materialUsedQty;
-        private string _materialUom = string.Empty;
+        private int? _materialSheetCount;
         private int? _planQty;
         private string? _memo;
 
@@ -222,10 +222,10 @@ namespace Mes.Wpf.Modules.Lots.Dtos
             set => SetProperty(ref _materialUsedQty, value);
         }
 
-        public string MaterialUom
+        public int? MaterialSheetCount
         {
-            get => _materialUom;
-            set => SetProperty(ref _materialUom, value);
+            get => _materialSheetCount;
+            set => SetProperty(ref _materialSheetCount, value);
         }
 
         public int? PlanQty
@@ -333,7 +333,7 @@ namespace Mes.Wpf.Modules.Lots.Dtos
 
             MaterialLotNo = string.Empty;
             MaterialUsedQty = null;
-            MaterialUom = string.Empty;
+            MaterialSheetCount = null;
             PlanQty = null;
             Memo = null;
         }

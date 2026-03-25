@@ -132,7 +132,7 @@ namespace Mes.Wpf.Modules.Lots.ViewModels
 
             EditModel.MaterialLotNo = string.Empty;
             EditModel.MaterialUsedQty = null;
-            EditModel.MaterialUom = string.Empty;
+            EditModel.MaterialSheetCount = null;
             EditModel.PlanQty = EditModel.OrderQty;
             EditModel.Memo = null;
         }
@@ -144,7 +144,6 @@ namespace Mes.Wpf.Modules.Lots.ViewModels
             EditModel.ProductCode = EditModel.ProductCode?.Trim().ToUpperInvariant() ?? string.Empty;
             EditModel.Uom = EditModel.Uom?.Trim().ToUpperInvariant() ?? string.Empty;
             EditModel.MaterialLotNo = EditModel.MaterialLotNo?.Trim().ToUpperInvariant() ?? string.Empty;
-            EditModel.MaterialUom = EditModel.MaterialUom?.Trim().ToUpperInvariant() ?? string.Empty;
             EditModel.Memo = EditModel.Memo?.Trim();
         }
 
@@ -170,7 +169,7 @@ namespace Mes.Wpf.Modules.Lots.ViewModels
 
             var hasMaterialLotNo = !string.IsNullOrWhiteSpace(EditModel.MaterialLotNo);
             var hasMaterialUsedQty = EditModel.MaterialUsedQty.HasValue;
-            var hasMaterialUom = !string.IsNullOrWhiteSpace(EditModel.MaterialUom);
+            var hasMaterialSheetCount = EditModel.MaterialSheetCount.HasValue;
 
             if (hasMaterialLotNo && (!hasMaterialUsedQty || EditModel.MaterialUsedQty!.Value <= 0))
             {
@@ -184,11 +183,21 @@ namespace Mes.Wpf.Modules.Lots.ViewModels
                 return false;
             }
 
-            if ((hasMaterialLotNo || hasMaterialUsedQty) && !hasMaterialUom)
+
+            if (hasMaterialSheetCount && EditModel.MaterialSheetCount.Value <= 0)
             {
-                _messageService.ShowWarning("원단 정보를 입력한 경우 원단 단위를 입력하세요.");
+                _messageService.ShowWarning("시트수는 1 이상이어야 합니다.");
                 return false;
             }
+
+            if (hasMaterialSheetCount && !hasMaterialLotNo)
+            {
+                _messageService.ShowWarning("시트수를 입력한 경우 원단 LOT가 필요합니다.");
+                return false;
+            }
+
+
+
 
             if (!EditModel.IsRework)
             {
@@ -277,7 +286,7 @@ namespace Mes.Wpf.Modules.Lots.ViewModels
                 Memo = string.IsNullOrWhiteSpace(EditModel.Memo) ? null : EditModel.Memo,
                 MaterialLotNo = string.IsNullOrWhiteSpace(EditModel.MaterialLotNo) ? null : EditModel.MaterialLotNo,
                 MaterialUsedQty = EditModel.MaterialUsedQty,
-                MaterialUom = string.IsNullOrWhiteSpace(EditModel.MaterialUom) ? null : EditModel.MaterialUom
+                MaterialSheetCount = EditModel.MaterialSheetCount
             };
 
             IsLoading = true;

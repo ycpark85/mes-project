@@ -272,6 +272,20 @@ namespace Mes.Wpf.Views.Shell
             await OpenOrderLineListAsync();
         }
 
+        private async void LotProcess_Click(object sender, RoutedEventArgs e)
+        {
+            var page = new LotPage();
+            var viewModel = new LotPageViewModel(_apiClient, _messageService);
+
+            page.DataContext = viewModel;
+            MainContent.Content = page;
+            MainContent.Visibility = Visibility.Visible;
+
+            HeaderTitle.Text = "LOT 공정관리";
+            HeaderSubtitle.Text = "LOT 조회 / 공정 진행상태 확인 / 외주공정 시작 / 완료";
+
+            await viewModel.InitializeAsync();
+        }
 
 
 

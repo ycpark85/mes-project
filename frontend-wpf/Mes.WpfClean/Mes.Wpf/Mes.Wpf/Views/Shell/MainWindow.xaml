@@ -93,7 +93,11 @@
                             <Button Content="발주리스트"
                                     Style="{StaticResource BaseButtonStyle}"
                                     Margin="0,0,0,10"
-                                    Click="OrderLineList_Click"/>       
+                                    Click="OrderLineList_Click"/>
+                            <Button Content="LOT 공정관리"
+                                    Style="{StaticResource BaseButtonStyle}"
+                                    Margin="0,0,0,10"
+                                    Click="LotProcess_Click"/>   
                         </StackPanel>
                     </Expander>
                 </StackPanel>

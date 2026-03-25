@@ -36,7 +36,7 @@ class LotCreate(BaseModel):
 
     material_lot_no: Optional[str] = None
     material_used_qty: Optional[Decimal] = Field(default=None, gt=0)
-    material_uom: Optional[str] = None
+    material_sheet_count: Optional[int] = Field(default=None, gt=0)
 
 
 class LotOut(BaseModel):
@@ -51,7 +51,7 @@ class LotOut(BaseModel):
 
     material_lot_no: Optional[str] = None
     material_used_qty: Optional[Decimal] = None
-    material_uom: Optional[str] = None
+    material_sheet_count: Optional[int] = Field(default=None, gt=0)
 
     created_date: date
     due_date: date
