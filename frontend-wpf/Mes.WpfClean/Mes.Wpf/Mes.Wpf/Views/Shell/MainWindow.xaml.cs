@@ -22,6 +22,9 @@ using Mes.Wpf.Modules.Lots.ViewModels;
 using Mes.Wpf.Modules.Lots.Views;
 using Mes.Wpf.Modules.OrderLineList.Dtos;
 
+using Mes.Wpf.Modules.InspectionSchedules.ViewModels;
+using Mes.Wpf.Modules.InspectionSchedules.Views;
+
 
 
 using System.Windows;
@@ -285,6 +288,21 @@ namespace Mes.Wpf.Views.Shell
             HeaderSubtitle.Text = "LOT 조회 / 공정 진행상태 확인 / 외주공정 시작 / 완료";
 
             await viewModel.InitializeAsync();
+        }
+
+        private async void InspectionWorkInstruction_Click(object sender, RoutedEventArgs e)
+        {
+            var inspectionWorkInstructionPage = new InspectionWorkInstructionPage();
+            var inspectionWorkInstructionViewModel = new InspectionWorkInstructionPageViewModel(_apiClient, _messageService);
+
+            inspectionWorkInstructionPage.DataContext = inspectionWorkInstructionViewModel;
+            MainContent.Content = inspectionWorkInstructionPage;
+            MainContent.Visibility = Visibility.Visible;
+
+            HeaderTitle.Text = "검수 작업지시 / 등록";
+            HeaderSubtitle.Text = "최초 검수일정이 등록되지 않은 LOT 기준 검수 작업지시 등록";
+
+            await inspectionWorkInstructionViewModel.InitializeAsync();
         }
 
 

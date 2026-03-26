@@ -230,6 +230,7 @@ def list_lots(
     due_date_to: Optional[date] = Query(None),
     created_date_from: Optional[date] = Query(None),
     created_date_to: Optional[date] = Query(None),
+    inspection_schedule_registered: Optional[bool] = Query(None),
 ):
     items, total = lot_crud.list_with_joins(
         db,
@@ -244,6 +245,7 @@ def list_lots(
         due_date_to=due_date_to,
         created_date_from=created_date_from,
         created_date_to=created_date_to,
+        inspection_schedule_registered=inspection_schedule_registered,
     )
 
     return LotListOut(

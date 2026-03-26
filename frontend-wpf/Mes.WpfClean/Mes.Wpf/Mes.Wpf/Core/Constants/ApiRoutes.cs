@@ -22,6 +22,8 @@
         public const string Lots = "api/v1/lots";
         public const string LotSteps = "api/v1/lot-steps";
 
+        public const string InspectionSchedules = "api/v1/inspection-schedules";
+
 
     }
 }

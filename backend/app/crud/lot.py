@@ -4,9 +4,10 @@ from __future__ import annotations
 from datetime import date
 from typing import Optional, Tuple, List, Dict
 
-from sqlalchemy import select, func, or_
+from sqlalchemy import select, func, or_, exists
 from sqlalchemy.orm import Session
 
+from app.models.inspection_schedule import InspectionSchedule
 from app.models.lot import Lot
 from app.models.lot_step import LotStep
 from app.models.order_line import OrderLine
@@ -39,6 +40,7 @@ class LotCRUD:
         due_date_to: Optional[date] = None,
         created_date_from: Optional[date] = None,
         created_date_to: Optional[date] = None,
+        inspection_schedule_registered: Optional[bool] = None,
     ) -> Tuple[List[Dict], int]:
         stmt = (
             select(
@@ -87,6 +89,15 @@ class LotCRUD:
                     Product.product_code.ilike(like),
                 )
             )
+        if inspection_schedule_registered is not None:
+            inspection_schedule_exists = exists(
+                select(1).where(InspectionSchedule.lot_id == Lot.lot_id)
+            )
+
+            if inspection_schedule_registered:
+                conds.append(inspection_schedule_exists)
+            else:
+                conds.append(~inspection_schedule_exists)    
 
         if conds:
             stmt = stmt.where(*conds)
