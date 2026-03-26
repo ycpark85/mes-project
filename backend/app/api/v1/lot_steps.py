@@ -141,19 +141,16 @@ def start_step(lot_step_id: int, db: Session = Depends(get_db)):
     step.status = "IN_PROGRESS"
     if step.started_at is None:
         step.started_at = datetime.now(timezone.utc)
-
+     # ✅ LOT 상태는 첫 공정 시작 시점에만 WAITING -> IN_PROGRESS
+    if lot.status == "WAITING":
+        lot.status = "IN_PROGRESS"
     try:
-        # ✅ lot.status 캐시 갱신(SSOT=lot_step)
-        db.flush()  # step 변경 먼저 반영
-        recalc_lot_status(db, lot)
-        db.flush()  # lot.status 반영
+        db.flush()
         db.commit()
         db.refresh(step)
         return LotStepOut.model_validate(step, from_attributes=True)
-
     except IntegrityError:
         db.rollback()
-        # 진행중 공정 1개 규칙(partial unique index) 충돌
         raise HTTPException(status_code=409, detail="Another step is already IN_PROGRESS for this LOT")
 
 
@@ -168,12 +165,11 @@ def complete_step(lot_step_id: int, db: Session = Depends(get_db)):
     step.status = "DONE"
     step.ended_at = datetime.now(timezone.utc)
 
-    # ✅ lot.status 캐시 갱신
-    recalc_lot_status(db, lot)
+    # ✅ LOT 상태는 여기서 재계산하지 않음
+    # - 중간 공정 완료 후에도 LOT는 계속 IN_PROGRESS 유지
+    # - 마지막 DONE 전이는 inspection_result_service 에서 처리
 
-    db.flush()  # step 변경 먼저 반영
-    recalc_lot_status(db, lot)
-    db.flush()  # lot.status 반영
+    db.flush()
     db.commit()
     db.refresh(step)
     return LotStepOut.model_validate(step, from_attributes=True)

@@ -41,7 +41,11 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
             Items = new ObservableCollection<OrderLineListItemDto>();
             StatusOptions = new ObservableCollection<string> { "전체", "OPEN", "IN_PROGRESS", "DONE", "CANCELED" };
 
-            SearchCommand = new AsyncRelayCommand(SearchAsync);
+            SearchCommand = new AsyncRelayCommand(async () =>
+            {
+                Page = 1;
+                await SearchAsync();
+            });
             ResetCommand = new RelayCommand(Reset);
             OpenOrderDetailCommand = new AsyncRelayCommand(OpenOrderDetailAsync);
             OpenLotActionCommand = new AsyncRelayCommand(OpenLotActionAsync);
@@ -165,13 +169,12 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
             Items.Clear();
 
             foreach (var item in result.Data.Items)
-            {
                 Items.Add(item);
-            }
 
-            Page = result.Data.Page;
-            Size = result.Data.Size;
-            Total = result.Data.Total;
+            Page = result.Data.Meta.Page;
+            Size = result.Data.Meta.Size;
+            Total = result.Data.Meta.Total;
+
             CanGoPreviousPage = Page > 1;
             CanGoNextPage = Page * Size < Total;
 
@@ -245,19 +248,14 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
 
         private string BuildListUrl()
         {
-            var safePage = Page <= 0 ? 1 : Page;
-            var safeSize = Size <= 0 ? 20 : Size;
-
             var queryParts = new List<string>
             {
-                $"page={safePage}",
-                $"size={safeSize}"
+                $"page={Page}",
+                $"size={Size}"
             };
 
             if (!string.IsNullOrWhiteSpace(SearchKeyword))
-            {
                 queryParts.Add($"q={Uri.EscapeDataString(SearchKeyword.Trim())}");
-            }
 
             if (!string.IsNullOrWhiteSpace(SelectedStatus) && SelectedStatus != "전체")
             {
@@ -266,14 +264,10 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
             }
 
             if (OrderDateFrom.HasValue)
-            {
                 queryParts.Add($"order_date_from={OrderDateFrom.Value:yyyy-MM-dd}");
-            }
 
             if (OrderDateTo.HasValue)
-            {
                 queryParts.Add($"order_date_to={OrderDateTo.Value:yyyy-MM-dd}");
-            }
 
             return $"{ApiRoutes.OrderLines}?{string.Join("&", queryParts)}";
         }

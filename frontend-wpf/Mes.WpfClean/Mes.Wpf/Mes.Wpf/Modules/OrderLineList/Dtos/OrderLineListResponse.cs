@@ -8,13 +8,19 @@ namespace Mes.Wpf.Modules.OrderLineList.Dtos
         [JsonPropertyName("items")]
         public List<OrderLineListItemDto> Items { get; set; } = new();
 
-        [JsonPropertyName("total")]
-        public int Total { get; set; }
+        [JsonPropertyName("meta")]
+        public OrderLineListMetaDto Meta { get; set; } = new();
+    }
 
+    public class OrderLineListMetaDto
+    {
         [JsonPropertyName("page")]
         public int Page { get; set; }
 
         [JsonPropertyName("size")]
         public int Size { get; set; }
+
+        [JsonPropertyName("total")]
+        public int Total { get; set; }
     }
 }
