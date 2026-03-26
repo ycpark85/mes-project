@@ -1,0 +1,411 @@
+﻿<UserControl x:Class="Mes.Wpf.Modules.InspectionSchedules.Views.InspectionScheduleManagementView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d">
+
+    <UserControl.Resources>
+        <SolidColorBrush x:Key="BorderBrushColor" Color="#D0D5DD"/>
+        <SolidColorBrush x:Key="HeaderBgBrush" Color="#F3F4F6"/>
+        <SolidColorBrush x:Key="PrimaryBlueBrush" Color="#1F73E8"/>
+        <SolidColorBrush x:Key="PrimaryBlueBorderBrush" Color="#1A67D1"/>
+        <SolidColorBrush x:Key="GrayButtonBrush" Color="#F8F9FB"/>
+        <SolidColorBrush x:Key="GrayButtonBorderBrush" Color="#C7CED8"/>
+
+        <Style x:Key="PrimaryActionButtonStyle" TargetType="Button">
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="MinWidth" Value="76"/>
+            <Setter Property="Padding" Value="8,0"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Background" Value="{StaticResource PrimaryBlueBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource PrimaryBlueBorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <Style x:Key="SecondaryActionButtonStyle" TargetType="Button">
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="MinWidth" Value="76"/>
+            <Setter Property="Padding" Value="8,0"/>
+            <Setter Property="Foreground" Value="#374151"/>
+            <Setter Property="Background" Value="{StaticResource GrayButtonBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource GrayButtonBorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <Style x:Key="MiniOrderButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="22"/>
+            <Setter Property="Height" Value="18"/>
+            <Setter Property="Margin" Value="2,0,0,0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Foreground" Value="#374151"/>
+            <Setter Property="Background" Value="#F8F9FB"/>
+            <Setter Property="BorderBrush" Value="#C7CED8"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+
+        <Style x:Key="CompactDatePickerStyle" TargetType="DatePicker">
+            <Setter Property="Width" Value="116"/>
+            <Setter Property="Height" Value="26"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <Style x:Key="CenteredTextBlockStyle" TargetType="TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="TextAlignment" Value="Center"/>
+        </Style>
+
+        <Style x:Key="LeftTextBlockStyle" TargetType="TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="HorizontalAlignment" Value="Left"/>
+            <Setter Property="TextAlignment" Value="Left"/>
+        </Style>
+
+        <Style x:Key="ScheduleGridStyle" TargetType="DataGrid">
+            <Setter Property="AutoGenerateColumns" Value="False"/>
+            <Setter Property="CanUserAddRows" Value="False"/>
+            <Setter Property="CanUserDeleteRows" Value="False"/>
+            <Setter Property="CanUserResizeRows" Value="False"/>
+            <Setter Property="CanUserSortColumns" Value="False"/>
+            <Setter Property="CanUserReorderColumns" Value="False"/>
+            <Setter Property="HeadersVisibility" Value="Column"/>
+            <Setter Property="GridLinesVisibility" Value="Horizontal"/>
+            <Setter Property="HorizontalGridLinesBrush" Value="#E5E7EB"/>
+            <Setter Property="VerticalGridLinesBrush" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="RowHeight" Value="46"/>
+            <Setter Property="ColumnHeaderHeight" Value="40"/>
+            <Setter Property="SelectionMode" Value="Single"/>
+            <Setter Property="SelectionUnit" Value="FullRow"/>
+            <Setter Property="Background" Value="White"/>
+        </Style>
+
+        <Style TargetType="DataGridColumnHeader">
+            <Setter Property="Background" Value="{StaticResource HeaderBgBrush}"/>
+            <Setter Property="Foreground" Value="#1F2937"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+
+        <Style TargetType="DataGridCell">
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="6,0"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+
+        <Style TargetType="DataGridRow">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Foreground" Value="#1F2937"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#F7FAFF"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="12"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0"
+                   Margin="0,0,0,12"
+                   Text="검수 스케줄 관리"
+                   FontSize="26"
+                   FontWeight="Bold"
+                   Foreground="#243042"/>
+
+        <Border Grid.Row="1"
+                Padding="12"
+                BorderBrush="{StaticResource BorderBrushColor}"
+                BorderThickness="1"
+                CornerRadius="6"
+                Background="White">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="140"/>
+                    <ColumnDefinition Width="16"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="120"/>
+                    <ColumnDefinition Width="16"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="180"/>
+                    <ColumnDefinition Width="16"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="180"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0"
+                           VerticalAlignment="Center"
+                           Margin="0,0,8,0"
+                           Text="검수일" />
+                <DatePicker Grid.Column="1"
+                            SelectedDate="{Binding SearchDate, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                <TextBlock Grid.Column="3"
+                           VerticalAlignment="Center"
+                           Margin="0,0,8,0"
+                           Text="상태" />
+                <ComboBox Grid.Column="4"
+                          SelectedValue="{Binding Status, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                          SelectedValuePath="Tag">
+                    <ComboBoxItem Content="전체" Tag="" />
+                    <ComboBoxItem Content="대기" Tag="WAITING" />
+                    <ComboBoxItem Content="입고완료" Tag="RECEIVED" />
+                    <ComboBoxItem Content="검수중" Tag="IN_PROGRESS" />
+                    <ComboBoxItem Content="취소" Tag="CANCELED" />
+                </ComboBox>
+
+                <TextBlock Grid.Column="6"
+                           VerticalAlignment="Center"
+                           Margin="0,0,8,0"
+                           Text="거래처" />
+                <TextBox Grid.Column="7"
+                         Text="{Binding PartnerQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                <TextBlock Grid.Column="9"
+                           VerticalAlignment="Center"
+                           Margin="0,0,8,0"
+                           Text="품목" />
+                <TextBox Grid.Column="10"
+                         Text="{Binding ProductQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                <StackPanel Grid.Column="11"
+                            Orientation="Horizontal"
+                            HorizontalAlignment="Right">
+                    <Button Width="90"
+                            Margin="0,0,8,0"
+                            Command="{Binding RefreshCommand}"
+                            Content="조회" />
+                    <Button Width="90"
+                            Command="{Binding ResetCommand}"
+                            Content="초기화" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="3"
+                BorderBrush="{StaticResource BorderBrushColor}"
+                BorderThickness="1"
+                CornerRadius="6"
+                Background="White">
+            <DataGrid x:Name="ScheduleGrid"
+                      Style="{StaticResource ScheduleGridStyle}"
+                      ItemsSource="{Binding Items}"
+                      SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
+                      IsReadOnly="False">
+                <DataGrid.Columns>
+
+                    <DataGridTemplateColumn Header="순서" Width="88">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal"
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding DaySeq}"
+                                               Width="22"
+                                               Style="{StaticResource CenteredTextBlockStyle}"
+                                               FontWeight="SemiBold"/>
+                                    <StackPanel Orientation="Vertical">
+                                        <Button Content="▲"
+                                                Style="{StaticResource MiniOrderButtonStyle}"
+                                                Click="MoveUpButton_OnClick"/>
+                                        <Button Content="▼"
+                                                Style="{StaticResource MiniOrderButtonStyle}"
+                                                Margin="2,2,0,0"
+                                                Click="MoveDownButton_OnClick"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <DataGridTemplateColumn Header="LOT 번호" Width="100">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding LotNo}"
+                                           Style="{StaticResource CenteredTextBlockStyle}"
+                                           Foreground="#1F73E8"
+                                           FontWeight="SemiBold"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Header="고객사" Width="170">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding PartnerName}"
+                                           Style="{StaticResource CenteredTextBlockStyle}"
+                                           />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Header="품목명" Width="200">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding ProductName}"
+                                           Style="{StaticResource CenteredTextBlockStyle}"
+                                            />          
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                 
+                    <DataGridTemplateColumn Header="발주수량" Width="90">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="-"
+                                           Style="{StaticResource CenteredTextBlockStyle}"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <DataGridTemplateColumn Header="출고수량" Width="90">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="-"
+                                           Style="{StaticResource CenteredTextBlockStyle}"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <DataGridTemplateColumn Header="납기일" Width="110">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding DueDate, StringFormat=yyyy-MM-dd}"
+                                           Style="{StaticResource CenteredTextBlockStyle}"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <DataGridTemplateColumn Header="검수일자" Width="130">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <DatePicker Style="{StaticResource CompactDatePickerStyle}"
+                                            SelectedDate="{Binding InspectionDate, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                            SelectedDateChanged="RowInspectionDatePicker_OnSelectedDateChanged"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <DataGridTemplateColumn Header="상태" Width="90">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock x:Name="StatusText"
+                                           Style="{StaticResource CenteredTextBlockStyle}"
+                                           Foreground="#4B5563"
+                                           FontWeight="SemiBold"
+                                           Text="대기"/>
+                                <DataTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding Status}" Value="WAITING">
+                                        <Setter TargetName="StatusText" Property="Text" Value="대기"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Status}" Value="RECEIVED">
+                                        <Setter TargetName="StatusText" Property="Text" Value="입고완료"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Status}" Value="IN_PROGRESS">
+                                        <Setter TargetName="StatusText" Property="Text" Value="진행중"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Status}" Value="CANCELED">
+                                        <Setter TargetName="StatusText" Property="Text" Value="취소"/>
+                                    </DataTrigger>
+                                </DataTemplate.Triggers>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <DataGridTemplateColumn Header="입고완료" Width="98">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Button Content="입고완료"
+                    Click="ReceiveButton_OnClick">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource SecondaryActionButtonStyle}">
+                                            <Setter Property="IsEnabled" Value="False"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Status}" Value="WAITING">
+                                                    <Setter Property="IsEnabled" Value="True"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <DataGridTemplateColumn Header="검수시작" Width="98">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Button Content="검수시작"
+                    Click="StartButton_OnClick">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource PrimaryActionButtonStyle}">
+                                            <Setter Property="IsEnabled" Value="False"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Status}" Value="RECEIVED">
+                                                    <Setter Property="IsEnabled" Value="True"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <DataGridTemplateColumn Header="취소" Width="86">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Button Content="취소"
+                    Click="CancelButton_OnClick">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource SecondaryActionButtonStyle}">
+                                            <Setter Property="IsEnabled" Value="False"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Status}" Value="WAITING">
+                                                    <Setter Property="IsEnabled" Value="True"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Status}" Value="RECEIVED">
+                                                    <Setter Property="IsEnabled" Value="True"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                </DataGrid.Columns>
+            </DataGrid>
+        </Border>
+
+        <DockPanel Grid.Row="4" Margin="0,12,0,0">
+            <TextBlock VerticalAlignment="Center"
+                       Text="{Binding TotalCount, StringFormat=조회건수: {0}}"/>
+        </DockPanel>
+    </Grid>
+</UserControl>

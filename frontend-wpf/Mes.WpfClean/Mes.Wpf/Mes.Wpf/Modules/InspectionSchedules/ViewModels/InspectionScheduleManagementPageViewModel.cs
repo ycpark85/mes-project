@@ -1,0 +1,670 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Linq;
+using System.Threading.Tasks;
+using System.Windows.Input;
+using Mes.Wpf.Core.Common;
+using Mes.Wpf.Core.Constants;
+using Mes.Wpf.Core.Interfaces;
+using Mes.Wpf.Modules.InspectionSchedules.Dtos;
+
+namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
+{
+    public class InspectionScheduleManagementPageViewModel : ViewModelBase
+    {
+        private readonly IApiClient _apiClient;
+        private readonly IMessageService _messageService;
+
+        private bool _isLoading;
+        private DateTime _searchDate = DateTime.Today;
+        private string _status = string.Empty;
+        private string _partnerQuery = string.Empty;
+        private string _productQuery = string.Empty;
+        private int _totalCount;
+        private InspectionScheduleListItemDto? _selectedItem;
+        private bool _isHandlingDateChange;
+
+        public InspectionScheduleManagementPageViewModel(
+            IApiClient apiClient,
+            IMessageService messageService)
+        {
+            _apiClient = apiClient;
+            _messageService = messageService;
+
+            Items = new ObservableCollection<InspectionScheduleListItemDto>();
+            EditModel = new InspectionScheduleManagementEditModel();
+
+            RefreshCommand = new AsyncRelayCommand(LoadAsync, () => !IsLoading);
+            ResetCommand = new AsyncRelayCommand(ResetAsync, () => !IsLoading);
+            ClearSelectionCommand = new AsyncRelayCommand(ClearSelectionAsync, () => !IsLoading);
+
+            SelectItemCommand = new AsyncRelayCommand<InspectionScheduleListItemDto>(
+                SelectItemAsync,
+                item => !IsLoading && item != null);
+
+            ReceiveCommand = new AsyncRelayCommand(
+                ReceiveAsync,
+                () => !IsLoading && CanReceive());
+
+            StartCommand = new AsyncRelayCommand(
+                StartAsync,
+                () => !IsLoading && CanStart());
+
+            CancelCommand = new AsyncRelayCommand(
+                CancelAsync,
+                () => !IsLoading && CanCancel());
+
+            MoveUpCommand = new AsyncRelayCommand(
+                MoveUpAsync,
+                () => !IsLoading && CanMoveUp());
+
+            MoveDownCommand = new AsyncRelayCommand(
+                MoveDownAsync,
+                () => !IsLoading && CanMoveDown());
+
+            EditModel.Clear();
+        }
+
+        public ObservableCollection<InspectionScheduleListItemDto> Items { get; }
+
+        public InspectionScheduleManagementEditModel EditModel { get; }
+
+        public ICommand RefreshCommand { get; }
+        public ICommand ResetCommand { get; }
+        public ICommand ClearSelectionCommand { get; }
+        public ICommand SelectItemCommand { get; }
+        public ICommand ReceiveCommand { get; }
+        public ICommand StartCommand { get; }
+        public ICommand CancelCommand { get; }
+        public ICommand MoveUpCommand { get; }
+        public ICommand MoveDownCommand { get; }
+
+        public bool IsLoading
+        {
+            get => _isLoading;
+            set
+            {
+                if (SetProperty(ref _isLoading, value))
+                {
+                    RaiseCommandCanExecuteChanged();
+                }
+            }
+        }
+
+        public DateTime SearchDate
+        {
+            get => _searchDate;
+            set => SetProperty(ref _searchDate, value);
+        }
+
+        public string Status
+        {
+            get => _status;
+            set => SetProperty(ref _status, value);
+        }
+
+        public string PartnerQuery
+        {
+            get => _partnerQuery;
+            set => SetProperty(ref _partnerQuery, value);
+        }
+
+        public string ProductQuery
+        {
+            get => _productQuery;
+            set => SetProperty(ref _productQuery, value);
+        }
+
+        public int TotalCount
+        {
+            get => _totalCount;
+            set => SetProperty(ref _totalCount, value);
+        }
+
+        public InspectionScheduleListItemDto? SelectedItem
+        {
+            get => _selectedItem;
+            set
+            {
+                if (SetProperty(ref _selectedItem, value))
+                {
+                    if (value == null)
+                    {
+                        EditModel.Clear();
+                    }
+                    else
+                    {
+                        EditModel.LoadFromDto(value);
+                    }
+
+                    RaiseCommandCanExecuteChanged();
+                }
+            }
+        }
+
+        public async Task InitializeAsync()
+        {
+            await LoadAsync();
+        }
+
+        public async Task LoadAsync()
+        {
+            try
+            {
+                IsLoading = true;
+
+                NormalizeSearchInputs();
+
+                var result = await _apiClient.GetAsync<List<InspectionScheduleListItemDto>>(BuildListUrl());
+                if (!result.Success || result.Data == null)
+                {
+                    Items.Clear();
+                    TotalCount = 0;
+                    SelectedItem = null;
+                    EditModel.Clear();
+
+                    _messageService.ShowError(result.Message ?? "검수 스케줄 목록 조회에 실패했습니다.");
+                    return;
+                }
+
+                var selectedId = SelectedItem?.InspectionScheduleId;
+
+                Items.Clear();
+                foreach (var item in result.Data)
+                {
+                    Items.Add(item);
+                }
+
+                TotalCount = Items.Count;
+
+                if (selectedId.HasValue)
+                {
+                    SelectedItem = Items.FirstOrDefault(x => x.InspectionScheduleId == selectedId.Value);
+                }
+                else
+                {
+                    SelectedItem = null;
+                    EditModel.Clear();
+                }
+            }
+            finally
+            {
+                IsLoading = false;
+            }
+        }
+
+        public Task ResetAsync()
+        {
+            SearchDate = DateTime.Today;
+            Status = string.Empty;
+            PartnerQuery = string.Empty;
+            ProductQuery = string.Empty;
+            SelectedItem = null;
+            EditModel.Clear();
+
+            return LoadAsync();
+        }
+
+        public Task SelectItemAsync(InspectionScheduleListItemDto? item)
+        {
+            if (item == null)
+            {
+                return Task.CompletedTask;
+            }
+
+            SelectedItem = item;
+            return Task.CompletedTask;
+        }
+
+        public Task ClearSelectionAsync()
+        {
+            SelectedItem = null;
+            EditModel.Clear();
+            return Task.CompletedTask;
+        }
+
+        public async Task OnInspectionDatePickedAsync(DateTime? selectedDate)
+        {
+            if (_isHandlingDateChange)
+            {
+                return;
+            }
+
+            if (SelectedItem == null || !EditModel.InspectionScheduleId.HasValue)
+            {
+                return;
+            }
+
+            if (!selectedDate.HasValue)
+            {
+                EditModel.InspectionDate = SelectedItem.InspectionDate;
+                return;
+            }
+
+            var targetDate = selectedDate.Value.Date;
+            var currentDate = SelectedItem.InspectionDate.Date;
+
+            if (targetDate == currentDate)
+            {
+                return;
+            }
+
+            if (!CanChangeDate())
+            {
+                _messageService.ShowWarning("일정변경은 대기 또는 입고완료 상태에서만 가능합니다.");
+                EditModel.InspectionDate = currentDate;
+                return;
+            }
+
+            var confirm = _messageService.Confirm(
+                $"LOT [{SelectedItem.LotNo}]의 검수일정을 [{targetDate:yyyy-MM-dd}]로 변경하시겠습니까?");
+
+            if (!confirm)
+            {
+                _isHandlingDateChange = true;
+                EditModel.InspectionDate = currentDate;
+                _isHandlingDateChange = false;
+                return;
+            }
+
+            try
+            {
+                IsLoading = true;
+
+                var request = new InspectionScheduleUpdateRequest
+                {
+                    InspectionDate = targetDate,
+                    Memo = string.IsNullOrWhiteSpace(EditModel.Memo) ? null : EditModel.Memo.Trim()
+                };
+
+                var result = await _apiClient.PatchAsync<InspectionScheduleUpdateRequest, object>(
+                    $"{ApiRoutes.InspectionSchedules}/{SelectedItem.InspectionScheduleId}",
+                    request);
+
+                if (!result.Success)
+                {
+                    _messageService.ShowError(result.Message ?? "검수 일정 변경에 실패했습니다.");
+
+                    _isHandlingDateChange = true;
+                    EditModel.InspectionDate = currentDate;
+                    _isHandlingDateChange = false;
+                    return;
+                }
+
+                _messageService.ShowInfo("검수 일정이 변경되었습니다.");
+
+                SearchDate = targetDate;
+                await LoadAsync();
+            }
+            finally
+            {
+                IsLoading = false;
+            }
+        }
+
+        public async Task ReceiveAsync()
+        {
+            if (SelectedItem == null)
+            {
+                _messageService.ShowWarning("대상을 선택해주세요.");
+                return;
+            }
+
+            if (!CanReceive())
+            {
+                _messageService.ShowWarning("입고완료는 대기 상태에서만 가능합니다.");
+                return;
+            }
+
+            var confirm = _messageService.Confirm(
+                $"LOT [{SelectedItem.LotNo}]를 입고완료 처리하시겠습니까?");
+
+            if (!confirm)
+            {
+                return;
+            }
+
+            try
+            {
+                IsLoading = true;
+
+                var result = await _apiClient.PostAsync<object, object>(
+                    $"{ApiRoutes.InspectionSchedules}/{SelectedItem.InspectionScheduleId}/receive",
+                    new { });
+
+                if (!result.Success)
+                {
+                    _messageService.ShowError(result.Message ?? "입고완료 처리에 실패했습니다.");
+                    return;
+                }
+
+                _messageService.ShowInfo("입고완료 처리되었습니다.");
+                await LoadAsync();
+            }
+            finally
+            {
+                IsLoading = false;
+            }
+        }
+
+        public async Task StartAsync()
+        {
+            if (SelectedItem == null)
+            {
+                _messageService.ShowWarning("대상을 선택해주세요.");
+                return;
+            }
+
+            if (!CanStart())
+            {
+                _messageService.ShowWarning("검수시작은 입고완료 상태에서만 가능합니다.");
+                return;
+            }
+
+            var confirm = _messageService.Confirm(
+                $"LOT [{SelectedItem.LotNo}]의 검수를 시작하시겠습니까?");
+
+            if (!confirm)
+            {
+                return;
+            }
+
+            try
+            {
+                IsLoading = true;
+
+                var result = await _apiClient.PostAsync<object, object>(
+                    $"{ApiRoutes.InspectionSchedules}/{SelectedItem.InspectionScheduleId}/start",
+                    new { });
+
+                if (!result.Success)
+                {
+                    _messageService.ShowError(result.Message ?? "검수시작 처리에 실패했습니다.");
+                    return;
+                }
+
+                _messageService.ShowInfo("검수가 시작되었습니다.");
+                await LoadAsync();
+            }
+            finally
+            {
+                IsLoading = false;
+            }
+        }
+
+        public async Task CancelAsync()
+        {
+            if (SelectedItem == null)
+            {
+                _messageService.ShowWarning("대상을 선택해주세요.");
+                return;
+            }
+
+            if (!CanCancel())
+            {
+                _messageService.ShowWarning("취소는 대기 또는 입고완료 상태에서만 가능합니다.");
+                return;
+            }
+
+            var confirm = _messageService.Confirm(
+                $"LOT [{SelectedItem.LotNo}]의 검수일정을 취소하시겠습니까?");
+
+            if (!confirm)
+            {
+                return;
+            }
+
+            try
+            {
+                IsLoading = true;
+
+                var result = await _apiClient.PostAsync<object, object>(
+                    $"{ApiRoutes.InspectionSchedules}/{SelectedItem.InspectionScheduleId}/cancel",
+                    new { });
+
+                if (!result.Success)
+                {
+                    _messageService.ShowError(result.Message ?? "검수 일정 취소에 실패했습니다.");
+                    return;
+                }
+
+                _messageService.ShowInfo("검수 일정이 취소되었습니다.");
+                await LoadAsync();
+            }
+            finally
+            {
+                IsLoading = false;
+            }
+        }
+
+        public Task MoveUpAsync()
+        {
+            return ReorderBySwapAsync(true);
+        }
+
+        public Task MoveDownAsync()
+        {
+            return ReorderBySwapAsync(false);
+        }
+
+        private async Task ReorderBySwapAsync(bool moveUp)
+        {
+            if (SelectedItem == null)
+            {
+                _messageService.ShowWarning("대상을 선택해주세요.");
+                return;
+            }
+
+            if (!(SelectedItem.Status == "WAITING" || SelectedItem.Status == "RECEIVED"))
+            {
+                _messageService.ShowWarning("순서변경은 대기 또는 입고완료 상태에서만 가능합니다.");
+                return;
+            }
+
+            var sameDateItems = Items
+                .Where(x =>
+                    x.InspectionDate.Date == SelectedItem.InspectionDate.Date &&
+                    (x.Status == "WAITING" || x.Status == "RECEIVED"))
+                .OrderBy(x => x.DaySeq ?? int.MaxValue)
+                .ThenBy(x => x.InspectionScheduleId)
+                .ToList();
+
+            var currentIndex = sameDateItems.FindIndex(x => x.InspectionScheduleId == SelectedItem.InspectionScheduleId);
+            if (currentIndex < 0)
+            {
+                return;
+            }
+
+            var targetIndex = moveUp ? currentIndex - 1 : currentIndex + 1;
+            if (targetIndex < 0 || targetIndex >= sameDateItems.Count)
+            {
+                return;
+            }
+
+            var current = sameDateItems[currentIndex];
+            sameDateItems[currentIndex] = sameDateItems[targetIndex];
+            sameDateItems[targetIndex] = current;
+
+            var confirm = _messageService.Confirm(
+                $"LOT [{SelectedItem.LotNo}]의 검수 순서를 {(moveUp ? "앞으로" : "뒤로")} 이동하시겠습니까?");
+
+            if (!confirm)
+            {
+                return;
+            }
+
+            try
+            {
+                IsLoading = true;
+
+                var request = new InspectionScheduleReorderRequest
+                {
+                    InspectionDate = SelectedItem.InspectionDate.Date,
+                    OrderedIds = sameDateItems.Select(x => x.InspectionScheduleId).ToList()
+                };
+
+                var result = await _apiClient.PutAsync<InspectionScheduleReorderRequest, object>(
+                    $"{ApiRoutes.InspectionSchedules}/reorder",
+                    request);
+
+                if (!result.Success)
+                {
+                    _messageService.ShowError(result.Message ?? "검수 순서 변경에 실패했습니다.");
+                    return;
+                }
+
+                _messageService.ShowInfo("검수 순서가 변경되었습니다.");
+                await LoadAsync();
+            }
+            finally
+            {
+                IsLoading = false;
+            }
+        }
+
+        private string BuildListUrl()
+        {
+            var queryParts = new List<string>
+            {
+                $"inspection_date_from={SearchDate:yyyy-MM-dd}",
+                $"inspection_date_to={SearchDate:yyyy-MM-dd}",
+                "limit=200",
+                "offset=0"
+            };
+
+            if (!string.IsNullOrWhiteSpace(Status))
+            {
+                queryParts.Add($"status={Uri.EscapeDataString(Status.Trim())}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(PartnerQuery))
+            {
+                queryParts.Add($"partner_q={Uri.EscapeDataString(PartnerQuery.Trim())}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(ProductQuery))
+            {
+                queryParts.Add($"product_q={Uri.EscapeDataString(ProductQuery.Trim())}");
+            }
+
+            return $"{ApiRoutes.InspectionSchedules}?{string.Join("&", queryParts)}";
+        }
+
+        private void NormalizeSearchInputs()
+        {
+            Status = Status?.Trim().ToUpperInvariant() ?? string.Empty;
+            PartnerQuery = PartnerQuery?.Trim() ?? string.Empty;
+            ProductQuery = ProductQuery?.Trim() ?? string.Empty;
+            EditModel.Memo = EditModel.Memo?.Trim() ?? string.Empty;
+        }
+
+        private bool CanChangeDate()
+        {
+            return SelectedItem != null &&
+                   (SelectedItem.Status == "WAITING" || SelectedItem.Status == "RECEIVED");
+        }
+
+        private bool CanReceive()
+        {
+            return SelectedItem != null && SelectedItem.Status == "WAITING";
+        }
+
+        private bool CanStart()
+        {
+            return SelectedItem != null && SelectedItem.Status == "RECEIVED";
+        }
+
+        private bool CanCancel()
+        {
+            return SelectedItem != null &&
+                   (SelectedItem.Status == "WAITING" || SelectedItem.Status == "RECEIVED");
+        }
+
+        private bool CanMoveUp()
+        {
+            if (SelectedItem == null || !(SelectedItem.Status == "WAITING" || SelectedItem.Status == "RECEIVED"))
+            {
+                return false;
+            }
+
+            var sameDateItems = Items
+                .Where(x =>
+                    x.InspectionDate.Date == SelectedItem.InspectionDate.Date &&
+                    (x.Status == "WAITING" || x.Status == "RECEIVED"))
+                .OrderBy(x => x.DaySeq ?? int.MaxValue)
+                .ThenBy(x => x.InspectionScheduleId)
+                .ToList();
+
+            var currentIndex = sameDateItems.FindIndex(x => x.InspectionScheduleId == SelectedItem.InspectionScheduleId);
+            return currentIndex > 0;
+        }
+
+        private bool CanMoveDown()
+        {
+            if (SelectedItem == null || !(SelectedItem.Status == "WAITING" || SelectedItem.Status == "RECEIVED"))
+            {
+                return false;
+            }
+
+            var sameDateItems = Items
+                .Where(x =>
+                    x.InspectionDate.Date == SelectedItem.InspectionDate.Date &&
+                    (x.Status == "WAITING" || x.Status == "RECEIVED"))
+                .OrderBy(x => x.DaySeq ?? int.MaxValue)
+                .ThenBy(x => x.InspectionScheduleId)
+                .ToList();
+
+            var currentIndex = sameDateItems.FindIndex(x => x.InspectionScheduleId == SelectedItem.InspectionScheduleId);
+            return currentIndex >= 0 && currentIndex < sameDateItems.Count - 1;
+        }
+
+        private void RaiseCommandCanExecuteChanged()
+        {
+            if (RefreshCommand is AsyncRelayCommand refreshCommand)
+            {
+                refreshCommand.RaiseCanExecuteChanged();
+            }
+
+            if (ResetCommand is AsyncRelayCommand resetCommand)
+            {
+                resetCommand.RaiseCanExecuteChanged();
+            }
+
+            if (ClearSelectionCommand is AsyncRelayCommand clearSelectionCommand)
+            {
+                clearSelectionCommand.RaiseCanExecuteChanged();
+            }
+
+            if (SelectItemCommand is AsyncRelayCommand<InspectionScheduleListItemDto> selectItemCommand)
+            {
+                selectItemCommand.RaiseCanExecuteChanged();
+            }
+
+            if (ReceiveCommand is AsyncRelayCommand receiveCommand)
+            {
+                receiveCommand.RaiseCanExecuteChanged();
+            }
+
+            if (StartCommand is AsyncRelayCommand startCommand)
+            {
+                startCommand.RaiseCanExecuteChanged();
+            }
+
+            if (CancelCommand is AsyncRelayCommand cancelCommand)
+            {
+                cancelCommand.RaiseCanExecuteChanged();
+            }
+
+            if (MoveUpCommand is AsyncRelayCommand moveUpCommand)
+            {
+                moveUpCommand.RaiseCanExecuteChanged();
+            }
+
+            if (MoveDownCommand is AsyncRelayCommand moveDownCommand)
+            {
+                moveDownCommand.RaiseCanExecuteChanged();
+            }
+        }
+    }
+}

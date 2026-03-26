@@ -107,8 +107,13 @@
                             <Button Content="검수 작업지시 / 등록"
                                     Style="{StaticResource BaseButtonStyle}"
                                     Margin="0,0,0,10"
-                                    Click="InspectionWorkInstruction_Click"/>         
+                                    Click="InspectionWorkInstruction_Click"/>
                             
+                            <Button Content="검수스케쥴관리"
+                                    Style="{StaticResource BaseButtonStyle}"
+                                    Margin="0,0,0,10"
+                                    Click="InspectionScheduleManagement_Click"/>   
+
                         </StackPanel>
                     </Expander>
                 </StackPanel>

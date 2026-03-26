@@ -305,6 +305,21 @@ namespace Mes.Wpf.Views.Shell
             await inspectionWorkInstructionViewModel.InitializeAsync();
         }
 
+        private async void InspectionScheduleManagement_Click(object sender, RoutedEventArgs e)
+        {
+            var view = new InspectionScheduleManagementView();
+            var viewModel = new InspectionScheduleManagementPageViewModel(_apiClient, _messageService);
+
+            view.DataContext = viewModel;
+            MainContent.Content = view;
+            MainContent.Visibility = Visibility.Visible;
+
+            HeaderTitle.Text = "검수 스케줄 관리";
+            HeaderSubtitle.Text = "검수 일정 조회 / 일정변경 / 입고완료 / 검수시작 / 취소 / 순서변경";
+
+            await viewModel.InitializeAsync();
+        }
+
 
 
 
