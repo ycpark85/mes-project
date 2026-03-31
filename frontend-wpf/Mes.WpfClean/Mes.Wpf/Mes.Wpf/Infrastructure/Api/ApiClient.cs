@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Net.Http;
 using System.Net.Http.Json;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Mes.Wpf.Core.Interfaces;
 using Mes.Wpf.Core.Models;
@@ -24,36 +25,65 @@ namespace Mes.Wpf.Infrastructure.Api
             };
         }
 
-        public async Task<ApiResult<T>> GetAsync<T>(string relativeUrl)
+        private static async Task<string> BuildErrorMessageAsync(HttpResponseMessage response, string defaultPrefix)
+        {
+            try
+            {
+                var raw = await response.Content.ReadAsStringAsync();
+
+                if (!string.IsNullOrWhiteSpace(raw))
+                {
+                    using var doc = JsonDocument.Parse(raw);
+
+                    if (doc.RootElement.ValueKind == JsonValueKind.Object)
+                    {
+                        if (doc.RootElement.TryGetProperty("detail", out var detailElement))
+                        {
+                            var detail = detailElement.GetString();
+                            if (!string.IsNullOrWhiteSpace(detail))
+                            {
+                                return detail;
+                            }
+                        }
+
+                        if (doc.RootElement.TryGetProperty("message", out var messageElement))
+                        {
+                            var message = messageElement.GetString();
+                            if (!string.IsNullOrWhiteSpace(message))
+                            {
+                                return message;
+                            }
+                        }
+                    }
+                }
+            }
+            catch
+            {
+            }
+
+            return $"{defaultPrefix}: {(int)response.StatusCode}";
+        }
+
+        public async Task<ApiResult<TResponse>> GetAsync<TResponse>(string relativeUrl)
         {
             try
             {
                 var response = await _httpClient.GetAsync(relativeUrl);
-
                 if (!response.IsSuccessStatusCode)
                 {
-                    return new ApiResult<T>
+                    return new ApiResult<TResponse>
                     {
                         Success = false,
-                        Message = $"GET 요청 실패: {(int)response.StatusCode}"
+                        Message = await BuildErrorMessageAsync(response, "GET 요청 실패")
                     };
                 }
 
-                var data = await response.Content.ReadFromJsonAsync<T>();
-
-                return new ApiResult<T>
-                {
-                    Success = true,
-                    Data = data
-                };
+                var data = await response.Content.ReadFromJsonAsync<TResponse>();
+                return new ApiResult<TResponse> { Success = true, Data = data };
             }
             catch (Exception ex)
             {
-                return new ApiResult<T>
-                {
-                    Success = false,
-                    Message = $"예외 발생: {ex.Message}"
-                };
+                return new ApiResult<TResponse> { Success = false, Message = $"예외 발생: {ex.Message}" };
             }
         }
 
@@ -62,31 +92,21 @@ namespace Mes.Wpf.Infrastructure.Api
             try
             {
                 var response = await _httpClient.PostAsJsonAsync(relativeUrl, request);
-
                 if (!response.IsSuccessStatusCode)
                 {
                     return new ApiResult<TResponse>
                     {
                         Success = false,
-                        Message = $"POST 요청 실패: {(int)response.StatusCode}"
+                        Message = await BuildErrorMessageAsync(response, "POST 요청 실패")
                     };
                 }
 
                 var data = await response.Content.ReadFromJsonAsync<TResponse>();
-
-                return new ApiResult<TResponse>
-                {
-                    Success = true,
-                    Data = data
-                };
+                return new ApiResult<TResponse> { Success = true, Data = data };
             }
             catch (Exception ex)
             {
-                return new ApiResult<TResponse>
-                {
-                    Success = false,
-                    Message = $"예외 발생: {ex.Message}"
-                };
+                return new ApiResult<TResponse> { Success = false, Message = $"예외 발생: {ex.Message}" };
             }
         }
 
@@ -95,31 +115,21 @@ namespace Mes.Wpf.Infrastructure.Api
             try
             {
                 var response = await _httpClient.PutAsJsonAsync(relativeUrl, request);
-
                 if (!response.IsSuccessStatusCode)
                 {
                     return new ApiResult<TResponse>
                     {
                         Success = false,
-                        Message = $"PUT 요청 실패: {(int)response.StatusCode}"
+                        Message = await BuildErrorMessageAsync(response, "PUT 요청 실패")
                     };
                 }
 
                 var data = await response.Content.ReadFromJsonAsync<TResponse>();
-
-                return new ApiResult<TResponse>
-                {
-                    Success = true,
-                    Data = data
-                };
+                return new ApiResult<TResponse> { Success = true, Data = data };
             }
             catch (Exception ex)
             {
-                return new ApiResult<TResponse>
-                {
-                    Success = false,
-                    Message = $"예외 발생: {ex.Message}"
-                };
+                return new ApiResult<TResponse> { Success = false, Message = $"예외 발생: {ex.Message}" };
             }
         }
 
@@ -133,31 +143,21 @@ namespace Mes.Wpf.Infrastructure.Api
                 };
 
                 var response = await _httpClient.SendAsync(requestMessage);
-
                 if (!response.IsSuccessStatusCode)
                 {
                     return new ApiResult<TResponse>
                     {
                         Success = false,
-                        Message = $"PATCH 요청 실패: {(int)response.StatusCode}"
+                        Message = await BuildErrorMessageAsync(response, "PATCH 요청 실패")
                     };
                 }
 
                 var data = await response.Content.ReadFromJsonAsync<TResponse>();
-
-                return new ApiResult<TResponse>
-                {
-                    Success = true,
-                    Data = data
-                };
+                return new ApiResult<TResponse> { Success = true, Data = data };
             }
             catch (Exception ex)
             {
-                return new ApiResult<TResponse>
-                {
-                    Success = false,
-                    Message = $"예외 발생: {ex.Message}"
-                };
+                return new ApiResult<TResponse> { Success = false, Message = $"예외 발생: {ex.Message}" };
             }
         }
 
@@ -166,68 +166,48 @@ namespace Mes.Wpf.Infrastructure.Api
             try
             {
                 var response = await _httpClient.DeleteAsync(relativeUrl);
-
                 if (!response.IsSuccessStatusCode)
                 {
                     return new ApiResult<bool>
                     {
                         Success = false,
                         Data = false,
-                        Message = $"DELETE 요청 실패: {(int)response.StatusCode}"
+                        Message = await BuildErrorMessageAsync(response, "DELETE 요청 실패")
                     };
                 }
 
-                return new ApiResult<bool>
-                {
-                    Success = true,
-                    Data = true
-                };
+                return new ApiResult<bool> { Success = true, Data = true };
             }
             catch (Exception ex)
             {
-                return new ApiResult<bool>
-                {
-                    Success = false,
-                    Data = false,
-                    Message = $"예외 발생: {ex.Message}"
-                };
+                return new ApiResult<bool> { Success = false, Data = false, Message = $"예외 발생: {ex.Message}" };
             }
         }
 
-        public async Task<ApiResult<T>> PostMultipartAsync<T>(string relativeUrl, MultipartFormDataContent content)
+        public async Task<ApiResult<TResponse>> PostMultipartAsync<TResponse>(string relativeUrl, MultipartFormDataContent content)
         {
             try
             {
                 var response = await _httpClient.PostAsync(relativeUrl, content);
-
                 if (!response.IsSuccessStatusCode)
                 {
-                    return new ApiResult<T>
+                    return new ApiResult<TResponse>
                     {
                         Success = false,
-                        Message = $"POST Multipart 요청 실패: {(int)response.StatusCode}"
+                        Message = await BuildErrorMessageAsync(response, "POST Multipart 요청 실패")
                     };
                 }
 
-                var data = await response.Content.ReadFromJsonAsync<T>();
-
-                return new ApiResult<T>
-                {
-                    Success = true,
-                    Data = data
-                };
+                var data = await response.Content.ReadFromJsonAsync<TResponse>();
+                return new ApiResult<TResponse> { Success = true, Data = data };
             }
             catch (Exception ex)
             {
-                return new ApiResult<T>
-                {
-                    Success = false,
-                    Message = $"예외 발생: {ex.Message}"
-                };
+                return new ApiResult<TResponse> { Success = false, Message = $"예외 발생: {ex.Message}" };
             }
         }
 
-        public async Task<ApiResult<T>> PatchMultipartAsync<T>(string relativeUrl, MultipartFormDataContent content)
+        public async Task<ApiResult<TResponse>> PatchMultipartAsync<TResponse>(string relativeUrl, MultipartFormDataContent content)
         {
             try
             {
@@ -237,31 +217,21 @@ namespace Mes.Wpf.Infrastructure.Api
                 };
 
                 var response = await _httpClient.SendAsync(requestMessage);
-
                 if (!response.IsSuccessStatusCode)
                 {
-                    return new ApiResult<T>
+                    return new ApiResult<TResponse>
                     {
                         Success = false,
-                        Message = $"PATCH Multipart 요청 실패: {(int)response.StatusCode}"
+                        Message = await BuildErrorMessageAsync(response, "PATCH Multipart 요청 실패")
                     };
                 }
 
-                var data = await response.Content.ReadFromJsonAsync<T>();
-
-                return new ApiResult<T>
-                {
-                    Success = true,
-                    Data = data
-                };
+                var data = await response.Content.ReadFromJsonAsync<TResponse>();
+                return new ApiResult<TResponse> { Success = true, Data = data };
             }
             catch (Exception ex)
             {
-                return new ApiResult<T>
-                {
-                    Success = false,
-                    Message = $"예외 발생: {ex.Message}"
-                };
+                return new ApiResult<TResponse> { Success = false, Message = $"예외 발생: {ex.Message}" };
             }
         }
 

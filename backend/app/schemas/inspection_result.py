@@ -35,6 +35,11 @@ class InspectionResultUpsertIn(BaseModel):
 
     defects: List[DefectLineIn] = Field(default_factory=list)
 
+class DefectAttachmentUploadOut(BaseModel):
+    file_uri: str
+    file_name: str
+    mime_type: Optional[str] = None
+    file_size: int
 
 class DefectAttachmentOut(BaseModel):
     inspection_defect_attachment_id: int

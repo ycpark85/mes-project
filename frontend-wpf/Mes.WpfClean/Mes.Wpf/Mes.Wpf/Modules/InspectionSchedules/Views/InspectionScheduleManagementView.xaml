@@ -162,7 +162,8 @@
                 <TextBlock Grid.Column="0"
                            VerticalAlignment="Center"
                            Margin="0,0,8,0"
-                           Text="검수일" />
+                           Text="검수일(선택)" />        
+
                 <DatePicker Grid.Column="1"
                             SelectedDate="{Binding SearchDate, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
@@ -356,17 +357,27 @@
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
 
-                    <DataGridTemplateColumn Header="검수시작" Width="98">
+                    <DataGridTemplateColumn Header="검수" Width="110">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <Button Content="검수시작"
-                    Click="StartButton_OnClick">
+                                <Button Click="InspectionActionButton_Click"
+                                        Tag="{Binding}"
+                                        Width="90"
+                                        Height="28">    
                                     <Button.Style>
-                                        <Style TargetType="Button" BasedOn="{StaticResource PrimaryActionButtonStyle}">
-                                            <Setter Property="IsEnabled" Value="False"/>
+                                        <Style TargetType="Button">
+                                            <Setter Property="Content" Value="검수시작" />
+                                            <Setter Property="IsEnabled" Value="False" />
+
                                             <Style.Triggers>
                                                 <DataTrigger Binding="{Binding Status}" Value="RECEIVED">
-                                                    <Setter Property="IsEnabled" Value="True"/>
+                                                    <Setter Property="Content" Value="검수시작" />
+                                                    <Setter Property="IsEnabled" Value="True" />
+                                                </DataTrigger>
+
+                                                <DataTrigger Binding="{Binding Status}" Value="IN_PROGRESS">
+                                                    <Setter Property="Content" Value="검수완료" />
+                                                    <Setter Property="IsEnabled" Value="True" />
                                                 </DataTrigger>
                                             </Style.Triggers>
                                         </Style>

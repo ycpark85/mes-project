@@ -4,11 +4,12 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Input;
+using System.Windows;
 using Mes.Wpf.Core.Common;
 using Mes.Wpf.Core.Constants;
 using Mes.Wpf.Core.Interfaces;
 using Mes.Wpf.Modules.InspectionSchedules.Dtos;
-
+using Mes.Wpf.Modules.InspectionSchedules.Views;
 namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
 {
     public class InspectionScheduleManagementPageViewModel : ViewModelBase
@@ -17,7 +18,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
         private readonly IMessageService _messageService;
 
         private bool _isLoading;
-        private DateTime _searchDate = DateTime.Today;
+        private DateTime? _searchDate = DateTime.Today;
         private string _status = string.Empty;
         private string _partnerQuery = string.Empty;
         private string _productQuery = string.Empty;
@@ -92,7 +93,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
             }
         }
 
-        public DateTime SearchDate
+        public DateTime? SearchDate
         {
             get => _searchDate;
             set => SetProperty(ref _searchDate, value);
@@ -224,28 +225,68 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
             return Task.CompletedTask;
         }
 
-        public async Task OnInspectionDatePickedAsync(DateTime? selectedDate)
+        public async Task OpenInspectionResultAsync()
+        {
+            if (SelectedItem == null)
+            {
+                _messageService.ShowWarning("대상을 선택해주세요.");
+                return;
+            }
+
+            if (SelectedItem.Status != "IN_PROGRESS")
+            {
+                _messageService.ShowWarning("검수완료는 진행중 상태에서만 가능합니다.");
+                return;
+            }
+
+            var windowVm = new InspectionResultWindowViewModel(_apiClient, _messageService);
+            await windowVm.InitializeAsync(
+                SelectedItem.InspectionScheduleId,
+                SelectedItem.LotNo ?? string.Empty,
+                SelectedItem.ProductName ?? string.Empty,
+                SelectedItem.PartnerName ?? string.Empty,
+                SelectedItem.InspectionDate,
+                0);
+
+            var window = new InspectionResultWindow(windowVm)
+            {
+                Owner = Application.Current?.MainWindow
+            };
+
+            var dialogResult = window.ShowDialog();
+            if (dialogResult == true)
+            {
+                await LoadAsync();
+            }
+        }
+
+
+        public async Task OnInspectionDatePickedAsync(DateTime? previousDate, DateTime? selectedDate)
         {
             if (_isHandlingDateChange)
             {
                 return;
             }
 
-            if (SelectedItem == null || !EditModel.InspectionScheduleId.HasValue)
+            if (SelectedItem == null)
             {
                 return;
             }
 
+            var originalDate = (previousDate ?? SelectedItem.InspectionDate).Date;
+
             if (!selectedDate.HasValue)
             {
-                EditModel.InspectionDate = SelectedItem.InspectionDate;
+                _isHandlingDateChange = true;
+                SelectedItem.InspectionDate = originalDate;
+                EditModel.InspectionDate = originalDate;
+                _isHandlingDateChange = false;
                 return;
             }
 
             var targetDate = selectedDate.Value.Date;
-            var currentDate = SelectedItem.InspectionDate.Date;
 
-            if (targetDate == currentDate)
+            if (targetDate == originalDate)
             {
                 return;
             }
@@ -253,7 +294,11 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
             if (!CanChangeDate())
             {
                 _messageService.ShowWarning("일정변경은 대기 또는 입고완료 상태에서만 가능합니다.");
-                EditModel.InspectionDate = currentDate;
+
+                _isHandlingDateChange = true;
+                SelectedItem.InspectionDate = originalDate;
+                EditModel.InspectionDate = originalDate;
+                _isHandlingDateChange = false;
                 return;
             }
 
@@ -263,7 +308,8 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
             if (!confirm)
             {
                 _isHandlingDateChange = true;
-                EditModel.InspectionDate = currentDate;
+                SelectedItem.InspectionDate = originalDate;
+                EditModel.InspectionDate = originalDate;
                 _isHandlingDateChange = false;
                 return;
             }
@@ -287,13 +333,13 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                     _messageService.ShowError(result.Message ?? "검수 일정 변경에 실패했습니다.");
 
                     _isHandlingDateChange = true;
-                    EditModel.InspectionDate = currentDate;
+                    SelectedItem.InspectionDate = originalDate;
+                    EditModel.InspectionDate = originalDate;
                     _isHandlingDateChange = false;
                     return;
                 }
 
                 _messageService.ShowInfo("검수 일정이 변경되었습니다.");
-
                 SearchDate = targetDate;
                 await LoadAsync();
             }
@@ -319,7 +365,6 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
 
             var confirm = _messageService.Confirm(
                 $"LOT [{SelectedItem.LotNo}]를 입고완료 처리하시겠습니까?");
-
             if (!confirm)
             {
                 return;
@@ -335,7 +380,15 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
 
                 if (!result.Success)
                 {
-                    _messageService.ShowError(result.Message ?? "입고완료 처리에 실패했습니다.");
+                    var message = result.Message ?? "입고완료 처리에 실패했습니다.";
+
+                    if (message.Contains("OUTSOURCE steps must be DONE before receiving", StringComparison.OrdinalIgnoreCase))
+                    {
+                        _messageService.ShowWarning("외주공정이 완료되지 않았습니다.");
+                        return;
+                    }
+
+                    _messageService.ShowError(message);
                     return;
                 }
 
@@ -486,14 +539,6 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
             sameDateItems[currentIndex] = sameDateItems[targetIndex];
             sameDateItems[targetIndex] = current;
 
-            var confirm = _messageService.Confirm(
-                $"LOT [{SelectedItem.LotNo}]의 검수 순서를 {(moveUp ? "앞으로" : "뒤로")} 이동하시겠습니까?");
-
-            if (!confirm)
-            {
-                return;
-            }
-
             try
             {
                 IsLoading = true;
@@ -514,7 +559,6 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                     return;
                 }
 
-                _messageService.ShowInfo("검수 순서가 변경되었습니다.");
                 await LoadAsync();
             }
             finally
@@ -527,11 +571,15 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
         {
             var queryParts = new List<string>
             {
-                $"inspection_date_from={SearchDate:yyyy-MM-dd}",
-                $"inspection_date_to={SearchDate:yyyy-MM-dd}",
                 "limit=200",
                 "offset=0"
             };
+
+            if (SearchDate.HasValue)
+            {
+                queryParts.Add($"inspection_date_from={SearchDate.Value:yyyy-MM-dd}");
+                queryParts.Add($"inspection_date_to={SearchDate.Value:yyyy-MM-dd}");
+            }
 
             if (!string.IsNullOrWhiteSpace(Status))
             {
@@ -550,6 +598,8 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
 
             return $"{ApiRoutes.InspectionSchedules}?{string.Join("&", queryParts)}";
         }
+
+
 
         private void NormalizeSearchInputs()
         {
