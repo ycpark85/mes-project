@@ -23,6 +23,8 @@ from app.schemas.inspection_schedule import (
     InspectionScheduleReorderIn,
     InspectionScheduleUpdate,
 )
+from app.services.ship_qty_policy import calculate_ship_qty
+
 
 
 router = APIRouter(prefix="/inspection-schedules", tags=["InspectionSchedule"])
@@ -283,6 +285,8 @@ def list_inspection_schedules(
             Partner.name.label("partner_name"),
             Product.product_code,
             Product.product_name,
+            Lot.lot_qty,
+            OrderLine.order_qty,
             InspectionSchedule.memo,
         )
         .select_from(InspectionSchedule)
@@ -319,7 +323,17 @@ def list_inspection_schedules(
     )
 
     rows = db.execute(q).mappings().all()
-    return [dict(r) for r in rows]
+
+    items = []
+    for row in rows:
+        row_dict = dict(row)
+        row_dict["ship_qty"] = calculate_ship_qty(
+            row_dict["partner_name"],
+            row_dict["order_qty"],
+        )
+        items.append(row_dict)
+
+    return items
 
 
 @router.get("/{inspection_schedule_id}", response_model=InspectionScheduleOut)

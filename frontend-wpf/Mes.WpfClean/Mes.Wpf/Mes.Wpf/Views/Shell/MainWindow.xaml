@@ -4,7 +4,7 @@
         xmlns:defectViews="clr-namespace:Mes.Wpf.Modules.DefectTypes.Views"
         xmlns:routingViews="clr-namespace:Mes.Wpf.Modules.RoutingTemplates.Views"
         Title="MES"
-        Width="1500"
+        Width="1660"
         Height="980"
         MinWidth="1400"
         MinHeight="860"

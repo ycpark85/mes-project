@@ -130,13 +130,6 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0"
-                   Margin="0,0,0,12"
-                   Text="검수 스케줄 관리"
-                   FontSize="26"
-                   FontWeight="Bold"
-                   Foreground="#243042"/>
-
         <Border Grid.Row="1"
                 Padding="12"
                 BorderBrush="{StaticResource BorderBrushColor}"
@@ -250,7 +243,6 @@
                             <DataTemplate>
                                 <TextBlock Text="{Binding LotNo}"
                                            Style="{StaticResource CenteredTextBlockStyle}"
-                                           Foreground="#1F73E8"
                                            FontWeight="SemiBold"/>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
@@ -277,7 +269,7 @@
                     <DataGridTemplateColumn Header="발주수량" Width="90">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <TextBlock Text="-"
+                                <TextBlock Text="{Binding OrderQty, StringFormat={}{0:N0}}"
                                            Style="{StaticResource CenteredTextBlockStyle}"/>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
@@ -286,7 +278,7 @@
                     <DataGridTemplateColumn Header="출고수량" Width="90">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <TextBlock Text="-"
+                                <TextBlock Text="{Binding ShipQty, StringFormat={}{0:N0}}"
                                            Style="{StaticResource CenteredTextBlockStyle}"/>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>

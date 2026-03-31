@@ -246,7 +246,9 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                 SelectedItem.ProductName ?? string.Empty,
                 SelectedItem.PartnerName ?? string.Empty,
                 SelectedItem.InspectionDate,
-                0);
+                SelectedItem.LotQty,
+                SelectedItem.DueDate,
+                SelectedItem.OrderQty);
 
             var window = new InspectionResultWindow(windowVm)
             {

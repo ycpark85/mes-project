@@ -55,7 +55,9 @@ class InspectionScheduleListItemOut(BaseModel):
     partner_name: str
     product_code: str
     product_name: str
-
+    lot_qty: int
+    order_qty: int
+    ship_qty: int
     memo: Optional[str] = None
 
     class Config:

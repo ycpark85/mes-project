@@ -25,6 +25,9 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
         private DateTime? _inspectionDate;
         private int _planQty;
 
+        private DateTime? _dueDate;
+        private int _orderQty;
+
         private int _accumulatedGoodQty;
         private int _accumulatedDefectQty;
         private int _accumulatedDefectShipQty;
@@ -83,6 +86,18 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
         {
             get => _partnerName;
             set => SetProperty(ref _partnerName, value);
+        }
+
+        public DateTime? DueDate
+        {
+            get => _dueDate;
+            set => SetProperty(ref _dueDate, value);
+        }
+
+        public int OrderQty
+        {
+            get => _orderQty;
+            set => SetProperty(ref _orderQty, value);
         }
 
         public DateTime? InspectionDate
@@ -212,7 +227,9 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
             string productName,
             string partnerName,
             DateTime? inspectionDate,
-            int planQty)
+            int planQty,
+            DateTime? dueDate,
+            int orderQty)
         {
             InspectionScheduleId = inspectionScheduleId;
             LotNo = lotNo;
@@ -220,6 +237,8 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
             PartnerName = partnerName;
             InspectionDate = inspectionDate;
             PlanQty = planQty;
+            DueDate = dueDate;
+            OrderQty = orderQty;
 
             await LoadAsync();
         }
