@@ -11,6 +11,7 @@ using Mes.Wpf.Core.Constants;
 using Mes.Wpf.Core.Interfaces;
 using Mes.Wpf.Modules.InspectionSchedules.Dtos;
 
+
 namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
 {
     public class InspectionResultWindowViewModel : ViewModelBase
@@ -44,6 +45,9 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
         private InspectionResultDefectEditModel? _selectedDefect;
 
         public event Action<bool>? CloseRequested;
+
+        public IApiClient ApiClient => _apiClient;
+        public IMessageService MessageService => _messageService;
 
         public InspectionResultWindowViewModel(IApiClient apiClient, IMessageService messageService)
         {
@@ -241,6 +245,31 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
             OrderQty = orderQty;
 
             await LoadAsync();
+        }
+        public void ApplySelectedDefectType(
+            InspectionResultDefectEditModel defect,
+            InspectionResultDefectTypeLookupDto selectedDefectType)     
+        {
+            if (defect == null || selectedDefectType == null)
+            {
+                return;
+            }
+
+            defect.DefectTypeId = (int)selectedDefectType.DefectTypeId;
+            defect.DefectTypeName = selectedDefectType.DefectName?.Trim() ?? string.Empty;
+            defect.DefectTypeMemo = selectedDefectType.Memo?.Trim() ?? string.Empty;
+        }
+
+        public void ClearSelectedDefectType(InspectionResultDefectEditModel defect)
+        {
+            if (defect == null)
+            {
+                return;
+            }
+
+            defect.DefectTypeId = null;
+            defect.DefectTypeName = string.Empty;
+            defect.DefectTypeMemo = string.Empty;
         }
 
         private async Task LoadAsync()

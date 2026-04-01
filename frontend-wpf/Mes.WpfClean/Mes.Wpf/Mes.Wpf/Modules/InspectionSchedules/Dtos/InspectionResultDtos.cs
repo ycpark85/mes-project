@@ -167,6 +167,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.Dtos
         private string _defectTypeName = string.Empty;
         private string _memo = string.Empty;
         private ObservableCollection<DefectAttachmentEditModel> _attachments = new();
+        private string _defectTypeMemo = string.Empty;
 
         public int? DefectTypeId
         {
@@ -174,22 +175,35 @@ namespace Mes.Wpf.Modules.InspectionSchedules.Dtos
             set => SetProperty(ref _defectTypeId, value);
         }
 
+
         public string DefectTypeName
         {
             get => _defectTypeName;
             set => SetProperty(ref _defectTypeName, value);
         }
 
-        public string Memo
+        public string DefectTypeMemo
         {
-            get => _memo;
-            set => SetProperty(ref _memo, value);
+            get => _defectTypeMemo;
+            set => SetProperty(ref _defectTypeMemo, value);
         }
 
+        public string Memo
+        {
+            get => DefectTypeMemo;
+            set => DefectTypeMemo = value;
+        }
         public ObservableCollection<DefectAttachmentEditModel> Attachments
         {
             get => _attachments;
             set => SetProperty(ref _attachments, value);
+        }
+
+        public void Clear()
+        {
+            DefectTypeId = null;
+            DefectTypeName = string.Empty;
+            DefectTypeMemo = string.Empty;
         }
     }
 
