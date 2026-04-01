@@ -88,9 +88,16 @@ class InspectionResultOut(BaseModel):
     class Config:
         from_attributes = True
 
+class InspectionAccumulatedSummaryOut(BaseModel):
+    good_qty: int = 0
+    defect_qty: int = 0
+    defect_ship_qty: int = 0
+    inspected_qty: int = 0
+
 
 class InspectionResultGetOut(BaseModel):
     result: Optional[InspectionResultOut] = None
+    accumulated: InspectionAccumulatedSummaryOut = Field(default_factory=InspectionAccumulatedSummaryOut)
 
 
 class InspectionResultUpsertOut(BaseModel):

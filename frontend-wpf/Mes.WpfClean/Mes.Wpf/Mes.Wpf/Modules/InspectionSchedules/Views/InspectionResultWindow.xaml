@@ -77,37 +77,78 @@
                     BorderThickness="1"
                     CornerRadius="4"
                     Background="White">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="120"/>
-                    </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="80" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="누적 양품수량" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1"
+                                   Text="{Binding AccumulatedGoodQty, StringFormat={}{0:N0}}"
+                                   HorizontalAlignment="Right"
+                                   VerticalAlignment="Center"
+                                   FontSize="16"
+                                   FontWeight="Bold"
+                                   Foreground="#1F5FBF" />  
+                    </Grid>
 
-                    <TextBlock Grid.Row="0" Grid.Column="0" Margin="0,0,8,12" Text="누적 양품수량" FontWeight="SemiBold"/>
-                    <TextBlock Grid.Row="0" Grid.Column="1" Margin="0,0,0,12" HorizontalAlignment="Right" Text="{Binding AccumulatedGoodQty,StringFormat={}{0:N0}}" FontSize="22" FontWeight="Bold" Foreground="#1F57B7"/>
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="80" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="누적 불량수량" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1"
+                                   Text="{Binding AccumulatedDefectQty, StringFormat={}{0:N0}}"
+                                   HorizontalAlignment="Right"
+                                   VerticalAlignment="Center"
+                                   FontSize="16"
+                                   FontWeight="Bold"
+                                   Foreground="#1F5FBF" />  
+                    </Grid>
 
-                    <TextBlock Grid.Row="1" Grid.Column="0" Margin="0,0,8,12" Text="누적 불량수량" FontWeight="SemiBold"/>
-                    <TextBlock Grid.Row="1" Grid.Column="1" Margin="0,0,0,12" HorizontalAlignment="Right" Text="{Binding AccumulatedDefectQty,StringFormat={}{0:N0}}" FontSize="22" FontWeight="Bold" Foreground="#1F57B7"/>
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="80" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="누적 불량출고수량" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1"
+                                   Text="{Binding AccumulatedDefectShipQty, StringFormat={}{0:N0}}"
+                                   HorizontalAlignment="Right"
+                                   VerticalAlignment="Center"
+                                   FontSize="16"
+                                   FontWeight="Bold"
+                                   Foreground="#1F5FBF" />  
+                    </Grid>
 
-                    <TextBlock Grid.Row="2" Grid.Column="0" Margin="0,0,8,0" Text="누적 불량출고수량" FontWeight="SemiBold"/>
-                    <TextBlock Grid.Row="2" Grid.Column="1" HorizontalAlignment="Right" Text="{Binding AccumulatedDefectShipQty,StringFormat={}{0:N0}}" FontSize="22" FontWeight="Bold" Foreground="#1F57B7"/>
-                </Grid>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="80" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="누적 검수수량" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1"
+                                   Text="{Binding AccumulatedInspectedQty, StringFormat={}{0:N0}}"
+                                   HorizontalAlignment="Right"
+                                   VerticalAlignment="Center"
+                                   FontSize="16"
+                                   FontWeight="Bold"
+                                   Foreground="#1F5FBF" />      
+                    </Grid>
+                </StackPanel>
             </Border>
         </Grid>
 
         <!-- 기록섹션 -->
         <Border Grid.Row="1"
-        Margin="0,16,0,12"
-        Padding="12"
-        BorderBrush="#D9DEE7"
-        BorderThickness="1"
-        CornerRadius="4"
-        Background="White">
+                Margin="0,16,0,12"
+                Padding="12"
+                BorderBrush="#D9DEE7"
+                BorderThickness="1"
+                CornerRadius="4"
+                Background="White">     
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="100"/>
@@ -127,7 +168,7 @@
                    FontWeight="SemiBold"/>
                 <TextBox Grid.Column="1"
                  Margin="8,0,16,0"
-                 Text="{Binding GoodQty, UpdateSourceTrigger=PropertyChanged}"  VerticalAlignment="Center"/>
+                 Text="{Binding GoodQty, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:N0}}"  VerticalAlignment="Center"/>
 
                 <TextBlock Grid.Column="2"
                    VerticalAlignment="Center"
@@ -135,7 +176,7 @@
                    FontWeight="SemiBold"/>
                 <TextBox Grid.Column="3"
                  Margin="8,0,16,0"
-                 Text="{Binding DefectQty, UpdateSourceTrigger=PropertyChanged}"  VerticalAlignment="Center"/>
+                 Text="{Binding DefectQty, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:N0}}"  VerticalAlignment="Center"/>
 
                 <TextBlock Grid.Column="4"
                    VerticalAlignment="Center"
@@ -143,7 +184,7 @@
                    FontWeight="SemiBold"/>
                 <TextBox Grid.Column="5"
                  Margin="8,0,16,0"
-                 Text="{Binding DefectShipQty, UpdateSourceTrigger=PropertyChanged}"  VerticalAlignment="Center"/>
+                 Text="{Binding DefectShipQty, UpdateSourceTrigger=PropertyChanged,StringFormat={}{0:N0}}"  VerticalAlignment="Center"/>
 
                 <TextBlock Grid.Column="6"
                    VerticalAlignment="Center"

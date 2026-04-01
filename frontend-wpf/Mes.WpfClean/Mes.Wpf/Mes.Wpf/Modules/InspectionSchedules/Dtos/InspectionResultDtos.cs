@@ -9,6 +9,24 @@ namespace Mes.Wpf.Modules.InspectionSchedules.Dtos
     {
         [JsonPropertyName("result")]
         public InspectionResultDto? Result { get; set; }
+
+        [JsonPropertyName("accumulated")]
+        public InspectionAccumulatedSummaryDto? Accumulated { get; set; }
+    }
+
+    public class InspectionAccumulatedSummaryDto
+    {
+        [JsonPropertyName("good_qty")]
+        public int GoodQty { get; set; }
+
+        [JsonPropertyName("defect_qty")]
+        public int DefectQty { get; set; }
+
+        [JsonPropertyName("defect_ship_qty")]
+        public int DefectShipQty { get; set; }
+
+        [JsonPropertyName("inspected_qty")]
+        public int InspectedQty { get; set; }
     }
 
     public class InspectionResultDto

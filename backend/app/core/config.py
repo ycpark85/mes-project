@@ -1,6 +1,7 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import Field, field_validator
 from typing import Set
+
+from pydantic import Field, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -17,25 +18,16 @@ class Settings(BaseSettings):
     DRAWING_MAX_MB: int = Field(default=50, ge=1, le=500)
     DRAWING_ALLOWED_EXT: Set[str] = Field(default_factory=set)
 
-    @field_validator("DRAWING_ALLOWED_EXT", mode="before")
-    @classmethod
-    def _parse_allowed_ext(cls, v):
-        if isinstance(v, str):
-            return {x.strip().lower() for x in v.split(",") if x.strip()}
-        if isinstance(v, (list, set)):
-            return {str(x).strip().lower() for x in v}
-        return set()
-    
+    DEFECT_PHOTO_STORAGE_ROOT: str = Field(default=r"C:\mes_storage")
+    DEFECT_PHOTO_MAX_MB: int = Field(default=20, ge=1, le=500)
     DEFECT_PHOTO_ALLOWED_EXT: Set[str] = Field(default_factory=set)
 
-    @field_validator("DEFECT_PHOTO_ALLOWED_EXT", mode="before")
+    @field_validator("DRAWING_ALLOWED_EXT", "DEFECT_PHOTO_ALLOWED_EXT", mode="before")
     @classmethod
-    def _parse_defect_photo_allowed_ext(cls, v):
-        if isinstance(v, str):
-            return {x.strip().lower() for x in v.split(",") if x.strip()}
-        if isinstance(v, (list, set)):
-            return {str(x).strip().lower() for x in v}
-        return set()
+    def _normalize_allowed_ext(cls, v):
+        if isinstance(v, (list, set, tuple)):
+            return {str(x).strip().lower() for x in v if str(x).strip()}
+        return v
 
 
 settings = Settings()

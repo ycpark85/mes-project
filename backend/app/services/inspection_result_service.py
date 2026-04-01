@@ -41,13 +41,9 @@ def upsert_inspection_result(
     - schedule.status == IN_PROGRESS 에서만 허용
     - inspected_qty = good_qty + defect_ship_qty + defect_qty (서버 계산)
     - defects/attachments: MVP 안전형(전체 삭제 후 재삽입)
-    - disposition 합계 검증:
-        Σ(SHIP_AS_IS) == defect_ship_qty
-        Σ(NOT_SHIPPABLE) == defect_qty
-    - is_partial=true:
-        schedule=PARTIAL_DONE + next schedule 자동 생성(RECEIVED)
-    - is_partial=false:
-        schedule=DONE + lot DONE 전이(활성 schedule 없음)
+    - 불량내역은 유형/메모/첨부 기록용으로만 사용
+    - is_partial=true: schedule=PARTIAL_DONE + next schedule 자동 생성(RECEIVED)
+    - is_partial=false: schedule=DONE + lot DONE 전이(활성 schedule 없음)
     """
 
     # 1) schedule row lock
@@ -56,6 +52,7 @@ def upsert_inspection_result(
         .where(InspectionSchedule.inspection_schedule_id == inspection_schedule_id)
         .with_for_update()
     ).scalar_one_or_none()
+
     if not sch:
         raise HTTPException(status_code=404, detail="inspection_schedule not found")
 
@@ -73,22 +70,7 @@ def upsert_inspection_result(
     # 4) 수량 계산 (서버 SSOT)
     inspected_qty = good_qty + defect_ship_qty + defect_qty
 
-    # 5) disposition 합계 검증
-    ship_sum = sum(d.defect_qty for d in defects if d.disposition == "SHIP_AS_IS")
-    not_ship_sum = sum(d.defect_qty for d in defects if d.disposition == "NOT_SHIPPABLE")
-
-    if ship_sum != defect_ship_qty:
-        raise HTTPException(
-            status_code=422,
-            detail=f"Σ(SHIP_AS_IS)={ship_sum} must equal defect_ship_qty={defect_ship_qty}",
-        )
-    if not_ship_sum != defect_qty:
-        raise HTTPException(
-            status_code=422,
-            detail=f"Σ(NOT_SHIPPABLE)={not_ship_sum} must equal defect_qty={defect_qty}",
-        )
-
-    # 6) defect_type 존재/활성 검증
+    # 5) 불량유형 존재/활성 검증
     if defects:
         defect_type_ids = sorted({d.defect_type_id for d in defects})
         rows = db.execute(
@@ -97,12 +79,13 @@ def upsert_inspection_result(
                 DefectType.is_active.is_(True),
             )
         ).scalars().all()
+
         if set(rows) != set(defect_type_ids):
             raise HTTPException(status_code=422, detail="Invalid or inactive defect_type_id exists")
 
     now = _utcnow()
 
-    # 7) inspection_result upsert
+    # 6) inspection_result upsert
     result = db.execute(
         select(InspectionResult).where(InspectionResult.inspection_schedule_id == inspection_schedule_id)
     ).scalar_one_or_none()
@@ -131,16 +114,15 @@ def upsert_inspection_result(
         result.partial_reason = partial_reason
         db.flush()
 
-    # 8) defects/attachments: 전체 삭제 후 재삽입
+    # 7) defects/attachments: 전체 삭제 후 재삽입
     _replace_defects_and_attachments(db, inspection_result_id=result.inspection_result_id, defects=defects)
 
     created_next_id: Optional[int] = None
 
-    # 9) schedule 상태 전이 + 후속 처리
+    # 8) schedule 상태 전이 + 후속 처리
     if is_partial:
         sch.status = "PARTIAL_DONE"
         sch.finished_at = now
-
         base_received_at = sch.received_at or now
 
         created_next_id = _create_next_schedule(
@@ -152,7 +134,6 @@ def upsert_inspection_result(
     else:
         sch.status = "DONE"
         sch.finished_at = now
-
         _maybe_close_lot(db, lot_id=sch.lot_id)
 
     db.flush()
@@ -178,7 +159,9 @@ def _replace_defects_and_attachments(
             )
         )
         db.execute(
-            delete(InspectionDefect).where(InspectionDefect.inspection_defect_id.in_(defect_ids))
+            delete(InspectionDefect).where(
+                InspectionDefect.inspection_defect_id.in_(defect_ids)
+            )
         )
         db.flush()
 
@@ -218,7 +201,6 @@ def _create_next_schedule(
     - status=RECEIVED
     - day_seq: 동일 날짜(status!=CANCELED) row들을 FOR UPDATE로 잠금 후 파이썬 max+1
     """
-
     locked_seqs = db.execute(
         select(InspectionSchedule.day_seq)
         .where(
@@ -232,6 +214,7 @@ def _create_next_schedule(
     for s in locked_seqs:
         if s is not None and int(s) > max_seq:
             max_seq = int(s)
+
     next_seq = max_seq + 1
 
     new_sch = InspectionSchedule(

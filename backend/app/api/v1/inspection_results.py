@@ -5,7 +5,7 @@ from datetime import datetime
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.auth import get_current_user
@@ -15,6 +15,7 @@ from app.models.inspection_result import InspectionResult
 from app.models.inspection_schedule import InspectionSchedule
 from app.schemas.inspection_result import (
     DefectAttachmentUploadOut,
+    InspectionAccumulatedSummaryOut,
     InspectionResultGetOut,
     InspectionResultUpsertIn,
     InspectionResultUpsertOut,
@@ -23,7 +24,7 @@ from app.services.inspection_result_service import upsert_inspection_result
 
 router = APIRouter(prefix="/inspection-schedules", tags=["InspectionResult"])
 
-_filename_safe_re = re.compile(r"[^A-Za-z0-9_.()-]+")
+_filename_safe_re = re.compile(r"[^\w.()-]+", re.UNICODE)
 
 
 def _safe_filename(name: str) -> str:
@@ -53,7 +54,7 @@ def _ensure_schedule(db: Session, inspection_schedule_id: int) -> InspectionSche
 
 
 def _make_defect_photo_dir(*, inspection_schedule_id: int) -> Path:
-    root = Path(settings.DRAWING_STORAGE_ROOT)
+    root = Path(settings.DEFECT_PHOTO_STORAGE_ROOT)
     return root / "defect_photos" / str(inspection_schedule_id)
 
 
@@ -75,8 +76,8 @@ def _save_defect_photo(
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     original = _safe_filename(file.filename or f"file.{ext}")
     final_name = f"{ts}_{original}"
-
     abs_path = target_dir / final_name
+
     max_bytes = settings.DEFECT_PHOTO_MAX_MB * 1024 * 1024
     written = 0
 
@@ -104,14 +105,65 @@ def _save_defect_photo(
     return rel_uri.replace("\\", "/"), original, written, file.content_type
 
 
+def _get_accumulated_summary(
+    db: Session,
+    *,
+    inspection_schedule_id: int,
+) -> InspectionAccumulatedSummaryOut:
+    current_schedule = _ensure_schedule(db, inspection_schedule_id)
+    lot_id = current_schedule.lot_id
+
+    row = db.execute(
+        select(
+            func.coalesce(func.sum(InspectionResult.good_qty), 0),
+            func.coalesce(func.sum(InspectionResult.defect_qty), 0),
+            func.coalesce(func.sum(InspectionResult.defect_ship_qty), 0),
+            func.coalesce(func.sum(InspectionResult.inspected_qty), 0),
+        )
+        .select_from(InspectionResult)
+        .join(
+            InspectionSchedule,
+            InspectionSchedule.inspection_schedule_id == InspectionResult.inspection_schedule_id,
+        )
+        .where(
+            InspectionSchedule.lot_id == lot_id,
+            InspectionSchedule.inspection_schedule_id != inspection_schedule_id,
+            InspectionSchedule.status.in_(("PARTIAL_DONE", "DONE")),
+        )
+    ).one()
+
+    return InspectionAccumulatedSummaryOut(
+        good_qty=int(row[0] or 0),
+        defect_qty=int(row[1] or 0),
+        defect_ship_qty=int(row[2] or 0),
+        inspected_qty=int(row[3] or 0),
+    )
+
+
 @router.get("/{inspection_schedule_id}/result", response_model=InspectionResultGetOut)
-def get_result(inspection_schedule_id: int, db: Session = Depends(get_db)):
+def get_result(
+    inspection_schedule_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    _ = user
+    _ensure_schedule(db, inspection_schedule_id)
+
     result = db.execute(
         select(InspectionResult).where(
             InspectionResult.inspection_schedule_id == inspection_schedule_id
         )
     ).scalar_one_or_none()
-    return {"result": result}
+
+    accumulated = _get_accumulated_summary(
+        db,
+        inspection_schedule_id=inspection_schedule_id,
+    )
+
+    return InspectionResultGetOut(
+        result=result,
+        accumulated=accumulated,
+    )
 
 
 @router.post(
@@ -125,6 +177,7 @@ def upload_result_photo(
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
+    _ = user
     _ensure_schedule(db, inspection_schedule_id)
 
     target_dir = _make_defect_photo_dir(inspection_schedule_id=inspection_schedule_id)
@@ -150,6 +203,8 @@ def put_result(
     user=Depends(get_current_user),
 ):
     try:
+        actor = getattr(user, "username", None) or getattr(user, "login_id", None) or "system"
+
         result, sch_status, created_next_id = upsert_inspection_result(
             db,
             inspection_schedule_id,
@@ -160,10 +215,11 @@ def put_result(
             next_inspection_date=body.next_inspection_date,
             partial_reason=body.partial_reason,
             defects=body.defects,
-            actor=user.username,
+            actor=actor,
         )
         db.commit()
         db.refresh(result)
+
         return {
             "result": result,
             "schedule_status": sch_status,

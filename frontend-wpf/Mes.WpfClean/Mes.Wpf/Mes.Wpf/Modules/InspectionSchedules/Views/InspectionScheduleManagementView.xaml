@@ -321,6 +321,12 @@
                                     <DataTrigger Binding="{Binding Status}" Value="IN_PROGRESS">
                                         <Setter TargetName="StatusText" Property="Text" Value="진행중"/>
                                     </DataTrigger>
+                                    <DataTrigger Binding="{Binding Status}" Value="PARTIAL_DONE">
+                                        <Setter TargetName="StatusText" Property="Text" Value="분할검수완료"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Status}" Value="DONE">
+                                        <Setter TargetName="StatusText" Property="Text" Value="검수완료"/>
+                                    </DataTrigger>
                                     <DataTrigger Binding="{Binding Status}" Value="CANCELED">
                                         <Setter TargetName="StatusText" Property="Text" Value="취소"/>
                                     </DataTrigger>

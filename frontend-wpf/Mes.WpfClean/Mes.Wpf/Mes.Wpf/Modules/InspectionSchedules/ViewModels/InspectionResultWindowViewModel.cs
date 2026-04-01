@@ -11,7 +11,6 @@ using Mes.Wpf.Core.Constants;
 using Mes.Wpf.Core.Interfaces;
 using Mes.Wpf.Modules.InspectionSchedules.Dtos;
 
-
 namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
 {
     public class InspectionResultWindowViewModel : ViewModelBase
@@ -25,22 +24,25 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
         private string _partnerName = string.Empty;
         private DateTime? _inspectionDate;
         private int _planQty;
-
         private DateTime? _dueDate;
         private int _orderQty;
+
+        private int _baseAccumulatedGoodQty;
+        private int _baseAccumulatedDefectQty;
+        private int _baseAccumulatedDefectShipQty;
+        private int _baseAccumulatedInspectedQty;
 
         private int _accumulatedGoodQty;
         private int _accumulatedDefectQty;
         private int _accumulatedDefectShipQty;
+        private int _accumulatedInspectedQty;
 
         private int _goodQty;
         private int _defectShipQty;
         private int _defectQty;
-
         private bool _isPartial;
         private DateTime? _nextInspectionDate;
         private string _partialReason = string.Empty;
-
         private bool _isLoading;
         private InspectionResultDefectEditModel? _selectedDefect;
 
@@ -61,9 +63,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
             UploadPhotoCommand = new RelayCommand(
                 async x => await UploadPhotoAsync(x as InspectionResultDefectEditModel),
                 x => !IsLoading && x is InspectionResultDefectEditModel);
-
             RemovePhotoCommand = new RelayCommand(x => RemovePhoto(x as DefectAttachmentEditModel));
-
             SaveCommand = new AsyncRelayCommand(SaveAsync, () => !IsLoading);
             CancelCommand = new RelayCommand(_ => CloseRequested?.Invoke(false));
         }
@@ -134,6 +134,12 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
             set => SetProperty(ref _accumulatedDefectShipQty, value);
         }
 
+        public int AccumulatedInspectedQty
+        {
+            get => _accumulatedInspectedQty;
+            set => SetProperty(ref _accumulatedInspectedQty, value);
+        }
+
         public int GoodQty
         {
             get => _goodQty;
@@ -141,7 +147,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
             {
                 if (SetProperty(ref _goodQty, value))
                 {
-                    OnPropertyChanged(nameof(TotalQty));
+                    RecalculateTotals();
                 }
             }
         }
@@ -153,7 +159,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
             {
                 if (SetProperty(ref _defectShipQty, value))
                 {
-                    OnPropertyChanged(nameof(TotalQty));
+                    RecalculateTotals();
                 }
             }
         }
@@ -165,7 +171,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
             {
                 if (SetProperty(ref _defectQty, value))
                 {
-                    OnPropertyChanged(nameof(TotalQty));
+                    RecalculateTotals();
                 }
             }
         }
@@ -246,9 +252,10 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
 
             await LoadAsync();
         }
+
         public void ApplySelectedDefectType(
             InspectionResultDefectEditModel defect,
-            InspectionResultDefectTypeLookupDto selectedDefectType)     
+            InspectionResultDefectTypeLookupDto selectedDefectType)
         {
             if (defect == null || selectedDefectType == null)
             {
@@ -286,12 +293,17 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                     return;
                 }
 
-                var dto = result.Data?.Result;
+                var response = result.Data;
+                var dto = response?.Result;
+                var accumulated = response?.Accumulated;
+
+                _baseAccumulatedGoodQty = accumulated?.GoodQty ?? 0;
+                _baseAccumulatedDefectQty = accumulated?.DefectQty ?? 0;
+                _baseAccumulatedDefectShipQty = accumulated?.DefectShipQty ?? 0;
+                _baseAccumulatedInspectedQty = accumulated?.InspectedQty ?? 0;
+
                 if (dto == null)
                 {
-                    AccumulatedGoodQty = 0;
-                    AccumulatedDefectQty = 0;
-                    AccumulatedDefectShipQty = 0;
                     GoodQty = 0;
                     DefectShipQty = 0;
                     DefectQty = 0;
@@ -299,23 +311,19 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                     NextInspectionDate = null;
                     PartialReason = string.Empty;
                     Defects.Clear();
+
+                    RecalculateTotals();
                     return;
                 }
 
                 GoodQty = dto.GoodQty;
                 DefectShipQty = dto.DefectShipQty;
                 DefectQty = dto.DefectQty;
-
                 IsPartial = dto.IsPartial;
                 NextInspectionDate = dto.NextInspectionDate;
                 PartialReason = dto.PartialReason ?? string.Empty;
 
-                AccumulatedGoodQty = dto.GoodQty;
-                AccumulatedDefectQty = dto.DefectQty;
-                AccumulatedDefectShipQty = dto.DefectShipQty;
-
                 Defects.Clear();
-
                 if (dto.Defects != null)
                 {
                     foreach (var defect in dto.Defects)
@@ -324,7 +332,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                         {
                             DefectTypeId = defect.DefectTypeId,
                             DefectTypeName = string.Empty,
-                            Memo = defect.Memo ?? string.Empty
+                            Memo = defect.Memo ?? string.Empty,
                         };
 
                         if (defect.Attachments != null)
@@ -336,7 +344,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                                     FileUri = att.FileUri,
                                     FileName = att.FileName ?? string.Empty,
                                     MimeType = att.MimeType ?? string.Empty,
-                                    Memo = att.Memo ?? string.Empty
+                                    Memo = att.Memo ?? string.Empty,
                                 });
                             }
                         }
@@ -344,11 +352,23 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                         Defects.Add(edit);
                     }
                 }
+
+                RecalculateTotals();
             }
             finally
             {
                 IsLoading = false;
             }
+        }
+
+        private void RecalculateTotals()
+        {
+            OnPropertyChanged(nameof(TotalQty));
+
+            AccumulatedGoodQty = _baseAccumulatedGoodQty + GoodQty;
+            AccumulatedDefectQty = _baseAccumulatedDefectQty + DefectQty;
+            AccumulatedDefectShipQty = _baseAccumulatedDefectShipQty + DefectShipQty;
+            AccumulatedInspectedQty = _baseAccumulatedInspectedQty + TotalQty;
         }
 
         private void AddDefect()
@@ -396,7 +416,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
             var dialog = new OpenFileDialog
             {
                 Filter = "Image Files|*.jpg;*.jpeg;*.png;*.bmp;*.webp",
-                Multiselect = false
+                Multiselect = false,
             };
 
             if (dialog.ShowDialog() != true)
@@ -439,7 +459,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                     FileUri = result.Data.FileUri,
                     FileName = result.Data.FileName,
                     MimeType = result.Data.MimeType ?? string.Empty,
-                    Memo = string.Empty
+                    Memo = string.Empty,
                 });
             }
             finally
