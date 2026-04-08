@@ -292,7 +292,15 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
             {
                 return;
             }
-
+            if (targetDate < DateTime.Today.Date)
+            {
+                _messageService.ShowWarning("검수일정은 오늘 이전 날짜로 변경할 수 없습니다.");
+                _isHandlingDateChange = true;
+                SelectedItem.InspectionDate = originalDate;
+                EditModel.InspectionDate = originalDate;
+                _isHandlingDateChange = false;
+                return;
+            }
             if (!CanChangeDate())
             {
                 _messageService.ShowWarning("일정변경은 대기 또는 입고완료 상태에서만 가능합니다.");
@@ -342,7 +350,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                 }
 
                 _messageService.ShowInfo("검수 일정이 변경되었습니다.");
-                SearchDate = targetDate;
+
                 await LoadAsync();
             }
             finally

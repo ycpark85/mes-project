@@ -93,8 +93,33 @@ def update_inspection_schedule(
     if payload.memo is not None:
         obj.memo = payload.memo
 
+    def resequence_by_date(target_date: date):
+        rows = db.execute(
+            select(InspectionSchedule)
+            .where(
+                InspectionSchedule.inspection_date == target_date,
+                InspectionSchedule.status.in_(("WAITING", "RECEIVED")),
+            )
+            .order_by(
+                InspectionSchedule.day_seq.asc(),
+                InspectionSchedule.inspection_schedule_id.asc(),
+            )
+        ).scalars().all()
+
+        for idx, row in enumerate(rows, start=1):
+            row.day_seq = idx
+
     if payload.inspection_date is not None and payload.inspection_date != obj.inspection_date:
-        # 새 날짜 기준 day_seq = MAX + 1
+        today_kst = datetime.now(ZoneInfo("Asia/Seoul")).date()
+        if payload.inspection_date < today_kst:
+            raise HTTPException(
+                status_code=409,
+                detail="Inspection schedule date cannot be changed to a past date",
+            )
+
+        old_date = obj.inspection_date
+
+        # 새 날짜 기준 임시로 뒤에 붙임
         max_seq = db.execute(
             select(func.coalesce(func.max(InspectionSchedule.day_seq), 0)).where(
                 InspectionSchedule.inspection_date == payload.inspection_date,
@@ -104,6 +129,25 @@ def update_inspection_schedule(
 
         obj.inspection_date = payload.inspection_date
         obj.day_seq = int(max_seq) + 1
+
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            raise HTTPException(status_code=409, detail="Duplicate (lot_id, inspection_date) is not allowed")
+
+        # 이동 후 old/new 날짜 각각 재정렬
+        resequence_by_date(old_date)
+        resequence_by_date(payload.inspection_date)
+
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            raise HTTPException(status_code=409, detail="Failed to resequence inspection schedules")
+
+        db.refresh(obj)
+        return obj
 
     try:
         db.commit()
