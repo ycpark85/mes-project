@@ -126,10 +126,9 @@ namespace Mes.Wpf.Modules.Lots.ViewModels
 
         private void ResetInputFields()
         {
-            EditModel.IsRework = false;
+            EditModel.IsRework = true;
             SelectedPrimaryLot = null;
             EditModel.ApplyParentLot(null);
-
             EditModel.MaterialLotNo = string.Empty;
             EditModel.MaterialUsedQty = null;
             EditModel.MaterialSheetCount = null;
@@ -155,9 +154,21 @@ namespace Mes.Wpf.Modules.Lots.ViewModels
                 return false;
             }
 
-            if (!string.Equals(EditModel.Status, "OPEN", StringComparison.OrdinalIgnoreCase))
+            if (!EditModel.IsRework)
             {
-                _messageService.ShowWarning("LOT 생성은 OPEN 상태의 수주라인에서만 가능합니다.");
+                _messageService.ShowWarning("수동 LOT 생성은 재작업 LOT만 가능합니다.");
+                return false;
+            }
+
+            if (SelectedPrimaryLot == null || !EditModel.ParentLotId.HasValue)
+            {
+                _messageService.ShowWarning("재작업 LOT는 부모 Primary LOT를 선택해야 합니다.");
+                return false;
+            }
+
+            if (!SelectedPrimaryLot.CanCreateRework)
+            {
+                _messageService.ShowWarning("재작업 LOT는 부모 LOT가 DONE 또는 CANCELED일 때만 생성 가능합니다.");
                 return false;
             }
 
@@ -183,7 +194,6 @@ namespace Mes.Wpf.Modules.Lots.ViewModels
                 return false;
             }
 
-
             if (hasMaterialSheetCount && EditModel.MaterialSheetCount.Value <= 0)
             {
                 _messageService.ShowWarning("시트수는 1 이상이어야 합니다.");
@@ -193,26 +203,6 @@ namespace Mes.Wpf.Modules.Lots.ViewModels
             if (hasMaterialSheetCount && !hasMaterialLotNo)
             {
                 _messageService.ShowWarning("시트수를 입력한 경우 원단 LOT가 필요합니다.");
-                return false;
-            }
-
-
-
-
-            if (!EditModel.IsRework)
-            {
-                return true;
-            }
-
-            if (SelectedPrimaryLot == null)
-            {
-                _messageService.ShowWarning("재작업 LOT는 부모 Primary LOT를 선택해야 합니다.");
-                return false;
-            }
-
-            if (!SelectedPrimaryLot.CanCreateRework)
-            {
-                _messageService.ShowWarning("재작업 LOT는 부모 LOT가 DONE 또는 CANCELED일 때만 생성 가능합니다.");
                 return false;
             }
 
@@ -271,7 +261,12 @@ namespace Mes.Wpf.Modules.Lots.ViewModels
                 return;
             }
 
-            var confirmed = _messageService.Confirm("LOT를 생성하시겠습니까?", "LOT 생성");
+            var confirmMessage = EditModel.IsRework
+                ? "재작업 LOT를 생성하시겠습니까?"
+                : "추가 LOT를 생성하시겠습니까?";
+
+            var confirmed = _messageService.Confirm("재작업 LOT가 생성되었습니다. [{result.Data.LotNo}]");
+
             if (!confirmed)
             {
                 return;
@@ -298,11 +293,15 @@ namespace Mes.Wpf.Modules.Lots.ViewModels
 
                 if (!result.Success || result.Data == null)
                 {
-                    _messageService.ShowError(result.Message ?? "LOT 생성 중 오류가 발생했습니다.");
+                    _messageService.ShowError(result.Message ?? "추가/재작업 LOT 정보 조회 중 오류가 발생했습니다.");
                     return;
                 }
 
-                _messageService.ShowInfo($"LOT가 생성되었습니다. [{result.Data.LotNo}]");
+                var successMessage = EditModel.IsRework
+                    ? $"재작업 LOT가 생성되었습니다. [{result.Data.LotNo}]"
+                    : $"추가 LOT가 생성되었습니다. [{result.Data.LotNo}]";
+
+                _messageService.ShowInfo(successMessage);
 
                 await LoadContextAsync();
                 ResetInputFields();

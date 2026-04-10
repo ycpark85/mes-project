@@ -8,12 +8,19 @@ from app.models.drawing_revision import DrawingRevision
 from app.models.drawing_rivision_file import DrawingRevisionFile
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status as http_status
+from sqlalchemy import and_, desc, exists, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
+from app.crud.lot import lot_crud
+from app.crud.order_line import order_line_crud
 from app.db.session import get_db  # 너희 프로젝트의 get_db 경로에 맞춰 수정
+from app.models.lot import Lot
+from app.models.lot_step import LotStep
 from app.models.order_line import OrderLine
+from app.models.routing_template_step import RoutingTemplateStep
 from app.models.partner import Partner
+from app.models.process import Process
 from app.models.product import Product
 from app.schemas.order_line import (
     OrderLineCreate,
@@ -57,28 +64,145 @@ def _ensure_product_active(db: Session, product_id: int) -> Product:
     return product
 
 
+def _generate_lot_no(db: Session, created_date: date, e_fixed: str = "0") -> str:
+    yy = f"{created_date.year % 100:02d}"
+    mm = f"{created_date.month:02d}"
+    dd = f"{created_date.day:02d}"
+    prefix = f"CT{yy}{mm}{dd}{e_fixed}"
+
+    last = (
+        db.execute(
+            select(Lot.lot_no)
+            .where(Lot.lot_no.like(f"{prefix}%"))
+            .order_by(desc(Lot.lot_no))
+            .limit(1)
+        )
+        .scalar_one_or_none()
+    )
+
+    if not last:
+        nn = 1
+    else:
+        try:
+            nn = int(last[-2:]) + 1
+        except ValueError:
+            nn = 1
+
+    if nn > 99:
+        raise HTTPException(status_code=409, detail="LOT sequence exceeded for the day (NN > 99)")
+
+    return f"{prefix}{nn:02d}"
+
+
+def _create_lot_steps_from_routing(db: Session, lot_id: int, routing_template_id: int) -> None:
+    steps = (
+        db.execute(
+            select(RoutingTemplateStep)
+            .where(
+                RoutingTemplateStep.routing_template_id == routing_template_id,
+                RoutingTemplateStep.is_active == True,  # noqa: E712
+            )
+            .order_by(RoutingTemplateStep.step_seq.asc())
+        )
+        .scalars()
+        .all()
+    )
+
+    if not steps:
+        raise HTTPException(status_code=409, detail="RoutingTemplate has no active steps")
+
+    process_ids = [s.process_id for s in steps]
+    procs = db.execute(select(Process).where(Process.process_id.in_(process_ids))).scalars().all()
+    process_map = {p.process_id: p for p in procs}
+
+    for s in steps:
+        p = process_map.get(s.process_id)
+        if not p:
+            raise HTTPException(status_code=409, detail=f"Process not found for process_id={s.process_id}")
+
+        db.add(
+            LotStep(
+                lot_id=lot_id,
+                step_seq=s.step_seq,
+                process_id=s.process_id,
+                process_code=p.process_code,
+                process_name=p.process_name,
+                process_type=s.default_process_type,
+                status="WAITING",
+            )
+        )
+
+
+def _create_primary_lot_for_order_line(db: Session, order_line: OrderLine, product: Product) -> Lot:
+    if order_line.status != OrderLineStatus.OPEN.value:
+        raise HTTPException(
+            status_code=409,
+            detail="Primary LOT can only be auto-created when OrderLine is OPEN",
+        )
+
+    if not product.routing_template_id:
+        raise HTTPException(status_code=409, detail="Product has no routing template")
+
+    created_date = date.today()
+
+    for _ in range(3):
+        lot_no = _generate_lot_no(db, created_date, e_fixed="0")
+        lot = Lot(
+            lot_no=lot_no,
+            order_line_id=order_line.order_line_id,
+            product_id=order_line.product_id,
+            parent_lot_id=None,
+            lot_qty=int(order_line.order_qty),
+            uom=order_line.uom,
+            material_lot_no=None,
+            material_used_qty=None,
+            material_sheet_count=None,
+            created_date=created_date,
+            due_date=order_line.due_date,
+            memo=None,
+            status="WAITING",
+        )
+
+        try:
+            with db.begin_nested():
+                lot_crud.create(db, lot)
+                _create_lot_steps_from_routing(db, lot.lot_id, product.routing_template_id)
+
+            order_line.status = OrderLineStatus.CLOSED.value
+            db.flush()
+            db.refresh(lot)
+            return lot
+
+        except IntegrityError:
+            continue
+
+    raise HTTPException(status_code=409, detail="Failed to generate unique lot_no (retry exceeded)")
+
+
 @router.post("", response_model=OrderLineOut, status_code=http_status.HTTP_201_CREATED)
 def create_order_line(payload: OrderLineCreate, db: Session = Depends(get_db)):
-    # FK validate
     _ensure_partner_active(db, payload.partner_id)
     product = _ensure_product_active(db, payload.product_id)
 
-    # uom 스냅샷: 입력값을 신뢰하지 않고 product.uom으로 강제(권장)
     data = payload.model_dump()
     data["uom"] = product.uom
 
     obj = OrderLine(**data)
-    # status/is_active/priority는 모델 default 사용(OPEN/true/0)
 
     try:
         order_line_crud.create(db, obj)
+        _create_primary_lot_for_order_line(db, obj, product)
         db.commit()
+        db.refresh(obj)
+
+    except HTTPException:
+        db.rollback()
+        raise
+
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=409, detail="Duplicate order_no+line_no or integrity error")
 
-    # join 표시 필드까지 내려주려면 list_with_search 방식이지만, 단건은 간단히 포함 필드 없이 반환
-    # (원하면 여기서 partner/product join해서 partner_name/product_name 넣어줄 수 있음)
     return OrderLineOut.model_validate(obj, from_attributes=True)
 
 
@@ -412,7 +536,7 @@ def get_lot_create_context(order_line_id: int, db: Session = Depends(get_db)):
         product_spec=product.product_spec,
         drawing=drawing_dto,
         primary_lot_candidates=primary_lot_candidates,
-        can_create_primary_lot=order_line.status == OrderLineStatus.OPEN.value,
+        can_create_primary_lot=False,
     )
 
 @router.get("/{order_line_id}", response_model=OrderLineOut)

@@ -277,7 +277,7 @@ namespace Mes.Wpf.Modules.Lots.Dtos
 
             PlanQty = dto.OrderQty;
 
-            IsRework = false;
+            IsRework = true;
             ParentLotId = null;
             ParentLotNo = string.Empty;
             ParentLotStatus = string.Empty;
@@ -326,7 +326,7 @@ namespace Mes.Wpf.Modules.Lots.Dtos
             PlateFileId = null;
             PlateFileName = string.Empty;
 
-            IsRework = false;
+            IsRework = true;
             ParentLotId = null;
             ParentLotNo = string.Empty;
             ParentLotStatus = string.Empty;

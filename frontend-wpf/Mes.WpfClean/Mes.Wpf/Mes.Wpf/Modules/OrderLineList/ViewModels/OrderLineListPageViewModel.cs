@@ -141,12 +141,7 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
         {
             get
             {
-                if (SelectedItem == null)
-                {
-                    return "LOT 생성";
-                }
-
-                return SelectedItem.HasLot ? "LOT 상세" : "LOT 생성";
+                return "재작업 LOT";
             }
         }
 
@@ -231,15 +226,15 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
                 return;
             }
 
-            if (!string.Equals(SelectedItem.Status, "OPEN", StringComparison.OrdinalIgnoreCase))
+            if (!SelectedItem.HasLot)
             {
-                _messageService.ShowWarning("LOT 생성은 OPEN 상태의 수주라인에서만 가능합니다.");
+                _messageService.ShowWarning("Primary LOT이 없는 수주라인은 재작업 LOT를 생성할 수 없습니다.");
                 return;
             }
 
             if (_openLotCreateAsync == null)
             {
-                _messageService.ShowWarning("LOT 생성 창 연결이 아직 설정되지 않았습니다.");
+                _messageService.ShowWarning("재작업 LOT 생성 창 연결이 아직 설정되지 않았습니다.");
                 return;
             }
 

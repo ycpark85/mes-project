@@ -22,7 +22,11 @@ class Settings(BaseSettings):
     DEFECT_PHOTO_MAX_MB: int = Field(default=20, ge=1, le=500)
     DEFECT_PHOTO_ALLOWED_EXT: Set[str] = Field(default_factory=set)
 
-    @field_validator("DRAWING_ALLOWED_EXT", "DEFECT_PHOTO_ALLOWED_EXT", mode="before")
+    PLATE_DATA_STORAGE_ROOT: str = Field(default=r"C:\mes_storage")
+    PLATE_DATA_MAX_MB: int = Field(default=100, ge=1, le=1000)
+    PLATE_DATA_ALLOWED_EXT: Set[str] = Field(default_factory=set)
+
+    @field_validator("DRAWING_ALLOWED_EXT", "DEFECT_PHOTO_ALLOWED_EXT","PLATE_DATA_ALLOWED_EXT", mode="before")
     @classmethod
     def _normalize_allowed_ext(cls, v):
         if isinstance(v, (list, set, tuple)):

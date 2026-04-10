@@ -126,6 +126,21 @@ def _validate_material_fields(payload: LotCreate):
     return material_lot_no, material_used_qty, material_sheet_count
 
 
+def _has_normal_lot(db: Session, order_line_id: int) -> bool:
+    existing = (
+        db.execute(
+            select(Lot.lot_id)
+            .where(
+                Lot.order_line_id == order_line_id,
+                Lot.parent_lot_id.is_(None),
+            )
+            .limit(1)
+        )
+        .scalar_one_or_none()
+    )
+    return existing is not None
+
+
 @router.post("", response_model=LotDetailOut, status_code=http_status.HTTP_201_CREATED)
 def create_lot(payload: LotCreate, db: Session = Depends(get_db)):
     ol = _ensure_order_line(db, payload.order_line_id)
@@ -136,39 +151,37 @@ def create_lot(payload: LotCreate, db: Session = Depends(get_db)):
 
     created_date = payload.created_date or date.today()
     parent_lot_id_in = payload.parent_lot_id or None
-    is_rework = parent_lot_id_in is not None
     lot_qty = int(payload.lot_qty)
+
+    if parent_lot_id_in is None:
+        raise HTTPException(
+            status_code=409,
+            detail="Manual LOT creation is allowed for rework LOT only",
+        )
 
     material_lot_no, material_used_qty, material_sheet_count = _validate_material_fields(payload)
 
-    parent_lot_id = None
+    parent = _ensure_parent_lot(db, parent_lot_id_in)
 
-    if not is_rework and ol.status != "OPEN":
-        raise HTTPException(status_code=409, detail="Primary LOT can only be created when OrderLine is OPEN")
+    if parent.order_line_id != ol.order_line_id:
+        raise HTTPException(status_code=409, detail="Parent LOT must belong to same OrderLine")
 
-    if is_rework:
-        parent = _ensure_parent_lot(db, parent_lot_id_in)
+    if parent.parent_lot_id is not None:
+        raise HTTPException(status_code=409, detail="Parent LOT must be a primary LOT")
 
-        if parent.order_line_id != ol.order_line_id:
-            raise HTTPException(status_code=409, detail="Parent LOT must belong to same OrderLine")
+    if parent.status not in ("DONE", "CANCELED"):
+        raise HTTPException(
+            status_code=409,
+            detail="Rework LOT can only be created when parent LOT is DONE or CANCELED",
+        )
 
-        if parent.parent_lot_id is not None:
-            raise HTTPException(status_code=409, detail="Parent LOT must be a primary LOT")
+    if ol.status == "DONE":
+        ol.status = "CLOSED"
 
-        if parent.status not in ("DONE", "CANCELED"):
-            raise HTTPException(
-                status_code=409,
-                detail="Rework LOT can only be created when parent LOT is DONE or CANCELED",
-            )
-
-        parent_lot_id = parent.lot_id
-
-        if ol.status == "DONE":
-            ol.status = "CLOSED"
+    parent_lot_id = parent.lot_id
 
     for _ in range(3):
         lot_no = _generate_lot_no(db, created_date, e_fixed="0")
-
         lot = Lot(
             lot_no=lot_no,
             order_line_id=ol.order_line_id,
@@ -188,14 +201,9 @@ def create_lot(payload: LotCreate, db: Session = Depends(get_db)):
         try:
             lot_crud.create(db, lot)
             _create_lot_steps_from_routing(db, lot.lot_id, product.routing_template_id)
-
-            if not is_rework and ol.status == "OPEN":
-                ol.status = "CLOSED"
-
             db.commit()
             db.refresh(lot)
             break
-
         except IntegrityError:
             db.rollback()
             continue
@@ -203,7 +211,6 @@ def create_lot(payload: LotCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=409, detail="Failed to generate unique lot_no (retry exceeded)")
 
     out = LotDetailOut.model_validate(lot, from_attributes=True)
-
     partner = db.get(Partner, ol.partner_id)
     out.order_no = ol.order_no
     out.line_no = ol.line_no
@@ -212,7 +219,6 @@ def create_lot(payload: LotCreate, db: Session = Depends(get_db)):
     out.product_code = product.product_code
     out.product_name = product.product_name
     out.steps = [s for s in lot.steps]
-
     return out
 
 
