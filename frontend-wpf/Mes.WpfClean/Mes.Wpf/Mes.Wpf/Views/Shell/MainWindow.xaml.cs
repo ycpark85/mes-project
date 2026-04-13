@@ -25,6 +25,9 @@ using Mes.Wpf.Modules.OrderLineList.Dtos;
 using Mes.Wpf.Modules.InspectionSchedules.ViewModels;
 using Mes.Wpf.Modules.InspectionSchedules.Views;
 
+using Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels;
+using Mes.Wpf.Modules.OutsourceWorkInstructions.Views;
+using System.Threading.Tasks;
 
 
 using System.Windows;
@@ -321,7 +324,35 @@ namespace Mes.Wpf.Views.Shell
         }
 
 
+        private async void OutsourceWorkInstruction_Click(object sender, RoutedEventArgs e)
+        {
+            var page = new OutsourceWorkInstructionPage();
+            var viewModel = new OutsourceWorkInstructionPageViewModel(_apiClient, _messageService);
 
+            page.DataContext = viewModel;
+            MainContent.Content = page;
+            MainContent.Visibility = Visibility.Visible;
+
+            HeaderTitle.Text = "외주 작업지시 등록";
+            HeaderSubtitle.Text = "후보 LOT 조회 / 묶음·개별 작업지시 생성 / 파일 첨부 / 일괄 저장";
+
+            await viewModel.InitializeAsync();
+        }
+
+        private async void OutsourcePurchaseOrder_Click(object sender, RoutedEventArgs e)
+        {
+            var page = new OutsourcePurchaseOrderPage();
+            var viewModel = new OutsourcePurchaseOrderPageViewModel(_apiClient, _messageService);
+
+            page.DataContext = viewModel;
+            MainContent.Content = page;
+            MainContent.Visibility = Visibility.Visible;
+
+            HeaderTitle.Text = "외주 발주서 작성 / 출력";
+            HeaderSubtitle.Text = "재단 / 인쇄 발주 대상 조회 / 발주서 헤더·상세 입력 / 출력";
+
+            await viewModel.InitializeAsync();
+        }
 
 
     }

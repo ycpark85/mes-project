@@ -56,8 +56,8 @@ class OutsourceWorkInstructionOut(BaseModel):
     memo: Optional[str] = None
     created_at: datetime
     updated_at: datetime
-    items: List[OutsourceWorkInstructionItemOut] = []
-    files: List[OutsourceWorkInstructionFileOut] = []
+    items: List[OutsourceWorkInstructionItemOut] = Field(default_factory=list)
+    files: List[OutsourceWorkInstructionFileOut] = Field(default_factory=list)
 
     class Config:
         from_attributes = True
@@ -84,6 +84,57 @@ class OutsourceWorkInstructionPlateUploadOut(BaseModel):
     file_size: int
     uploaded_at: datetime
 
+# =========================
+# page 2 purchase order dto
+# =========================   
+
+class OutsourcePurchaseOrderTargetOut(BaseModel):
+    outsource_work_instruction_id: int
+    outsource_work_instruction_item_id: int
+    instruction_no: str
+    instruction_date: date
+    process_type: str
+
+    lot_id: int
+    lot_no: str
+    is_rework: bool
+    order_line_id: int
+    order_no: str
+    line_no: int
+
+    product_id: int
+    product_code: str
+    product_name: str
+    lot_qty: int
+
+    outsource_partner_id: int
+    outsource_partner_name: Optional[str] = None
+
+    inbound_partner_name: str
+
+    is_bundle: bool
+    memo: Optional[str] = None
+
+    files: List[OutsourceWorkInstructionFileOut] = Field(default_factory=list)
+
+class OutsourceWorkInstructionBatchGroupCreate(BaseModel):
+    partner_id: int
+    lot_ids: List[int] = Field(..., min_length=1)
+    memo: Optional[str] = None
+    files: List[OutsourceWorkInstructionFileCreate] = Field(default_factory=list)
+
+
+class OutsourceWorkInstructionBatchCreate(BaseModel):
+    instruction_date: date
+    groups: List[OutsourceWorkInstructionBatchGroupCreate] = Field(..., min_length=1)
+
+
+class OutsourceWorkInstructionBatchOut(BaseModel):
+    items: List[OutsourceWorkInstructionOut] = Field(default_factory=list)
+        
+
+class OutsourcePurchaseOrderTargetListOut(BaseModel):
+    items: List[OutsourcePurchaseOrderTargetOut]
 
 class OutsourceWorkInstructionCandidateLotListOut(BaseModel):
     items: List[OutsourceWorkInstructionCandidateLotOut]

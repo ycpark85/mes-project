@@ -97,7 +97,15 @@
                             <Button Content="LOT 공정관리"
                                     Style="{StaticResource BaseButtonStyle}"
                                     Margin="0,0,0,10"
-                                    Click="LotProcess_Click"/>   
+                                    Click="LotProcess_Click"/>
+                            <Button Content="외주 작업지시"
+                                    Style="{StaticResource BaseButtonStyle}"
+                                    Margin="0,0,0,10"
+                                    Click="OutsourceWorkInstruction_Click"/>
+                            <Button Content="외주 발주서 작성 / 출력"
+                                     Style="{StaticResource BaseButtonStyle}"
+                                     Margin="0,0,0,10"
+                                     Click="OutsourcePurchaseOrder_Click"/> 
                         </StackPanel>
                     </Expander>
                     <Expander Header="검수메뉴"
