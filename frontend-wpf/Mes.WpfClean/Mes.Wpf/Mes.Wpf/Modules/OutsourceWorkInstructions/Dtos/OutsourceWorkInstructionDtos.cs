@@ -1,8 +1,10 @@
 ﻿using Mes.Wpf.Core.Common;
 using System;
 using System.Collections.Generic;
-using System.Text.Json.Serialization;
+using System.Collections.ObjectModel;
 using System.Linq;
+using System.Text.Json.Serialization;
+using static Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos.OutsourcePurchaseOrderEditModel;
 
 
 namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
@@ -62,6 +64,18 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
 
         [JsonPropertyName("available_process_types")]
         public List<string> AvailableProcessTypes { get; set; } = new();
+
+        [JsonPropertyName("panel_width_mm")]
+        public int? PanelWidthMm { get; set; }
+
+        [JsonPropertyName("panel_length_mm")]
+        public int? PanelLengthMm { get; set; }
+
+        [JsonPropertyName("product_spec")]
+        public string? ProductSpec { get; set; }
+
+        [JsonPropertyName("cut_qty_per_panel")]
+        public int? CutQtyPerPanel { get; set; }
     }
 
     public class OutsourceWorkInstructionCandidateLotListDto
@@ -87,6 +101,20 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
         public int LotQty { get; set; }
         public List<string> AvailableProcessTypes { get; set; } = new();
 
+        public int? PanelWidthMm { get; set; }
+        public int? PanelLengthMm { get; set; }
+        public string? ProductSpec { get; set; }
+        public int? CutQtyPerPanel { get; set; }
+
+        public string PlateSizeText =>
+            PanelWidthMm.HasValue && PanelLengthMm.HasValue
+                ? $"{PanelWidthMm.Value} x {PanelLengthMm.Value}"
+                : string.Empty;
+
+        public string SpecText => ProductSpec ?? string.Empty;
+
+        public string CutCountText => CutQtyPerPanel?.ToString() ?? string.Empty;
+
         public bool IsSelected
         {
             get => _isSelected;
@@ -110,7 +138,11 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
                 PartnerId = dto.PartnerId,
                 PartnerName = dto.PartnerName,
                 LotQty = dto.LotQty,
-                AvailableProcessTypes = dto.AvailableProcessTypes ?? new List<string>()
+                AvailableProcessTypes = dto.AvailableProcessTypes ?? new List<string>(),
+                PanelWidthMm = dto.PanelWidthMm,
+                PanelLengthMm = dto.PanelLengthMm,
+                ProductSpec = dto.ProductSpec,
+                CutQtyPerPanel = dto.CutQtyPerPanel
             };
         }
     }
@@ -232,7 +264,7 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
         private long _partnerId;
         private string _partnerName = string.Empty;
         private string _memo = string.Empty;
-
+        
         public Guid DraftId { get; set; } = Guid.NewGuid();
 
         public DateTime InstructionDate
@@ -266,6 +298,14 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
         public string BundleText => IsBundle ? "묶음" : "개별";
         public string LotSummary => string.Join(", ", Lots.ConvertAll(x => x.LotNo));
 
+        public OutsourceWorkInstructionCandidateLotRowModel? FirstLot => Lots.Count > 0 ? Lots[0] : null;
+
+        public string PlateDataPath => Files.Count > 0 ? Files[0].FilePath : string.Empty;
+
+        // 현재 데이터 소스 미연결 상태
+        public string PlateSize => FirstLot?.PlateSizeText ?? string.Empty;
+        public string Spec => FirstLot?.SpecText ?? string.Empty;
+        public string CutCountText => FirstLot?.CutCountText ?? string.Empty;
         public void Clear()
         {
             DraftId = Guid.NewGuid();
@@ -372,6 +412,24 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
 
         [JsonPropertyName("files")]
         public List<OutsourceWorkInstructionFileDto> Files { get; set; } = new();
+
+        [JsonPropertyName("panel_width_mm")]
+        public int? PanelWidthMm { get; set; }
+
+        [JsonPropertyName("panel_length_mm")]
+        public int? PanelLengthMm { get; set; }
+
+        [JsonPropertyName("product_spec")]
+        public string? ProductSpec { get; set; }
+
+        [JsonPropertyName("cut_qty_per_panel")]
+        public int? CutQtyPerPanel { get; set; }
+
+        [JsonPropertyName("is_print_product")]
+        public bool IsPrintProduct { get; set; }
+
+        [JsonPropertyName("partner_name")]
+        public string? PartnerName { get; set; }
 
         public string ReworkText => IsRework ? "재작업" : string.Empty;
         public string BundleText => IsBundle ? "묶음" : "개별";
@@ -527,6 +585,309 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
             SupplyAmount = Qty * UnitPrice;
             VatAmount = Math.Round(SupplyAmount * 0.1m, 0, MidpointRounding.AwayFromZero);
             TotalAmount = SupplyAmount + VatAmount;
+        }
+
+        public class OutsourcePurchaseOrderBundleRowModel : ViewModelBase
+        {
+            public string BundleType { get; set; } = string.Empty;   // CUT / PRINT
+            public string Title { get; set; } = string.Empty;        // 재단 발주묶음 / 인쇄 발주묶음
+
+            public List<OutsourcePurchaseOrderTargetGroupRowModel> Groups { get; set; } = new();
+            public List<OutsourcePurchaseOrderTargetDto> Items { get; set; } = new();
+            public List<OutsourceWorkInstructionFileDto> Files { get; set; } = new();
+
+            public string LotSummary => string.Join(Environment.NewLine, Items.Select(x => x.LotNo).Distinct());
+            public int LotCount => Items.Select(x => x.LotNo).Distinct().Count();
+            public int TotalQty => Items.Sum(x => x.LotQty);
+
+            public string ProcessType => BundleType;
+        }
+    }
+    public class OutsourceCutPurchaseOrderItemEditModel : ViewModelBase
+    {
+        private int _no;
+        private string _rawMaterialText = string.Empty;
+        private decimal? _lengthM;
+        private string _inboundPlaceName = string.Empty;
+        private string _sourcePartnerName = string.Empty;
+        private string _cutSpec = string.Empty;
+        private int? _sheetQty;
+        private int? _panelLengthMm;
+
+        public long SourceOutsourceWorkInstructionId { get; set; }
+
+        public List<long> LotIds { get; } = new();
+
+        public string LotSummary { get; set; } = string.Empty;
+
+        public bool IsBundle { get; set; }
+
+        public int No
+        {
+            get => _no;
+            set => SetProperty(ref _no, value);
+        }
+
+        public string RawMaterialText
+        {
+            get => _rawMaterialText;
+            set => SetProperty(ref _rawMaterialText, value);
+        }
+
+        public decimal? LengthM
+        {
+            get => _lengthM;
+            set
+            {
+                if (SetProperty(ref _lengthM, value))
+                {
+                    RecalculateSheetQty();
+                }
+            }
+        }
+
+        public string InboundPlaceName
+        {
+            get => _inboundPlaceName;
+            set
+            {
+                if (SetProperty(ref _inboundPlaceName, value))
+                {
+                    OnPropertyChanged(nameof(InboundPlaceDisplay));
+                }
+            }
+        }
+
+        public string SourcePartnerName
+        {
+            get => _sourcePartnerName;
+            set
+            {
+                if (SetProperty(ref _sourcePartnerName, value))
+                {
+                    OnPropertyChanged(nameof(InboundPlaceDisplay));
+                }
+            }
+        }
+
+        public string InboundPlaceDisplay
+        {
+            get
+            {
+                if (string.IsNullOrWhiteSpace(SourcePartnerName))
+                {
+                    return InboundPlaceName;
+                }
+
+                return $"{InboundPlaceName}({SourcePartnerName})";
+            }
+        }
+
+        public string CutSpec
+        {
+            get => _cutSpec;
+            set => SetProperty(ref _cutSpec, value);
+        }
+
+        public int? SheetQty
+        {
+            get => _sheetQty;
+            set => SetProperty(ref _sheetQty, value);
+        }
+
+        public int? PanelLengthMm
+        {
+            get => _panelLengthMm;
+            set
+            {
+                if (SetProperty(ref _panelLengthMm, value))
+                {
+                    RecalculateSheetQty();
+                }
+            }
+        }
+
+        private void RecalculateSheetQty()
+        {
+            if (!LengthM.HasValue || !PanelLengthMm.HasValue || PanelLengthMm.Value <= 0)
+            {
+                SheetQty = null;
+                return;
+            }
+
+            var panelLengthMeter = PanelLengthMm.Value / 1000m;
+            if (panelLengthMeter <= 0)
+            {
+                SheetQty = null;
+                return;
+            }
+
+            var qty = Math.Floor(LengthM.Value / panelLengthMeter);
+            SheetQty = qty < 0 ? 0 : (int)qty;
+        }
+    }
+
+    public class OutsourceCutPurchaseOrderEditModel : ViewModelBase
+    {
+        private string _title = "가공의뢰서_재단";
+        private string _companyName = "코리아 라벨";
+        private string _requestPartnerName = "세미산업";
+        private string _requesterName = "김완준";
+        private DateTime _requestDate = DateTime.Today;
+        private string _rawMaterialInboundText = string.Empty;
+        private decimal? _stock500Width;
+        private decimal? _stock600Width;
+        private decimal? _stock600Tpt0268;
+        private string _remark = string.Empty;
+
+        public ObservableCollection<OutsourceCutPurchaseOrderItemEditModel> Items { get; } = new();
+
+        public string Title
+        {
+            get => _title;
+            set => SetProperty(ref _title, value);
+        }
+
+        public string CompanyName
+        {
+            get => _companyName;
+            set => SetProperty(ref _companyName, value);
+        }
+
+        public string RequestPartnerName
+        {
+            get => _requestPartnerName;
+            set => SetProperty(ref _requestPartnerName, value);
+        }
+
+        public string RequesterName
+        {
+            get => _requesterName;
+            set => SetProperty(ref _requesterName, value);
+        }
+
+        public DateTime RequestDate
+        {
+            get => _requestDate;
+            set => SetProperty(ref _requestDate, value);
+        }
+
+        public string RawMaterialInboundText
+        {
+            get => _rawMaterialInboundText;
+            set => SetProperty(ref _rawMaterialInboundText, value);
+        }
+
+        public decimal? Stock500Width
+        {
+            get => _stock500Width;
+            set => SetProperty(ref _stock500Width, value);
+        }
+
+        public decimal? Stock600Width
+        {
+            get => _stock600Width;
+            set => SetProperty(ref _stock600Width, value);
+        }
+
+        public decimal? Stock600Tpt0268
+        {
+            get => _stock600Tpt0268;
+            set => SetProperty(ref _stock600Tpt0268, value);
+        }
+
+        public string Remark
+        {
+            get => _remark;
+            set => SetProperty(ref _remark, value);
+        }
+
+        public void LoadFromBundle(OutsourcePurchaseOrderBundleRowModel bundle)
+        {
+            CompanyName = "코리아 라벨";
+            RequestPartnerName = "세미산업";
+            RequesterName = "김완준";
+            RequestDate = DateTime.Today;
+            RawMaterialInboundText = string.Empty;
+            Remark = string.Empty;
+
+            Items.Clear();
+
+            var index = 1;
+
+            foreach (var group in bundle.Groups.OrderBy(x => x.InstructionDate).ThenBy(x => x.InstructionNo))
+            {
+                var firstItem = group.Items.FirstOrDefault();
+                if (firstItem == null)
+                {
+                    continue;
+                }
+
+                var rawMaterialText = firstItem.PanelWidthMm.HasValue
+                    ? $"{firstItem.PanelWidthMm.Value}폭"
+                    : string.Empty;
+
+                var cutSpec = firstItem.PanelWidthMm.HasValue && firstItem.PanelLengthMm.HasValue
+                    ? $"{firstItem.PanelWidthMm.Value} x {firstItem.PanelLengthMm.Value}"
+                    : string.Empty;
+
+                var inboundPlaces = group.Items
+                    .Select(x => x.IsPrintProduct ? "상림" : "보현")
+                    .Distinct()
+                    .ToList();
+
+                var inboundPlaceName = string.Join(", ", inboundPlaces);
+
+                var sourcePartners = group.Items
+                    .Select(x => x.PartnerName)
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                    .Distinct()
+                    .ToList();
+
+                var sourcePartnerName = string.Join(", ", sourcePartners!);
+
+                var lotSummary = string.Join(", ",
+                    group.Items
+                        .Select(x => x.LotNo)
+                        .Where(x => !string.IsNullOrWhiteSpace(x))
+                        .Distinct());
+
+                var row = new OutsourceCutPurchaseOrderItemEditModel
+                {
+                    No = index++,
+                    SourceOutsourceWorkInstructionId = group.OutsourceWorkInstructionId,
+                    LotSummary = lotSummary,
+                    IsBundle = group.IsBundle,
+                    RawMaterialText = rawMaterialText,
+                    PanelLengthMm = firstItem.PanelLengthMm,
+                    LengthM = null,
+                    InboundPlaceName = inboundPlaceName,
+                    SourcePartnerName = sourcePartnerName,
+                    CutSpec = cutSpec,
+                    SheetQty = null
+                };
+
+                foreach (var lotId in group.Items.Select(x => x.LotId).Distinct())
+                {
+                    row.LotIds.Add(lotId);
+                }
+
+                Items.Add(row);
+            }
+        }
+
+        public void Clear()
+        {
+            CompanyName = "코리아 라벨";
+            RequestPartnerName = "세미산업";
+            RequesterName = "김완준";
+            RequestDate = DateTime.Today;
+            RawMaterialInboundText = string.Empty;
+            Stock500Width = null;
+            Stock600Width = null;
+            Stock600Tpt0268 = null;
+            Remark = string.Empty;
+            Items.Clear();
         }
     }
 

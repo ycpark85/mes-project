@@ -33,10 +33,11 @@
                               SelectionMode="Extended">
                         <DataGrid.Columns>
                             <DataGridCheckBoxColumn Header="선택" Binding="{Binding IsSelected}" Width="55" />
-                            <DataGridTextColumn Header="LOT No" Binding="{Binding LotNo}" Width="120" />
+                            <DataGridTextColumn Header="LOT" Binding="{Binding LotNo}" Width="120" />
                             <DataGridTextColumn Header="거래처" Binding="{Binding PartnerName}" Width="140" />
                             <DataGridTextColumn Header="품목코드" Binding="{Binding ProductCode}" Width="110" />
-                            <DataGridTextColumn Header="수량" Binding="{Binding LotQty}" Width="90" />
+                            <DataGridTextColumn Header="품목명" Binding="{Binding ProductName}" Width="180" />
+                            <DataGridTextColumn Header="발주수량" Binding="{Binding LotQty}" Width="90" />
                             <DataGridTextColumn Header="공정" Binding="{Binding ProcessText}" Width="120" />
                         </DataGrid.Columns>
                     </DataGrid>
@@ -64,10 +65,13 @@
                                   CanUserAddRows="False"
                                   IsReadOnly="True">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="작업일" Binding="{Binding InstructionDate, StringFormat=yyyy-MM-dd}" Width="110" />
-                                <DataGridTextColumn Header="구분" Binding="{Binding BundleText}" Width="70" />
-                                <DataGridTextColumn Header="외주처" Binding="{Binding PartnerName}" Width="140" />
-                                <DataGridTextColumn Header="LOT" Binding="{Binding LotSummary}" Width="240" />
+                                <DataGridTextColumn Header="작업일" Binding="{Binding InstructionDate, StringFormat=yyyy-MM-dd}" Width="100" />
+                                <DataGridTextColumn Header="구분" Binding="{Binding BundleText}" Width="60" />
+                                <DataGridTextColumn Header="거래처" Binding="{Binding PartnerName}" Width="130" />
+                                <DataGridTextColumn Header="LOT" Binding="{Binding LotSummary}" Width="180" />
+                                <DataGridTextColumn Header="판사이즈" Binding="{Binding PlateSize}" Width="90" />
+                                <DataGridTextColumn Header="규격" Binding="{Binding Spec}" Width="90" />
+                                <DataGridTextColumn Header="컷수" Binding="{Binding CutCountText}" Width="60" />
                             </DataGrid.Columns>
                         </DataGrid>
                     </DockPanel>
@@ -89,51 +93,51 @@
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="8" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-
-                            <DatePicker Grid.Column="0"
-                                        SelectedDate="{Binding SelectedDraft.InstructionDate}" />
-
-                            <TextBox Grid.Column="2"
-                                     IsReadOnly="True"
-                                     Text="{Binding SelectedDraft.PartnerName}" />
-                        </Grid>
-
-                        <Grid Grid.Row="2">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="8" />
                                 <ColumnDefinition Width="120" />
                             </Grid.ColumnDefinitions>
 
-                            <TextBox Grid.Column="0"
-                                     Height="70"
-                                     AcceptsReturn="True"
-                                     VerticalScrollBarVisibility="Auto"
-                                     Text="{Binding SelectedDraft.Memo, UpdateSourceTrigger=PropertyChanged}" />
+                            <Border Grid.Column="0"
+                                    BorderBrush="#D0D7DE"
+                                    BorderThickness="1"
+                                    Padding="6,6"
+                                    MinHeight="32">
+                                <TextBlock Text="{Binding SelectedDraft.PlateDataPath}"
+                                           TextWrapping="Wrap"
+                                           VerticalAlignment="Center" />
+                            </Border>
 
                             <Button Grid.Column="2"
                                     Height="32"
-                                    VerticalAlignment="Top"
                                     Content="판데이터 첨부"
                                     Command="{Binding UploadFileCommand}" />
                         </Grid>
 
-                        <TextBlock Grid.Row="4"
-                                   Text="선택 LOT"
+                        <TextBlock Grid.Row="2"
+                                   Text="메모"
                                    FontWeight="SemiBold"
                                    Margin="0,0,0,4" />
 
+                        <TextBox Grid.Row="4"
+                                 Height="70"
+                                 AcceptsReturn="True"
+                                 VerticalScrollBarVisibility="Auto"
+                                 Text="{Binding SelectedDraft.Memo, UpdateSourceTrigger=PropertyChanged}" />
+
+                        <TextBlock Grid.Row="6"
+                                   Text="선택 LOT"
+                                   FontWeight="SemiBold"
+                                   Margin="0,0,0,4"
+                                   VerticalAlignment="Top" />
+
                         <DataGrid Grid.Row="6"
+                                  Margin="0,24,0,0"
                                   ItemsSource="{Binding SelectedDraft.Lots}"
                                   AutoGenerateColumns="False"
                                   CanUserAddRows="False"
                                   IsReadOnly="True">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="LOT No" Binding="{Binding LotNo}" Width="120" />
-                                <DataGridTextColumn Header="수주번호" Binding="{Binding OrderNo}" Width="110" />
-                                <DataGridTextColumn Header="품목명" Binding="{Binding ProductName}" Width="170" />
+                                <DataGridTextColumn Header="LOT" Binding="{Binding LotNo}" Width="120" />
+                                <DataGridTextColumn Header="품목명" Binding="{Binding ProductName}" Width="180" />
                                 <DataGridTextColumn Header="수량" Binding="{Binding LotQty}" Width="80" />
                                 <DataGridTextColumn Header="공정" Binding="{Binding ProcessText}" Width="110" />
                             </DataGrid.Columns>

@@ -5,6 +5,93 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d">
 
+    <UserControl.Resources>
+        <Style x:Key="CutPanelStyle" TargetType="Grid">
+            <Setter Property="Visibility" Value="Collapsed" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsCutBundleSelected}" Value="True">
+                    <Setter Property="Visibility" Value="Visible" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="PrintPanelStyle" TargetType="Grid">
+            <Setter Property="Visibility" Value="Visible" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsCutBundleSelected}" Value="True">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <SolidColorBrush x:Key="PageBorderBrush" Color="#D7DEE7" />
+        <SolidColorBrush x:Key="CardBorderBrush" Color="#DCE3EC" />
+        <SolidColorBrush x:Key="LightFillBrush" Color="#F8FAFC" />
+        <SolidColorBrush x:Key="TableLineBrush" Color="#BFC8D4" />
+        <SolidColorBrush x:Key="HeaderFillBrush" Color="#F3F6FA" />
+        <SolidColorBrush x:Key="InputFillBrush" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="TitleAccentBrush" Color="#1F2937" />
+
+        <Style x:Key="FormBorderStyle" TargetType="Border">
+            <Setter Property="BorderBrush" Value="{StaticResource TableLineBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Background" Value="White" />
+            <Setter Property="CornerRadius" Value="0" />
+        </Style>
+
+        <Style x:Key="FormHeaderBorderStyle" TargetType="Border" BasedOn="{StaticResource FormBorderStyle}">
+            <Setter Property="Background" Value="{StaticResource HeaderFillBrush}" />
+        </Style>
+
+        <Style x:Key="FormTextBoxStyle" TargetType="TextBox">
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Padding" Value="8,4" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="FontSize" Value="15" />
+        </Style>
+
+        <Style x:Key="CenteredTextBoxStyle" TargetType="TextBox" BasedOn="{StaticResource FormTextBoxStyle}">
+            <Setter Property="TextAlignment" Value="Center" />
+        </Style>
+
+        <Style x:Key="SectionHeaderTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="#374151" />
+        </Style>
+
+        <Style x:Key="BundleListItemStyle" TargetType="ListBoxItem">
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0,0,0,10" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="ItemBorder"
+                                Background="Transparent"
+                                BorderBrush="Transparent"
+                                BorderThickness="1"
+                                CornerRadius="10">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="ItemBorder" Property="Background" Value="#EEF6FF" />
+                                <Setter TargetName="ItemBorder" Property="BorderBrush" Value="#60A5FA" />
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ItemBorder" Property="Background" Value="#F8FAFC" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
     <Grid Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="*" />
@@ -14,249 +101,433 @@
 
         <Grid Grid.Row="0">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="1.15*" />
-                <ColumnDefinition Width="12" />
-                <ColumnDefinition Width="1*" />
+                <ColumnDefinition Width="0.72*" />
+                <ColumnDefinition Width="14" />
+                <ColumnDefinition Width="1.58*" />
             </Grid.ColumnDefinitions>
 
-            <Grid Grid.Column="0">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="*" />
-                    <RowDefinition Height="12" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
+            <!-- 왼쪽 -->
+            <GroupBox Grid.Column="0"
+                      Header="등록된 작업지시 묶음 목록">
+                <ListBox ItemsSource="{Binding Bundles}"
+                         SelectedItem="{Binding SelectedBundle}"
+                         Margin="8"
+                         BorderThickness="0"
+                         Background="Transparent"
+                         HorizontalContentAlignment="Stretch"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         ItemContainerStyle="{StaticResource BundleListItemStyle}">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Border Padding="12"
+                                    BorderBrush="{StaticResource CardBorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="10"
+                                    Background="White"
+                                    HorizontalAlignment="Stretch">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="10" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
 
-                <GroupBox Grid.Row="0" Header="재단 발주 대상">
-                    <DataGrid Margin="8"
-                              ItemsSource="{Binding CutGroups}"
-                              SelectedItem="{Binding SelectedCutGroup}"
-                              AutoGenerateColumns="False"
-                              CanUserAddRows="False"
-                              IsReadOnly="True">
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Header="작업지시번호" Binding="{Binding InstructionNo}" Width="130" />
-                            <DataGridTextColumn Header="구분" Binding="{Binding BundleText}" Width="70" />
-                            <DataGridTextColumn Header="LOT" Binding="{Binding LotSummary}" Width="220" />
-                            <DataGridTextColumn Header="외주처" Binding="{Binding OutsourcePartnerName}" Width="120" />
-                            <DataGridTextColumn Header="입고처" Binding="{Binding InboundPartnerName}" Width="100" />
-                            <DataGridTextColumn Header="수량" Binding="{Binding TotalQty}" Width="80" />
-                        </DataGrid.Columns>
-                    </DataGrid>
-                </GroupBox>
+                                    <Grid Grid.Row="0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
 
-                <GroupBox Grid.Row="2" Header="인쇄 발주 대상">
-                    <DataGrid Margin="8"
-                              ItemsSource="{Binding PrintGroups}"
-                              SelectedItem="{Binding SelectedPrintGroup}"
-                              AutoGenerateColumns="False"
-                              CanUserAddRows="False"
-                              IsReadOnly="True">
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Header="작업지시번호" Binding="{Binding InstructionNo}" Width="130" />
-                            <DataGridTextColumn Header="구분" Binding="{Binding BundleText}" Width="70" />
-                            <DataGridTextColumn Header="LOT" Binding="{Binding LotSummary}" Width="220" />
-                            <DataGridTextColumn Header="외주처" Binding="{Binding OutsourcePartnerName}" Width="120" />
-                            <DataGridTextColumn Header="입고처" Binding="{Binding InboundPartnerName}" Width="100" />
-                            <DataGridTextColumn Header="수량" Binding="{Binding TotalQty}" Width="80" />
-                        </DataGrid.Columns>
-                    </DataGrid>
-                </GroupBox>
-            </Grid>
+                                        <TextBlock Grid.Column="0"
+                                                   FontSize="16"
+                                                   FontWeight="Bold"
+                                                   Foreground="#111827"
+                                                   Text="{Binding Title}" />
 
-            <Grid Grid.Column="2">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="12" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="12" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
+                                        <Border Grid.Column="1"
+                                                Padding="10,4"
+                                                Margin="10,0,0,0"
+                                                Background="#F3F0FF"
+                                                BorderBrush="#D6CCFF"
+                                                BorderThickness="1"
+                                                CornerRadius="14">
+                                            <TextBlock Foreground="#5B47C4"
+                                                       FontWeight="SemiBold"
+                                                       Text="{Binding LotCount, StringFormat={}{0} LOT}" />
+                                        </Border>
+                                    </Grid>
 
-                <GroupBox Grid.Row="0" Header="발주서 헤더정보">
-                    <Grid Margin="8">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="8" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="8" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
+                                    <Border Grid.Row="2"
+                                            Padding="10"
+                                            Background="#FAFBFC"
+                                            BorderBrush="#E5E7EB"
+                                            BorderThickness="1"
+                                            CornerRadius="8">
+                                        <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                                      HorizontalScrollBarVisibility="Disabled"
+                                                      MaxHeight="170">
+                                            <TextBlock Margin="0,0,20,0"
+                                                       Foreground="#4B5563"
+                                                       Text="{Binding LotSummary}"
+                                                       TextWrapping="Wrap"
+                                                       LineHeight="22" />
+                                        </ScrollViewer>
+                                    </Border>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </GroupBox>
 
-                        <Grid Grid.Row="0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="110" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="8" />
-                                <ColumnDefinition Width="110" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
+            <!-- 오른쪽 -->
+            <Border Grid.Column="2"
+        BorderBrush="{StaticResource PageBorderBrush}"
+        BorderThickness="1"
+        CornerRadius="8"
+        Padding="16"
+        Background="#F7F8FA">
 
-                            <TextBlock Grid.Column="0" VerticalAlignment="Center" Text="작업지시번호" />
-                            <TextBox Grid.Column="1"
-                                     IsReadOnly="True"
-                                     Text="{Binding SelectedGroup.InstructionNo}" />
+                <Grid>
+                    <!-- CUT 화면 -->
+                    <Grid Style="{StaticResource CutPanelStyle}">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Auto">
+                            <Border Width="980"
+                MinHeight="1380"
+                Padding="20"
+                Background="White"
+                BorderBrush="#D6DCE5"
+                BorderThickness="1.2"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="18" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="18" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="18" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
 
-                            <TextBlock Grid.Column="3" VerticalAlignment="Center" Text="공정" />
-                            <TextBox Grid.Column="4"
-                                     IsReadOnly="True"
-                                     Text="{Binding SelectedGroup.ProcessType}" />
-                        </Grid>
+                                    <!-- 제목 -->
+                                    <Border Grid.Row="0"
+                                            Width="320"
+                                            Height="62"
+                                            HorizontalAlignment="Center"
+                                            BorderBrush="#374151"
+                                            BorderThickness="2"
+                                            Background="White"> 
+                                        <TextBlock Text="{Binding CutEditModel.Title}"
+                                                   VerticalAlignment="Center"
+                                                   HorizontalAlignment="Center"
+                                                   FontSize="20"
+                                                   FontWeight="Bold"
+                                                   Foreground="#111827" />  
+                                    </Border>
 
-                        <Grid Grid.Row="2">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="110" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="8" />
-                                <ColumnDefinition Width="110" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
+                                    <!-- 헤더 -->
+                                    <Grid Grid.Row="2">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="46" />
+                                            <RowDefinition Height="46" />
+                                        </Grid.RowDefinitions>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="120" />
+                                            <ColumnDefinition Width="320" />
+                                            <ColumnDefinition Width="190" />
+                                            <ColumnDefinition Width="190" />
+                                            <ColumnDefinition Width="140" />
+                                        </Grid.ColumnDefinitions>
 
-                            <TextBlock Grid.Column="0" VerticalAlignment="Center" Text="발주일자" />
-                            <DatePicker Grid.Column="1"
-                                        SelectedDate="{Binding EditModel.PurchaseOrderDate}" />
+                                        <Border Grid.Row="0" Grid.Column="0" Style="{StaticResource FormHeaderBorderStyle}">
+                                            <TextBlock Text="업체명"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center"
+                                                       FontSize="12"
+                                                       FontWeight="SemiBold" /> 
+                                        </Border>
 
-                            <TextBlock Grid.Column="3" VerticalAlignment="Center" Text="납기일자" />
-                            <DatePicker Grid.Column="4"
-                                        SelectedDate="{Binding EditModel.DueDate}" />
-                        </Grid>
+                                        <Border Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="4" Style="{StaticResource FormBorderStyle}">
+                                            <TextBox Text="{Binding CutEditModel.CompanyName}"
+                                                     Style="{StaticResource CenteredTextBoxStyle}"
+                                                     FontSize="12"
+                                                     FontWeight="SemiBold" />   
+                                        </Border>
 
-                        <Grid Grid.Row="4">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="110" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="8" />
-                                <ColumnDefinition Width="110" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
+                                        <Border Grid.Row="1" Grid.Column="0" Style="{StaticResource FormHeaderBorderStyle}">
+                                            <TextBlock Text="의뢰업체"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center"
+                                                       FontSize="12"
+                                                       FontWeight="SemiBold" />     
+                                        </Border>
 
-                            <TextBlock Grid.Column="0" VerticalAlignment="Center" Text="입고처" />
-                            <TextBox Grid.Column="1"
-                                     Text="{Binding EditModel.InboundPartnerName, UpdateSourceTrigger=PropertyChanged}" />
+                                        <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource FormBorderStyle}">
+                                            <TextBox Text="{Binding CutEditModel.RequestPartnerName}"
+                                                     Style="{StaticResource CenteredTextBoxStyle}"
+                                                     FontSize="12"
+                                                     FontWeight="SemiBold" />       
+                                        </Border>
 
-                            <TextBlock Grid.Column="3" VerticalAlignment="Center" Text="외주처" />
-                            <TextBox Grid.Column="4"
-                                     Text="{Binding EditModel.OutsourcePartnerName, UpdateSourceTrigger=PropertyChanged}" />
-                        </Grid>
+                                        <Border Grid.Row="1" Grid.Column="2" Style="{StaticResource FormBorderStyle}">
+                                            <TextBox Text="{Binding CutEditModel.RequesterName}"
+                                                     Style="{StaticResource CenteredTextBoxStyle}"
+                                                     FontSize="12"
+                                                     FontWeight="SemiBold" />   
+                                        </Border>
+
+                                        <Border Grid.Row="1" Grid.Column="3" Grid.ColumnSpan="2" Style="{StaticResource FormBorderStyle}">
+                                            <TextBox Text="{Binding CutEditModel.RequestDate, StringFormat=yyyy-MM-dd}"
+                                                     Style="{StaticResource CenteredTextBoxStyle}"
+                                                     FontSize="12"
+                                                     FontWeight="SemiBold"
+                                                     IsReadOnly="True" />       
+                                        </Border>
+                                    </Grid>
+
+                                    <!-- 본문 -->
+                                    <Grid Grid.Row="4">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="46" />
+                                            <RowDefinition Height="14" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+
+                                        <Grid Grid.Row="0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="140" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <Border Grid.Column="0" Style="{StaticResource FormHeaderBorderStyle}">
+                                                <TextBlock Text="원단 입고"
+                                                           HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center"
+                                                           FontSize="12"
+                                                           FontWeight="SemiBold" />     
+                                            </Border>
+
+                                            <Border Grid.Column="1" Style="{StaticResource FormBorderStyle}">
+                                                <TextBox Text="{Binding CutEditModel.RawMaterialInboundText}"
+                                                         Style="{StaticResource FormTextBoxStyle}"
+                                                         FontSize="12" />   
+                                            </Border>
+                                        </Grid>
+
+                                        <Border Grid.Row="2"
+                                                BorderBrush="{StaticResource TableLineBrush}"
+                                                BorderThickness="1"
+                                                Background="White">     
+                                            <DataGrid ItemsSource="{Binding CutEditModel.Items}"
+                                                      AutoGenerateColumns="False"
+                                                      CanUserAddRows="False"
+                                                      HeadersVisibility="Column"
+                                                      RowHeaderWidth="0"
+                                                      GridLinesVisibility="All"
+                                                      BorderThickness="0"
+                                                      FontSize="12"
+                                                      VerticalAlignment="Top"
+                                                      MinRowHeight="36"
+                                                      RowHeight="36"
+                                                      AlternatingRowBackground="#FBFCFD"
+                                                      RowBackground="White">        
+                                                <DataGrid.ColumnHeaderStyle>
+                                                    <Style TargetType="DataGridColumnHeader">
+                                                        <Setter Property="Background" Value="#F3F6FA" />
+                                                        <Setter Property="Foreground" Value="#111827" />
+                                                        <Setter Property="FontWeight" Value="SemiBold" />
+                                                        <Setter Property="FontSize" Value="12" />
+                                                        <Setter Property="HorizontalContentAlignment" Value="Center" />
+                                                        <Setter Property="VerticalContentAlignment" Value="Center" />
+                                                        <Setter Property="BorderBrush" Value="{StaticResource TableLineBrush}" />
+                                                        <Setter Property="BorderThickness" Value="0,0,1,1" />
+                                                        <Setter Property="Padding" Value="6,4" />
+                                                    </Style>
+                                                </DataGrid.ColumnHeaderStyle>
+
+                                                <DataGrid.CellStyle>
+                                                    <Style TargetType="DataGridCell">
+                                                        <Setter Property="BorderBrush" Value="{StaticResource TableLineBrush}" />
+                                                        <Setter Property="BorderThickness" Value="0,0,1,1" />
+                                                        <Setter Property="Padding" Value="4,2" />
+                                                        <Setter Property="FontSize" Value="12" />
+                                                        <Setter Property="TextBlock.TextAlignment" Value="Center" />
+                                                        <Setter Property="VerticalContentAlignment" Value="Center" />
+                                                        <Setter Property="HorizontalContentAlignment" Value="Center" />
+                                                    </Style>
+                                                </DataGrid.CellStyle>
+                                                <DataGrid.Resources>
+                                                    <Style x:Key="CenterTextBlockStyle" TargetType="TextBlock">
+                                                        <Setter Property="TextAlignment" Value="Center" />
+                                                        <Setter Property="VerticalAlignment" Value="Center" />
+                                                        <Setter Property="HorizontalAlignment" Value="Center" />
+                                                    </Style>
+
+                                                    <Style x:Key="CenterTextBoxStyle" TargetType="TextBox">
+                                                        <Setter Property="TextAlignment" Value="Center" />
+                                                        <Setter Property="VerticalContentAlignment" Value="Center" />
+                                                        <Setter Property="HorizontalContentAlignment" Value="Center" />
+                                                    </Style>
+                                                </DataGrid.Resources>
+
+
+
+                                                <DataGrid.Columns>
+                                                    <DataGridTextColumn Header="No."
+                                                                        Binding="{Binding No}"
+                                                                        Width="60"
+                                                                        IsReadOnly="True" 
+                                                                        ElementStyle="{StaticResource CenterTextBlockStyle}"/>        
+                                                    <DataGridTextColumn Header="원단"
+                                                                        Binding="{Binding RawMaterialText, UpdateSourceTrigger=PropertyChanged}"
+                                                                        Width="170"
+                                                                        ElementStyle="{StaticResource CenterTextBlockStyle}"/>      
+                                                    <DataGridTextColumn Header="m 수(길이)"
+                                                                        Binding="{Binding LengthM, UpdateSourceTrigger=PropertyChanged}"
+                                                                        Width="130" 
+                                                                        ElementStyle="{StaticResource CenterTextBlockStyle}"/>      
+                                                    <DataGridTextColumn Header="입고처"
+                                                                        Binding="{Binding InboundPlaceDisplay, Mode=OneWay}"
+                                                                        Width="300"
+                                                                        IsReadOnly="True"
+                                                                        ElementStyle="{StaticResource CenterTextBlockStyle}"/>      
+                                                    <DataGridTextColumn Header="재단규격"
+                                                                        Binding="{Binding CutSpec, UpdateSourceTrigger=PropertyChanged}"
+                                                                        Width="150" 
+                                                                        ElementStyle="{StaticResource CenterTextBlockStyle}"/>      
+                                                    <DataGridTextColumn Header="매수"
+                                                                        Binding="{Binding SheetQty, UpdateSourceTrigger=PropertyChanged}"
+                                                                        Width="*" 
+                                                                        ElementStyle="{StaticResource CenterTextBlockStyle}"/>      
+                                                </DataGrid.Columns>
+                                            </DataGrid>
+                                        </Border>
+                                    </Grid>
+
+                                    <!-- 작업 후 재고 -->
+                                    <Grid Grid.Row="6">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="50" />
+                                            <RowDefinition Height="56" />
+                                            <RowDefinition Height="56" />
+                                            <RowDefinition Height="44" />
+                                            <RowDefinition Height="120" />
+                                        </Grid.RowDefinitions>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="160" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <Border Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="4" Style="{StaticResource FormHeaderBorderStyle}">
+                                            <TextBlock Text="작업 후 재고"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   FontSize="18"
+                                   FontWeight="Bold"
+                                   Foreground="#111827" />
+                                        </Border>
+
+                                        <Border Grid.Row="1" Grid.Column="0" Grid.RowSpan="2" Style="{StaticResource FormHeaderBorderStyle}">
+                                            <TextBlock Text="구분"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   FontSize="12"
+                                   FontWeight="SemiBold" />
+                                        </Border>
+
+                                        <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource FormHeaderBorderStyle}">
+                                            <TextBlock Text="500폭"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   FontSize="12"
+                                   FontWeight="SemiBold" />
+                                        </Border>
+                                        <Border Grid.Row="1" Grid.Column="2" Style="{StaticResource FormHeaderBorderStyle}">
+                                            <TextBlock Text="600폭"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   FontSize="12"
+                                   FontWeight="SemiBold" />
+                                        </Border>
+                                        <Border Grid.Row="1" Grid.Column="3" Style="{StaticResource FormHeaderBorderStyle}">
+                                            <TextBlock Text="600폭_TPT-0268"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   FontSize="12"
+                                   FontWeight="SemiBold" />
+                                        </Border>
+
+                                        <Border Grid.Row="2" Grid.Column="1" Style="{StaticResource FormBorderStyle}">
+                                            <TextBox Text="{Binding CutEditModel.Stock500Width, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource CenteredTextBoxStyle}"
+                                 FontSize="12"
+                                 FontWeight="SemiBold" />
+                                        </Border>
+                                        <Border Grid.Row="2" Grid.Column="2" Style="{StaticResource FormBorderStyle}">
+                                            <TextBox Text="{Binding CutEditModel.Stock600Width, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource CenteredTextBoxStyle}"
+                                 FontSize="12"
+                                 FontWeight="SemiBold" />
+                                        </Border>
+                                        <Border Grid.Row="2" Grid.Column="3" Style="{StaticResource FormBorderStyle}">
+                                            <TextBox Text="{Binding CutEditModel.Stock600Tpt0268, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource CenteredTextBoxStyle}"
+                                 FontSize="12"
+                                 FontWeight="SemiBold" />
+                                        </Border>
+
+                                        <Border Grid.Row="3" Grid.Column="0" Style="{StaticResource FormHeaderBorderStyle}">
+                                            <TextBlock Text="비고"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   FontSize="12"
+                                   FontWeight="SemiBold" />
+                                        </Border>
+
+                                        <Border Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="3" Style="{StaticResource FormBorderStyle}">
+                                            <TextBox Text="{Binding CutEditModel.Remark, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource FormTextBoxStyle}"
+                                 FontSize="12" />
+                                        </Border>
+
+                                        <Border Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="4" Style="{StaticResource FormBorderStyle}">
+                                            <TextBox Text="{Binding CutEditModel.Remark, UpdateSourceTrigger=PropertyChanged}"
+                                 BorderThickness="0"
+                                 Background="Transparent"
+                                 Padding="10"
+                                 AcceptsReturn="True"
+                                 VerticalScrollBarVisibility="Auto"
+                                 TextWrapping="Wrap"
+                                 FontSize="12" />
+                                        </Border>
+                                    </Grid>
+                                </Grid>
+                            </Border>
+                        </ScrollViewer>
                     </Grid>
-                </GroupBox>
 
-                <GroupBox Grid.Row="2" Header="발주서 상세입력">
-                    <Grid Margin="8">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="8" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="8" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-
-                        <Grid Grid.Row="0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="110" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-
-                            <TextBlock Grid.Column="0" VerticalAlignment="Top" Text="작업내용" />
-                            <TextBox Grid.Column="1"
-                                     Height="60"
-                                     AcceptsReturn="True"
-                                     VerticalScrollBarVisibility="Auto"
-                                     Text="{Binding EditModel.WorkDescription, UpdateSourceTrigger=PropertyChanged}" />
-                        </Grid>
-
-                        <Grid Grid.Row="2">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="110" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-
-                            <TextBlock Grid.Column="0" VerticalAlignment="Top" Text="비고" />
-                            <TextBox Grid.Column="1"
-                                     Height="60"
-                                     AcceptsReturn="True"
-                                     VerticalScrollBarVisibility="Auto"
-                                     Text="{Binding EditModel.Remark, UpdateSourceTrigger=PropertyChanged}" />
-                        </Grid>
-
-                        <Grid Grid.Row="4">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="80" />
-                                <ColumnDefinition Width="110" />
-                                <ColumnDefinition Width="8" />
-                                <ColumnDefinition Width="80" />
-                                <ColumnDefinition Width="110" />
-                                <ColumnDefinition Width="8" />
-                                <ColumnDefinition Width="80" />
-                                <ColumnDefinition Width="110" />
-                                <ColumnDefinition Width="8" />
-                                <ColumnDefinition Width="80" />
-                                <ColumnDefinition Width="110" />
-                                <ColumnDefinition Width="8" />
-                                <ColumnDefinition Width="80" />
-                                <ColumnDefinition Width="110" />
-                            </Grid.ColumnDefinitions>
-
-                            <TextBlock Grid.Column="0" VerticalAlignment="Center" Text="수량" />
-                            <TextBox Grid.Column="1"
-                                     Text="{Binding EditModel.Qty, UpdateSourceTrigger=PropertyChanged}" />
-
-                            <TextBlock Grid.Column="3" VerticalAlignment="Center" Text="단가" />
-                            <TextBox Grid.Column="4"
-                                     Text="{Binding EditModel.UnitPrice, UpdateSourceTrigger=PropertyChanged}" />
-
-                            <TextBlock Grid.Column="6" VerticalAlignment="Center" Text="공급가액" />
-                            <TextBox Grid.Column="7"
-                                     IsReadOnly="True"
-                                     Text="{Binding EditModel.SupplyAmount}" />
-
-                            <TextBlock Grid.Column="9" VerticalAlignment="Center" Text="부가세" />
-                            <TextBox Grid.Column="10"
-                                     IsReadOnly="True"
-                                     Text="{Binding EditModel.VatAmount}" />
-
-                            <TextBlock Grid.Column="12" VerticalAlignment="Center" Text="합계" />
-                            <TextBox Grid.Column="13"
-                                     IsReadOnly="True"
-                                     Text="{Binding EditModel.TotalAmount}" />
-                        </Grid>
+                    <!-- PRINT 임시 -->
+                    <Grid Style="{StaticResource PrintPanelStyle}">
+                        <Border BorderBrush="{StaticResource CardBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="20"
+                    Background="{StaticResource LightFillBrush}">
+                            <TextBlock Text="인쇄 발주서 화면은 다음 단계에서 구성합니다."
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           FontSize="18"
+                           FontWeight="SemiBold"
+                           Foreground="#4B5563" />
+                        </Border>
                     </Grid>
-                </GroupBox>
-
-                <GroupBox Grid.Row="4" Header="작업지시 LOT / 파일">
-                    <Grid Margin="8">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="1.1*" />
-                            <RowDefinition Height="12" />
-                            <RowDefinition Height="*" />
-                        </Grid.RowDefinitions>
-
-                        <DataGrid Grid.Row="0"
-                                  ItemsSource="{Binding SelectedGroup.Items}"
-                                  AutoGenerateColumns="False"
-                                  CanUserAddRows="False"
-                                  IsReadOnly="True">
-                            <DataGrid.Columns>
-                                <DataGridTextColumn Header="LOT No" Binding="{Binding LotNo}" Width="120" />
-                                <DataGridTextColumn Header="수주번호" Binding="{Binding OrderNo}" Width="120" />
-                                <DataGridTextColumn Header="품목코드" Binding="{Binding ProductCode}" Width="110" />
-                                <DataGridTextColumn Header="품목명" Binding="{Binding ProductName}" Width="170" />
-                                <DataGridTextColumn Header="수량" Binding="{Binding LotQty}" Width="80" />
-                            </DataGrid.Columns>
-                        </DataGrid>
-
-                        <DataGrid Grid.Row="2"
-                                  ItemsSource="{Binding SelectedGroup.Files}"
-                                  AutoGenerateColumns="False"
-                                  CanUserAddRows="False"
-                                  IsReadOnly="True">
-                            <DataGrid.Columns>
-                                <DataGridTextColumn Header="파일명" Binding="{Binding FileName}" Width="220" />
-                                <DataGridTextColumn Header="경로" Binding="{Binding FilePath}" Width="*" />
-                            </DataGrid.Columns>
-                        </DataGrid>
-                    </Grid>
-                </GroupBox>
-            </Grid>
+                </Grid>
+            </Border>
         </Grid>
 
         <StackPanel Grid.Row="2"

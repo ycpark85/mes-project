@@ -7,7 +7,7 @@ from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status as http_status
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session,aliased
 
 from app.core.config import settings
 from app.db.session import get_db
@@ -120,13 +120,20 @@ def _get_available_process_types(template_name: str | None) -> List[str]:
     return ["CUT"]
 
 
-def _get_inbound_partner_name(process_type: str) -> str:
+def _get_inbound_partner_name(process_type: str, template_name: str) -> str:
+    available = _get_available_process_types(template_name)
+
+    # 무지제품: CUT만 가능
+    # 인쇄제품: CUT + PRINT 가능
+    is_print_product = "PRINT" in available
+
     if process_type == "CUT":
-        return "코리아라벨"
+        return "상림" if is_print_product else "보현"
+
     if process_type == "PRINT":
         return "상림"
-    raise HTTPException(status_code=409, detail="Invalid process_type")
 
+    return ""
 def _build_instruction_out(
     db: Session,
     instruction: OutsourceWorkInstruction,
@@ -322,6 +329,10 @@ def get_candidate_lots(
                 partner_name=partner.name,
                 lot_qty=lot.lot_qty,
                 available_process_types=available,
+                panel_width_mm=product.panel_width_mm,
+                panel_length_mm=product.panel_length_mm,
+                product_spec=product.product_spec,
+                cut_qty_per_panel=product.cut_qty_per_panel,
             )
         )
 
@@ -471,6 +482,11 @@ def create_outsource_work_instruction_batch(
                 status_code=409,
                 detail="Bundle work instruction allows only one plate data file",
             )
+        if len(group.lot_ids) > 1 and len(group.files) == 0:
+            raise HTTPException(
+                status_code=409,
+                detail="Bundle work instruction requires plate data file",
+            )
 
         lots = (
             db.execute(
@@ -519,12 +535,6 @@ def create_outsource_work_instruction_batch(
                     )
 
         if print_lot_ids:
-            if len(group.files) == 0:
-                raise HTTPException(
-                    status_code=409,
-                    detail="PRINT work instruction requires plate data file",
-                )
-
             for lot_id in print_lot_ids:
                 exists_registered = db.execute(
                     select(OutsourceWorkInstructionItem.outsource_work_instruction_item_id)
@@ -538,7 +548,7 @@ def create_outsource_work_instruction_batch(
                 if exists_registered:
                     raise HTTPException(
                         status_code=409,
-                        detail=f"Some lots are already registered for process PRINT",
+                        detail="Some lots are already registered for process PRINT",
                     )
 
         if cut_lot_ids:
@@ -582,54 +592,56 @@ def create_outsource_work_instruction_batch(
     response_model=OutsourcePurchaseOrderTargetListOut,
 )
 def get_purchase_order_targets(
-    process_type: str = Query(...),
-    q: str | None = Query(default=None),
+    process_type: str,
     db: Session = Depends(get_db),
 ):
-    if process_type not in ("CUT", "PRINT"):
-        raise HTTPException(status_code=409, detail="Invalid process_type")
+    normalized_process_type = (process_type or "").strip().upper()
+    if normalized_process_type not in {"CUT", "PRINT"}:
+        raise HTTPException(status_code=400, detail="process_type must be CUT or PRINT")
 
-    stmt = (
-        select(
-            OutsourceWorkInstruction,
-            OutsourceWorkInstructionItem,
-            Lot,
-            OrderLine,
-            Product,
-            Partner,
+    order_partner = aliased(Partner)
+
+    rows = (
+        db.execute(
+            select(
+                OutsourceWorkInstruction,
+                OutsourceWorkInstructionItem,
+                Lot,
+                OrderLine,
+                Product,
+                Partner,
+                RoutingTemplate,
+                order_partner,
+            )
+            .join(
+                OutsourceWorkInstructionItem,
+                OutsourceWorkInstructionItem.outsource_work_instruction_id
+                == OutsourceWorkInstruction.outsource_work_instruction_id,
+            )
+            .join(Lot, Lot.lot_id == OutsourceWorkInstructionItem.lot_id)
+            .join(OrderLine, OrderLine.order_line_id == Lot.order_line_id)
+            .join(Product, Product.product_id == Lot.product_id)
+            .join(RoutingTemplate, RoutingTemplate.routing_template_id == Product.routing_template_id)
+            .join(order_partner, order_partner.partner_id == OrderLine.partner_id)
+            .join(Partner, Partner.partner_id == OutsourceWorkInstruction.partner_id)
+            .where(OutsourceWorkInstructionItem.process_type == normalized_process_type)
+            .order_by(
+                OutsourceWorkInstruction.instruction_date.desc(),
+                OutsourceWorkInstruction.instruction_no.desc(),
+                Lot.lot_no.asc(),
+            )
         )
-        .join(
-            OutsourceWorkInstructionItem,
-            OutsourceWorkInstructionItem.outsource_work_instruction_id
-            == OutsourceWorkInstruction.outsource_work_instruction_id,
-        )
-        .join(Lot, Lot.lot_id == OutsourceWorkInstructionItem.lot_id)
-        .join(OrderLine, OrderLine.order_line_id == Lot.order_line_id)
-        .join(Product, Product.product_id == Lot.product_id)
-        .join(Partner, Partner.partner_id == OutsourceWorkInstruction.partner_id)
-        .where(OutsourceWorkInstructionItem.process_type == process_type)
-        .order_by(
-            OutsourceWorkInstruction.instruction_date.desc(),
-            OutsourceWorkInstruction.instruction_no.desc(),
-            Lot.lot_no.asc(),
-        )
+        .all()
     )
 
-    if q:
-        like = f"%{q.strip()}%"
-        stmt = stmt.where(
-            (Lot.lot_no.like(like))
-            | (OrderLine.order_no.like(like))
-            | (Product.product_code.like(like))
-            | (Product.product_name.like(like))
-            | (Partner.name.like(like))
-        )
+    instruction_ids = list(
+        {
+            instruction.outsource_work_instruction_id
+            for instruction, _, _, _, _, _, _, _ in rows
+        }
+    )
 
-    rows = db.execute(stmt).all()
-
-    instruction_ids = list({row[0].outsource_work_instruction_id for row in rows})
     file_map: dict[int, list[OutsourceWorkInstructionFileOut]] = {}
-
     if instruction_ids:
         file_rows = (
             db.execute(
@@ -641,19 +653,31 @@ def get_purchase_order_targets(
             .all()
         )
 
-        for file in file_rows:
-            instruction_id = file.outsource_work_instruction_id
+        for file_row in file_rows:
+            instruction_id = file_row.outsource_work_instruction_id
             if instruction_id not in file_map:
                 file_map[instruction_id] = []
 
             file_map[instruction_id].append(
-                OutsourceWorkInstructionFileOut.model_validate(file, from_attributes=True)
+                OutsourceWorkInstructionFileOut.model_validate(file_row, from_attributes=True)
             )
 
     items: list[OutsourcePurchaseOrderTargetOut] = []
-    inbound_partner_name = _get_inbound_partner_name(process_type)
 
-    for instruction, item, lot, order_line, product, outsource_partner in rows:
+    for (
+        instruction,
+        item,
+        lot,
+        order_line,
+        product,
+        outsource_partner,
+        routing_template,
+        source_partner,
+    ) in rows:
+        inbound_partner_name = _get_inbound_partner_name(normalized_process_type, routing_template.template_name)
+        available = _get_available_process_types(routing_template.template_name)
+        is_print_product = "PRINT" in available
+
         items.append(
             OutsourcePurchaseOrderTargetOut(
                 outsource_work_instruction_id=instruction.outsource_work_instruction_id,
@@ -670,6 +694,7 @@ def get_purchase_order_targets(
                 product_id=product.product_id,
                 product_code=product.product_code,
                 product_name=product.product_name,
+                partner_name=source_partner.name,
                 lot_qty=lot.lot_qty,
                 outsource_partner_id=outsource_partner.partner_id,
                 outsource_partner_name=outsource_partner.name,
@@ -677,6 +702,11 @@ def get_purchase_order_targets(
                 is_bundle=instruction.is_bundle,
                 memo=instruction.memo,
                 files=file_map.get(instruction.outsource_work_instruction_id, []),
+                panel_width_mm=product.panel_width_mm,
+                panel_length_mm=product.panel_length_mm,
+                product_spec=product.product_spec,
+                cut_qty_per_panel=product.cut_qty_per_panel,
+                is_print_product=is_print_product,
             )
         )
 

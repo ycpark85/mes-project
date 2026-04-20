@@ -77,6 +77,11 @@ class OutsourceWorkInstructionCandidateLotOut(BaseModel):
     lot_qty: int
     available_process_types: List[str]
 
+    panel_width_mm: int | None = None
+    panel_length_mm: int | None = None
+    product_spec: str | None = None
+    cut_qty_per_panel: int | None = None
+
 class OutsourceWorkInstructionPlateUploadOut(BaseModel):
     file_name: str
     file_path: str
@@ -109,9 +114,16 @@ class OutsourcePurchaseOrderTargetOut(BaseModel):
 
     outsource_partner_id: int
     outsource_partner_name: Optional[str] = None
-
     inbound_partner_name: str
+    partner_name: str | None = None
 
+    panel_width_mm: int | None = None
+    panel_length_mm: int | None = None
+    product_spec: str | None = None
+    cut_qty_per_panel: int | None = None
+    is_print_product: bool = False
+
+    
     is_bundle: bool
     memo: Optional[str] = None
 

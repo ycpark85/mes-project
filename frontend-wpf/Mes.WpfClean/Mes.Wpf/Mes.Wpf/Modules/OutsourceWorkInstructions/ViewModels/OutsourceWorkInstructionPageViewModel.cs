@@ -219,6 +219,21 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
                 return;
             }
 
+            foreach (var draft in Drafts)
+            {
+                if (draft.IsBundle && draft.Files.Count == 0)
+                {
+                    _messageService.ShowWarning("묶음 작업지시는 판데이터 첨부가 필요합니다.");
+                    return;
+                }
+
+                if (draft.IsBundle && draft.Files.Count > 1)
+                {
+                    _messageService.ShowWarning("묶음 작업지시는 판데이터 파일 1개만 첨부할 수 있습니다.");
+                    return;
+                }
+            }
+
             var request = new OutsourceWorkInstructionBatchCreateRequest
             {
                 InstructionDate = DateTime.Today
