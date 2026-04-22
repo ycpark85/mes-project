@@ -239,5 +239,23 @@ namespace Mes.Wpf.Infrastructure.Api
         {
             return new Uri(_httpClient.BaseAddress!, relativeUrl).ToString();
         }
+
+        public async Task<byte[]?> GetBytesAsync(string uri)
+        {
+            try
+            {
+                using var response = await _httpClient.GetAsync(uri);
+                if (!response.IsSuccessStatusCode)
+                {
+                    return null;
+                }
+
+                return await response.Content.ReadAsByteArrayAsync();
+            }
+            catch
+            {
+                return null;
+            }
+        }
     }
 }

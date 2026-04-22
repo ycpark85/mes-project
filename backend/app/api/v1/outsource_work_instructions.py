@@ -1,14 +1,19 @@
 from __future__ import annotations
-
-from datetime import date, datetime
+from functools import lru_cache
+from datetime import date, datetime,timezone
 from pathlib import Path
+from fastapi.responses import StreamingResponse
 from typing import List
 from uuid import uuid4
-
+from openpyxl import load_workbook
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status as http_status
-from sqlalchemy import select
+from sqlalchemy import func, select, exists
 from sqlalchemy.orm import Session,aliased
-
+from io import BytesIO
+from fastapi.responses import StreamingResponse
+from openpyxl import Workbook
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+from openpyxl.cell.cell import MergedCell
 from app.core.config import settings
 from app.db.session import get_db
 from app.models.lot import Lot
@@ -16,6 +21,8 @@ from app.models.order_line import OrderLine
 from app.models.outsource_work_instruction import OutsourceWorkInstruction
 from app.models.outsource_work_instruction_file import OutsourceWorkInstructionFile
 from app.models.outsource_work_instruction_item import OutsourceWorkInstructionItem
+from app.models.outsource_purchase_order import OutsourcePurchaseOrder
+from app.models.outsource_purchase_order_item import OutsourcePurchaseOrderItem
 from app.models.partner import Partner
 from app.models.product import Product
 from app.models.routing_template import RoutingTemplate
@@ -31,6 +38,12 @@ from app.schemas.outsource_work_instruction import (
     OutsourceWorkInstructionPlateUploadOut,
     OutsourceWorkInstructionBatchCreate,
     OutsourceWorkInstructionBatchOut,
+    OutsourcePurchaseOrderCreate,
+    OutsourcePurchaseOrderOut,
+    OutsourcePurchaseOrderItemOut,
+    OutsourcePurchaseOrderWorkDone,
+
+    
 )
 
 router = APIRouter(prefix="/outsource-work-instructions", tags=["OutsourceWorkInstruction"])
@@ -233,6 +246,230 @@ def _create_instruction(
     db.flush()
     return instruction
 
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _generate_purchase_order_no(db: Session, process_type: str, order_date) -> str:
+    prefix = "OCUT" if process_type == "CUT" else "OPRT"
+    ymd = order_date.strftime("%Y%m%d")
+    like_prefix = f"{prefix}-{ymd}-"
+
+    last_no = (
+        db.execute(
+            select(OutsourcePurchaseOrder.purchase_order_no)
+            .where(OutsourcePurchaseOrder.purchase_order_no.like(f"{like_prefix}%"))
+            .order_by(OutsourcePurchaseOrder.purchase_order_no.desc())
+            .limit(1)
+        )
+        .scalar_one_or_none()
+    )
+
+    if last_no:
+        try:
+            seq = int(last_no.split("-")[-1]) + 1
+        except ValueError:
+            seq = 1
+    else:
+        seq = 1
+
+    return f"{prefix}-{ymd}-{seq:03d}"
+
+
+def _build_purchase_order_out(
+    db: Session,
+    purchase_order: OutsourcePurchaseOrder,
+) -> OutsourcePurchaseOrderOut:
+    item_rows = (
+        db.execute(
+            select(OutsourcePurchaseOrderItem, Lot, OrderLine, Product)
+            .join(Lot, Lot.lot_id == OutsourcePurchaseOrderItem.lot_id)
+            .join(OrderLine, OrderLine.order_line_id == Lot.order_line_id)
+            .join(Product, Product.product_id == Lot.product_id)
+            .where(
+                OutsourcePurchaseOrderItem.outsource_purchase_order_id
+                == purchase_order.outsource_purchase_order_id
+            )
+            .order_by(OutsourcePurchaseOrderItem.item_seq.asc())
+        )
+        .all()
+    )
+
+    items: list[OutsourcePurchaseOrderItemOut] = []
+    for item, lot, order_line, product in item_rows:
+        items.append(
+            OutsourcePurchaseOrderItemOut(
+                outsource_purchase_order_item_id=item.outsource_purchase_order_item_id,
+                outsource_purchase_order_id=item.outsource_purchase_order_id,
+                lot_id=item.lot_id,
+                outsource_work_instruction_id=item.outsource_work_instruction_id,
+                item_seq=item.item_seq,
+                qty=item.qty,
+                status=item.status,
+                vendor_received_at=item.vendor_received_at,
+                work_done_at=item.work_done_at,
+                shipped_at=item.shipped_at,
+                work_done_qty=item.work_done_qty,
+                bad_qty=item.bad_qty,
+                work_done_remark=item.work_done_remark,
+                created_at=item.created_at,
+                lot_no=lot.lot_no,
+                order_no=order_line.order_no,
+                line_no=order_line.line_no,
+                product_code=product.product_code,
+                product_name=product.product_name,
+                lot_qty=lot.lot_qty,
+            )
+        )
+
+    outsource_partner = db.get(Partner, purchase_order.outsource_partner_id)
+    inbound_partner = (
+        db.get(Partner, purchase_order.inbound_partner_id)
+        if purchase_order.inbound_partner_id
+        else None
+    )
+
+    return OutsourcePurchaseOrderOut(
+        outsource_purchase_order_id=purchase_order.outsource_purchase_order_id,
+        purchase_order_no=purchase_order.purchase_order_no,
+        purchase_order_date=purchase_order.purchase_order_date,
+        due_date=purchase_order.due_date,
+        process_type=purchase_order.process_type,
+        outsource_partner_id=purchase_order.outsource_partner_id,
+        inbound_partner_id=purchase_order.inbound_partner_id,
+        work_description=purchase_order.work_description,
+        remark=purchase_order.remark,
+        qty=purchase_order.qty,
+        unit_price=purchase_order.unit_price,
+        supply_amount=purchase_order.supply_amount,
+        vat_amount=purchase_order.vat_amount,
+        total_amount=purchase_order.total_amount,
+        created_at=purchase_order.created_at,
+        updated_at=purchase_order.updated_at,
+        outsource_partner_name=outsource_partner.name if outsource_partner else None,
+        inbound_partner_name=inbound_partner.name if inbound_partner else None,
+        items=items,
+    )
+
+@router.get("/purchase-orders/{outsource_purchase_order_id}/excel")
+def download_outsource_purchase_order_excel(
+    outsource_purchase_order_id: int,
+    db: Session = Depends(get_db),
+):
+    purchase_order = db.get(OutsourcePurchaseOrder, outsource_purchase_order_id)
+    if not purchase_order:
+        raise HTTPException(status_code=404, detail="Outsource purchase order not found")
+
+    result = _build_purchase_order_out(db, purchase_order)
+    file_bytes = _build_purchase_order_excel_template_bytes(
+        result,
+        purchase_order.form_snapshot_json,
+    )
+
+    filename = f"{result.purchase_order_no}.xlsx"
+
+    return StreamingResponse(
+        BytesIO(file_bytes),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"'
+        },
+    )
+
+
+
+def _set_merged_safe(ws, cell_ref: str, value) -> None:
+    cell = ws[cell_ref]
+
+    if not isinstance(cell, MergedCell):
+        cell.value = value
+        return
+
+    for merged_range in ws.merged_cells.ranges:
+        if cell.coordinate in merged_range:
+            ws[merged_range.start_cell.coordinate] = value
+            return
+
+    ws[cell_ref] = value
+
+@lru_cache(maxsize=1)
+def _get_cut_template_bytes() -> bytes:
+    template_path = (
+        Path(__file__).resolve().parents[2]
+        / "templates"
+        / "outsource_purchase_order_cut_template.xlsx"
+    )
+    return template_path.read_bytes()
+
+
+def _build_merged_cell_map(ws) -> dict[str, str]:
+    merged_map: dict[str, str] = {}
+
+    for merged_range in ws.merged_cells.ranges:
+        start_ref = merged_range.start_cell.coordinate
+        for row in ws[merged_range.coord]:
+            for cell in row:
+                merged_map[cell.coordinate] = start_ref
+
+    return merged_map
+
+
+def _set_merged_safe(ws, merged_map: dict[str, str], cell_ref: str, value) -> None:
+    target_ref = merged_map.get(cell_ref, cell_ref)
+    ws[target_ref] = value
+
+def _build_purchase_order_excel_template_bytes(
+    purchase_order: OutsourcePurchaseOrderOut,
+    form_snapshot: dict | None,
+) -> bytes:
+    wb = load_workbook(BytesIO(_get_cut_template_bytes()))
+    ws = wb.active
+    merged_map = _build_merged_cell_map(ws)
+
+    snapshot = form_snapshot or {}
+    rows = snapshot.get("rows") or []
+
+    # 템플릿에 이미 들어있는 라벨/고정문구는 건드리지 않음
+    # 값이 들어가는 공란 셀만 채움
+    _set_merged_safe(ws, merged_map, "E5", snapshot.get("request_company_name") or "")
+    _set_merged_safe(ws, merged_map, "I5", snapshot.get("requester_name") or "")
+    _set_merged_safe(
+        ws,
+        merged_map,
+        "P5",
+        snapshot.get("purchase_order_date") or str(purchase_order.purchase_order_date),
+    )
+    _set_merged_safe(
+        ws,
+        merged_map,
+        "H7",
+        snapshot.get("raw_material_inbound_text") or "",
+    )
+
+    # 본문 16행만 사용, 실제 rows 개수만큼만 채움
+    start_row = 10
+    max_rows = 16
+
+    for idx, row_data in enumerate(rows[:max_rows]):
+        r = start_row + idx
+
+        _set_merged_safe(ws, merged_map, f"B{r}", row_data.get("no", ""))
+        _set_merged_safe(ws, merged_map, f"C{r}", row_data.get("raw_material_text", ""))
+        _set_merged_safe(ws, merged_map, f"H{r}", row_data.get("length_m_text", ""))
+        _set_merged_safe(ws, merged_map, f"I{r}", row_data.get("inbound_place_text", ""))
+        _set_merged_safe(ws, merged_map, f"O{r}", row_data.get("cut_spec_text", ""))
+        _set_merged_safe(ws, merged_map, f"P{r}", row_data.get("sheet_qty_text", ""))
+
+    # 하단 재고/비고
+    _set_merged_safe(ws, merged_map, "H30", snapshot.get("stock_500_width_text") or "")
+    _set_merged_safe(ws, merged_map, "I30", snapshot.get("stock_600_width_text") or "")
+    _set_merged_safe(ws, merged_map, "O30", snapshot.get("stock_600_tpt0268_text") or "")
+    _set_merged_safe(ws, merged_map, "B32", snapshot.get("remark") or "")
+
+    stream = BytesIO()
+    wb.save(stream)
+    stream.seek(0)
+    return stream.getvalue()
 
 @router.post(
     "/upload-plate-data",
@@ -624,7 +861,22 @@ def get_purchase_order_targets(
             .join(RoutingTemplate, RoutingTemplate.routing_template_id == Product.routing_template_id)
             .join(order_partner, order_partner.partner_id == OrderLine.partner_id)
             .join(Partner, Partner.partner_id == OutsourceWorkInstruction.partner_id)
-            .where(OutsourceWorkInstructionItem.process_type == normalized_process_type)
+            .where(
+                OutsourceWorkInstruction.process_type == process_type,
+                ~exists(
+                    select(1)
+                    .select_from(OutsourcePurchaseOrderItem)
+                    .join(
+                        OutsourcePurchaseOrder,
+                        OutsourcePurchaseOrder.outsource_purchase_order_id
+                        == OutsourcePurchaseOrderItem.outsource_purchase_order_id,
+                    )
+                    .where(
+                        OutsourcePurchaseOrderItem.lot_id == Lot.lot_id,
+                        OutsourcePurchaseOrder.process_type == process_type,
+                    )
+                )
+            )
             .order_by(
                 OutsourceWorkInstruction.instruction_date.desc(),
                 OutsourceWorkInstruction.instruction_no.desc(),
@@ -711,3 +963,244 @@ def get_purchase_order_targets(
         )
 
     return OutsourcePurchaseOrderTargetListOut(items=items)
+
+@router.post(
+    "/purchase-orders",
+    response_model=OutsourcePurchaseOrderOut,
+    status_code=http_status.HTTP_201_CREATED,
+)
+def create_outsource_purchase_order(
+    payload: OutsourcePurchaseOrderCreate,
+    db: Session = Depends(get_db),
+):
+    if payload.process_type not in ("CUT", "PRINT"):
+        raise HTTPException(status_code=409, detail="Invalid process_type")
+
+    outsource_partner = db.get(Partner, payload.outsource_partner_id)
+    if not outsource_partner or not outsource_partner.is_active:
+        raise HTTPException(status_code=404, detail="Outsource partner not found or inactive")
+
+    if payload.inbound_partner_id:
+        inbound_partner = db.get(Partner, payload.inbound_partner_id)
+        if not inbound_partner or not inbound_partner.is_active:
+            raise HTTPException(status_code=404, detail="Inbound partner not found or inactive")
+
+    lot_ids = [item.lot_id for item in payload.items]
+    lot_count = (
+        db.execute(
+            select(func.count())
+            .select_from(Lot)
+            .where(Lot.lot_id.in_(lot_ids))
+        )
+        .scalar_one()
+    )
+
+    if int(lot_count) != len(set(lot_ids)):
+        raise HTTPException(status_code=409, detail="Some lots do not exist")
+
+    purchase_order = OutsourcePurchaseOrder(
+        purchase_order_no=_generate_purchase_order_no(
+            db,
+            payload.process_type,
+            payload.purchase_order_date,
+        ),
+        purchase_order_date=payload.purchase_order_date,
+        due_date=payload.due_date,
+        process_type=payload.process_type,
+        outsource_partner_id=payload.outsource_partner_id,
+        inbound_partner_id=payload.inbound_partner_id,
+        work_description=payload.work_description,
+        remark=payload.remark,
+        form_snapshot_json=payload.form_snapshot.model_dump() if payload.form_snapshot else None,
+        qty=payload.qty,
+        unit_price=payload.unit_price,
+        supply_amount=payload.supply_amount,
+        vat_amount=payload.vat_amount,
+        total_amount=payload.total_amount,
+    )
+    db.add(purchase_order)
+    db.flush()
+
+    for item in payload.items:
+        db.add(
+            OutsourcePurchaseOrderItem(
+                outsource_purchase_order_id=purchase_order.outsource_purchase_order_id,
+                lot_id=item.lot_id,
+                outsource_work_instruction_id=item.outsource_work_instruction_id,
+                item_seq=item.item_seq,
+                qty=item.qty,
+                status=None,
+            )
+        )
+
+    db.commit()
+    db.refresh(purchase_order)
+
+    return _build_purchase_order_out(db, purchase_order)
+
+@router.get(
+    "/purchase-orders/{outsource_purchase_order_id}",
+    response_model=OutsourcePurchaseOrderOut,
+)
+def get_outsource_purchase_order(
+    outsource_purchase_order_id: int,
+    db: Session = Depends(get_db),
+):
+    purchase_order = db.get(OutsourcePurchaseOrder, outsource_purchase_order_id)
+    if not purchase_order:
+        raise HTTPException(status_code=404, detail="Outsource purchase order not found")
+
+    return _build_purchase_order_out(db, purchase_order)
+
+@router.post(
+    "/purchase-orders/items/{outsource_purchase_order_item_id}/vendor-receive",
+    response_model=OutsourcePurchaseOrderItemOut,
+)
+def vendor_receive_outsource_purchase_order_item(
+    outsource_purchase_order_item_id: int,
+    db: Session = Depends(get_db),
+):
+    item = db.get(OutsourcePurchaseOrderItem, outsource_purchase_order_item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Outsource purchase order item not found")
+
+    if item.status is not None:
+        raise HTTPException(status_code=409, detail="Only not-started item can be vendor received")
+
+    item.status = "VENDOR_RECEIVED"
+    item.vendor_received_at = _utcnow()
+
+    db.commit()
+    db.refresh(item)
+
+    lot = db.get(Lot, item.lot_id)
+    order_line = db.get(OrderLine, lot.order_line_id) if lot else None
+    product = db.get(Product, lot.product_id) if lot else None
+
+    return OutsourcePurchaseOrderItemOut(
+        outsource_purchase_order_item_id=item.outsource_purchase_order_item_id,
+        outsource_purchase_order_id=item.outsource_purchase_order_id,
+        lot_id=item.lot_id,
+        outsource_work_instruction_id=item.outsource_work_instruction_id,
+        item_seq=item.item_seq,
+        qty=item.qty,
+        status=item.status,
+        vendor_received_at=item.vendor_received_at,
+        work_done_at=item.work_done_at,
+        shipped_at=item.shipped_at,
+        work_done_qty=item.work_done_qty,
+        bad_qty=item.bad_qty,
+        work_done_remark=item.work_done_remark,
+        created_at=item.created_at,
+        lot_no=lot.lot_no if lot else None,
+        order_no=order_line.order_no if order_line else None,
+        line_no=order_line.line_no if order_line else None,
+        product_code=product.product_code if product else None,
+        product_name=product.product_name if product else None,
+        lot_qty=lot.lot_qty if lot else None,
+    )
+
+
+@router.post(
+    "/purchase-orders/items/{outsource_purchase_order_item_id}/work-done",
+    response_model=OutsourcePurchaseOrderItemOut,
+)
+def work_done_outsource_purchase_order_item(
+    outsource_purchase_order_item_id: int,
+    payload: OutsourcePurchaseOrderWorkDone,
+    db: Session = Depends(get_db),
+):
+    item = db.get(OutsourcePurchaseOrderItem, outsource_purchase_order_item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Outsource purchase order item not found")
+
+    if item.status != "VENDOR_RECEIVED":
+        raise HTTPException(status_code=409, detail="Only VENDOR_RECEIVED item can be work done")
+
+    if payload.work_done_qty + payload.bad_qty > item.qty:
+        raise HTTPException(status_code=409, detail="work_done_qty + bad_qty cannot exceed qty")
+
+    item.status = "WORK_DONE"
+    item.work_done_at = _utcnow()
+    item.work_done_qty = payload.work_done_qty
+    item.bad_qty = payload.bad_qty
+    item.work_done_remark = payload.work_done_remark
+
+    db.commit()
+    db.refresh(item)
+
+    lot = db.get(Lot, item.lot_id)
+    order_line = db.get(OrderLine, lot.order_line_id) if lot else None
+    product = db.get(Product, lot.product_id) if lot else None
+
+    return OutsourcePurchaseOrderItemOut(
+        outsource_purchase_order_item_id=item.outsource_purchase_order_item_id,
+        outsource_purchase_order_id=item.outsource_purchase_order_id,
+        lot_id=item.lot_id,
+        outsource_work_instruction_id=item.outsource_work_instruction_id,
+        item_seq=item.item_seq,
+        qty=item.qty,
+        status=item.status,
+        vendor_received_at=item.vendor_received_at,
+        work_done_at=item.work_done_at,
+        shipped_at=item.shipped_at,
+        work_done_qty=item.work_done_qty,
+        bad_qty=item.bad_qty,
+        work_done_remark=item.work_done_remark,
+        created_at=item.created_at,
+        lot_no=lot.lot_no if lot else None,
+        order_no=order_line.order_no if order_line else None,
+        line_no=order_line.line_no if order_line else None,
+        product_code=product.product_code if product else None,
+        product_name=product.product_name if product else None,
+        lot_qty=lot.lot_qty if lot else None,
+    )
+
+
+@router.post(
+    "/purchase-orders/items/{outsource_purchase_order_item_id}/ship",
+    response_model=OutsourcePurchaseOrderItemOut,
+)
+def ship_outsource_purchase_order_item(
+    outsource_purchase_order_item_id: int,
+    db: Session = Depends(get_db),
+):
+    item = db.get(OutsourcePurchaseOrderItem, outsource_purchase_order_item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Outsource purchase order item not found")
+
+    if item.status != "WORK_DONE":
+        raise HTTPException(status_code=409, detail="Only WORK_DONE item can be shipped")
+
+    item.status = "SHIPPED"
+    item.shipped_at = _utcnow()
+
+    db.commit()
+    db.refresh(item)
+
+    lot = db.get(Lot, item.lot_id)
+    order_line = db.get(OrderLine, lot.order_line_id) if lot else None
+    product = db.get(Product, lot.product_id) if lot else None
+
+    return OutsourcePurchaseOrderItemOut(
+        outsource_purchase_order_item_id=item.outsource_purchase_order_item_id,
+        outsource_purchase_order_id=item.outsource_purchase_order_id,
+        lot_id=item.lot_id,
+        outsource_work_instruction_id=item.outsource_work_instruction_id,
+        item_seq=item.item_seq,
+        qty=item.qty,
+        status=item.status,
+        vendor_received_at=item.vendor_received_at,
+        work_done_at=item.work_done_at,
+        shipped_at=item.shipped_at,
+        work_done_qty=item.work_done_qty,
+        bad_qty=item.bad_qty,
+        work_done_remark=item.work_done_remark,
+        created_at=item.created_at,
+        lot_no=lot.lot_no if lot else None,
+        order_no=order_line.order_no if order_line else None,
+        line_no=order_line.line_no if order_line else None,
+        product_code=product.product_code if product else None,
+        product_name=product.product_name if product else None,
+        lot_qty=lot.lot_qty if lot else None,
+    )

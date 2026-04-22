@@ -15,6 +15,9 @@ from .inspection_defect import InspectionDefect
 from .inspection_defect_attachment import InspectionDefectAttachment
 from .inspection_certificate import InspectionCertificate
 from .drawing_rivision_file import DrawingRevisionFile
+from .outsource_purchase_order import OutsourcePurchaseOrder
+from .outsource_purchase_order_item import OutsourcePurchaseOrderItem
+
 
 __all__ = [
     "Process", 
@@ -33,7 +36,9 @@ __all__ = [
     "InspectionDefect",
     "InspectionDefectAttachment",
     "InspectionCertificate",
-    "DrawingRevisionFile"
+    "DrawingRevisionFile",
+    "OutsourcePurchaseOrder",
+    "OutsourcePurchaseOrderItem",
 
 
     ]

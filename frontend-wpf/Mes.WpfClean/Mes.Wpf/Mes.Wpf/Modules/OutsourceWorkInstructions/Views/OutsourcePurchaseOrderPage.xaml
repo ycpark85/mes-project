@@ -548,10 +548,7 @@
                     Margin="0,0,8,0"
                     Content="저장"
                     Command="{Binding SaveCommand}" />
-            <Button Width="90"
-                    Height="32"
-                    Content="출력"
-                    Command="{Binding PrintCommand}" />
+            
         </StackPanel>
     </Grid>
 </UserControl>

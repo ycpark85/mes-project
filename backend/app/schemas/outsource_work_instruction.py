@@ -4,7 +4,7 @@ from datetime import date, datetime
 from typing import List, Optional
 
 from pydantic import BaseModel, Field
-
+from decimal import Decimal
 
 class OutsourceWorkInstructionFileCreate(BaseModel):
     file_name: str = Field(..., min_length=1, max_length=255)
@@ -150,3 +150,109 @@ class OutsourcePurchaseOrderTargetListOut(BaseModel):
 
 class OutsourceWorkInstructionCandidateLotListOut(BaseModel):
     items: List[OutsourceWorkInstructionCandidateLotOut]
+
+# =========================
+# purchase order save/status dto
+# =========================
+
+class OutsourcePurchaseOrderCreateItem(BaseModel):
+    lot_id: int
+    outsource_work_instruction_id: Optional[int] = None
+    item_seq: int
+    qty: int = Field(..., gt=0)
+
+
+class OutsourcePurchaseOrderCreate(BaseModel):
+    purchase_order_date: date
+    due_date: Optional[date] = None
+    process_type: str
+    outsource_partner_id: int
+    inbound_partner_id: Optional[int] = None
+    work_description: Optional[str] = None
+    remark: Optional[str] = None
+    qty: int = Field(..., gt=0)
+    unit_price: Optional[Decimal] = Field(default=None, ge=0)
+    supply_amount: Optional[Decimal] = Field(default=None, ge=0)
+    vat_amount: Optional[Decimal] = Field(default=None, ge=0)
+    total_amount: Optional[Decimal] = Field(default=None, ge=0)
+    items: List[OutsourcePurchaseOrderCreateItem] = Field(..., min_length=1)
+    form_snapshot: Optional[OutsourcePurchaseOrderCutSnapshot] = None
+
+
+class OutsourcePurchaseOrderItemOut(BaseModel):
+    outsource_purchase_order_item_id: int
+    outsource_purchase_order_id: int
+    lot_id: int
+    outsource_work_instruction_id: Optional[int] = None
+    item_seq: int
+    qty: int
+    status: Optional[str] = None
+    vendor_received_at: Optional[datetime] = None
+    work_done_at: Optional[datetime] = None
+    shipped_at: Optional[datetime] = None
+    work_done_qty: Optional[int] = None
+    bad_qty: Optional[int] = None
+    work_done_remark: Optional[str] = None
+    created_at: datetime
+
+    lot_no: Optional[str] = None
+    order_no: Optional[str] = None
+    line_no: Optional[int] = None
+    product_code: Optional[str] = None
+    product_name: Optional[str] = None
+    lot_qty: Optional[int] = None
+
+    class Config:
+        from_attributes = True
+
+
+class OutsourcePurchaseOrderOut(BaseModel):
+    outsource_purchase_order_id: int
+    purchase_order_no: str
+    purchase_order_date: date
+    due_date: Optional[date] = None
+    process_type: str
+    outsource_partner_id: int
+    inbound_partner_id: Optional[int] = None
+    work_description: Optional[str] = None
+    remark: Optional[str] = None
+    qty: int
+    unit_price: Optional[Decimal] = None
+    supply_amount: Optional[Decimal] = None
+    vat_amount: Optional[Decimal] = None
+    total_amount: Optional[Decimal] = None
+    created_at: datetime
+    updated_at: datetime
+
+    outsource_partner_name: Optional[str] = None
+    inbound_partner_name: Optional[str] = None
+    items: List[OutsourcePurchaseOrderItemOut] = Field(default_factory=list)
+
+    class Config:
+        from_attributes = True
+
+
+class OutsourcePurchaseOrderWorkDone(BaseModel):
+    work_done_qty: int = Field(..., ge=0)
+    bad_qty: int = Field(0, ge=0)
+    work_done_remark: Optional[str] = None    
+
+class OutsourcePurchaseOrderCutSnapshotRow(BaseModel):
+    no: int
+    raw_material_text: Optional[str] = None
+    length_m_text: Optional[str] = None
+    inbound_place_text: Optional[str] = None
+    cut_spec_text: Optional[str] = None
+    sheet_qty_text: Optional[str] = None
+
+
+class OutsourcePurchaseOrderCutSnapshot(BaseModel):
+    request_company_name: Optional[str] = None
+    requester_name: Optional[str] = None
+    purchase_order_date: Optional[str] = None
+    raw_material_inbound_text: Optional[str] = None
+    stock_500_width_text: Optional[str] = None
+    stock_600_width_text: Optional[str] = None
+    stock_600_tpt0268_text: Optional[str] = None
+    remark: Optional[str] = None
+    rows: List[OutsourcePurchaseOrderCutSnapshotRow] = Field(default_factory=list)

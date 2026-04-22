@@ -16,6 +16,7 @@ from app.models.order_line import OrderLine
 from app.models.partner import Partner
 from app.models.product import Product
 from app.models.lot_step import LotStep
+from app.models.outsource_purchase_order_item import OutsourcePurchaseOrderItem
 from app.schemas.inspection_schedule import (
     InspectionScheduleCreate,
     InspectionScheduleListItemOut,
@@ -172,18 +173,20 @@ def receive_inspection_schedule(
         raise HTTPException(status_code=409, detail="Only WAITING schedule can be received")
     
      # ✅ 외주공정 완료 게이트
-    remaining = db.execute(
-        select(func.count())
-        .select_from(LotStep)
+    shipped_count = db.execute(
+    select(func.count())
+        .select_from(OutsourcePurchaseOrderItem)
         .where(
-            LotStep.lot_id == obj.lot_id,
-            LotStep.process_type == "OUTSOURCE",
-            LotStep.status.notin_(("DONE", "CANCELED")),
+            OutsourcePurchaseOrderItem.lot_id == obj.lot_id,
+            OutsourcePurchaseOrderItem.status == "SHIPPED",
         )
     ).scalar_one()
 
-    if int(remaining) > 0:
-        raise HTTPException(status_code=409, detail="OUTSOURCE steps must be DONE before receiving")
+    if int(shipped_count) == 0:
+        raise HTTPException(
+            status_code=409,
+            detail="Only SHIPPED outsource purchase order item can be received",
+        )
 
 
     obj.status = "RECEIVED"

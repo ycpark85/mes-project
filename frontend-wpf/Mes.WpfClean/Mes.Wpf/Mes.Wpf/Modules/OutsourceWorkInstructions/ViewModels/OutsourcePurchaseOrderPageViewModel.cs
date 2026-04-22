@@ -7,6 +7,9 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Win32;
+using System.IO;
+
 using static Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos.OutsourcePurchaseOrderEditModel;
 
 namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
@@ -18,8 +21,11 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
 
         private bool _isLoading;
         private OutsourcePurchaseOrderBundleRowModel? _selectedBundle;
+        private OutsourcePurchaseOrderResponse? _savedPurchaseOrder;
 
-        public OutsourcePurchaseOrderPageViewModel(IApiClient apiClient, IMessageService messageService)
+        public OutsourcePurchaseOrderPageViewModel(
+            IApiClient apiClient,
+            IMessageService messageService)
         {
             _apiClient = apiClient;
             _messageService = messageService;
@@ -27,11 +33,12 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
             CutGroups = new ObservableCollection<OutsourcePurchaseOrderTargetGroupRowModel>();
             PrintGroups = new ObservableCollection<OutsourcePurchaseOrderTargetGroupRowModel>();
             Bundles = new ObservableCollection<OutsourcePurchaseOrderBundleRowModel>();
+
             CutEditModel = new OutsourceCutPurchaseOrderEditModel();
 
             RefreshCommand = new AsyncRelayCommand(SearchAsync);
             ResetCommand = new RelayCommand(Reset);
-            SaveCommand = new RelayCommand(Save);
+            SaveCommand = new AsyncRelayCommand(SaveAsync);
             PrintCommand = new RelayCommand(Print);
         }
 
@@ -43,11 +50,17 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
 
         public OutsourceCutPurchaseOrderEditModel CutEditModel { get; }
 
+        public OutsourcePurchaseOrderResponse? SavedPurchaseOrder
+        {
+            get => _savedPurchaseOrder;
+            set => SetProperty(ref _savedPurchaseOrder, value);
+        }
+
         public AsyncRelayCommand RefreshCommand { get; }
 
         public RelayCommand ResetCommand { get; }
 
-        public RelayCommand SaveCommand { get; }
+        public AsyncRelayCommand SaveCommand { get; }
 
         public RelayCommand PrintCommand { get; }
 
@@ -62,19 +75,21 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
             get => _selectedBundle;
             set
             {
-                if (SetProperty(ref _selectedBundle, value))
+                if (!SetProperty(ref _selectedBundle, value))
                 {
-                    if (value != null && value.BundleType == "CUT")
-                    {
-                        CutEditModel.LoadFromBundle(value);
-                    }
-                    else
-                    {
-                        CutEditModel.Clear();
-                    }
-
-                    OnPropertyChanged(nameof(IsCutBundleSelected));
+                    return;
                 }
+
+                if (value != null && value.BundleType == "CUT")
+                {
+                    CutEditModel.LoadFromBundle(value);
+                }
+                else
+                {
+                    CutEditModel.Clear();
+                }
+
+                OnPropertyChanged(nameof(IsCutBundleSelected));
             }
         }
 
@@ -88,7 +103,6 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
         private async Task SearchAsync()
         {
             IsLoading = true;
-
             try
             {
                 await LoadGroupsAsync("CUT", CutGroups);
@@ -105,13 +119,16 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
             string processType,
             ObservableCollection<OutsourcePurchaseOrderTargetGroupRowModel> targetCollection)
         {
-            var route = $"{ApiRoutes.OutsourcePurchaseOrderTargets}?process_type={Uri.EscapeDataString(processType)}";
+            var route =
+                $"{ApiRoutes.OutsourcePurchaseOrderTargets}?process_type={Uri.EscapeDataString(processType)}";
+
             var result = await _apiClient.GetAsync<OutsourcePurchaseOrderTargetListDto>(route);
 
-            if (!result.Success || result.Data == null)
+            if (result == null || !result.Success || result.Data == null)
             {
                 targetCollection.Clear();
-                _messageService.ShowError(result.Message ?? $"{processType} 발주 대상 조회 중 오류가 발생했습니다.");
+                _messageService.ShowError(
+                    result?.Message ?? $"{processType} 발주 대상 조회 중 오류가 발생했습니다.");
                 return;
             }
 
@@ -147,7 +164,7 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
                         IsBundle = first.IsBundle,
                         OutsourcePartnerId = first.OutsourcePartnerId,
                         OutsourcePartnerName = first.OutsourcePartnerName ?? string.Empty,
-                        InboundPartnerName = first.InboundPartnerName,
+                        InboundPartnerName = first.InboundPartnerName ?? string.Empty,
                         Items = g.OrderBy(x => x.LotNo).ToList(),
                         Files = fileMap.Values.ToList()
                     };
@@ -174,8 +191,12 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
                     BundleType = "CUT",
                     Title = "재단 발주묶음",
                     Groups = CutGroups.ToList(),
-                    Items = CutGroups.SelectMany(x => x.Items).OrderBy(x => x.LotNo).ToList(),
-                    Files = CutGroups.SelectMany(x => x.Files)
+                    Items = CutGroups
+                        .SelectMany(x => x.Items)
+                        .OrderBy(x => x.LotNo)
+                        .ToList(),
+                    Files = CutGroups
+                        .SelectMany(x => x.Files)
                         .GroupBy(x => x.OutsourceWorkInstructionFileId)
                         .Select(x => x.First())
                         .ToList()
@@ -189,8 +210,12 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
                     BundleType = "PRINT",
                     Title = "인쇄 발주묶음",
                     Groups = PrintGroups.ToList(),
-                    Items = PrintGroups.SelectMany(x => x.Items).OrderBy(x => x.LotNo).ToList(),
-                    Files = PrintGroups.SelectMany(x => x.Files)
+                    Items = PrintGroups
+                        .SelectMany(x => x.Items)
+                        .OrderBy(x => x.LotNo)
+                        .ToList(),
+                    Files = PrintGroups
+                        .SelectMany(x => x.Files)
                         .GroupBy(x => x.OutsourceWorkInstructionFileId)
                         .Select(x => x.First())
                         .ToList()
@@ -204,30 +229,286 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
         private void Reset()
         {
             SelectedBundle = null;
+            SavedPurchaseOrder = null;
             CutEditModel.Clear();
             _ = SearchAsync();
         }
 
-        private void Save()
+        private async Task SaveAsync()
         {
+            if (IsLoading)
+            {
+                return;
+            }
+
             if (SelectedBundle == null)
             {
                 _messageService.ShowWarning("발주 대상을 선택하세요.");
                 return;
             }
 
-            _messageService.ShowInfo($"{SelectedBundle.Title} 저장 기능은 다음 단계에서 연결합니다.");
+            if (!string.Equals(SelectedBundle.BundleType, "CUT", StringComparison.OrdinalIgnoreCase))
+            {
+                _messageService.ShowWarning("현재는 재단 외주발주서 저장만 지원합니다.");
+                return;
+            }
+
+            NormalizeCutEditModel();
+
+            var validationMessage = ValidateForSave();
+            if (!string.IsNullOrWhiteSpace(validationMessage))
+            {
+                _messageService.ShowWarning(validationMessage);
+                return;
+            }
+
+            var request = BuildCreateRequest();
+            var savedBundle = SelectedBundle;
+
+            IsLoading = true;
+            try
+            {
+                var result = await _apiClient.PostAsync<OutsourcePurchaseOrderCreateRequest, OutsourcePurchaseOrderResponse>(
+                    ApiRoutes.OutsourcePurchaseOrders,
+                    request);
+
+                if (result == null || !result.Success || result.Data == null)
+                {
+                    _messageService.ShowError(result?.Message ?? "외주발주서 저장에 실패했습니다.");
+                    return;
+                }
+
+                SavedPurchaseOrder = result.Data;
+
+                _messageService.ShowInfo($"저장되었습니다. 발주번호: {result.Data.PurchaseOrderNo}");
+
+                SavedPurchaseOrder = result.Data;
+
+                RemoveSavedBundle(savedBundle);
+
+                await SearchAsync();
+
+                _messageService.ShowInfo($"저장되었습니다. 발주번호: {result.Data.PurchaseOrderNo}");
+
+                RemoveSavedBundle(savedBundle);
+
+                await SearchAsync();
+            }
+            finally
+            {
+                IsLoading = false;
+            }
+        }
+
+        private void NormalizeCutEditModel()
+        {
+            CutEditModel.Title = CutEditModel.Title?.Trim() ?? string.Empty;
+            CutEditModel.CompanyName = CutEditModel.CompanyName?.Trim() ?? string.Empty;
+            CutEditModel.RequestPartnerName = CutEditModel.RequestPartnerName?.Trim() ?? string.Empty;
+            CutEditModel.RequesterName = CutEditModel.RequesterName?.Trim() ?? string.Empty;
+            CutEditModel.RawMaterialInboundText = CutEditModel.RawMaterialInboundText?.Trim() ?? string.Empty;
+            CutEditModel.Remark = CutEditModel.Remark?.Trim() ?? string.Empty;
+        }
+
+        private string? ValidateForSave()
+        {
+            if (SelectedBundle == null)
+            {
+                return "저장할 발주 대상이 없습니다.";
+            }
+
+            if (!string.Equals(SelectedBundle.BundleType, "CUT", StringComparison.OrdinalIgnoreCase))
+            {
+                return "현재는 재단 외주발주서만 저장할 수 있습니다.";
+            }
+
+            if (SelectedBundle.Groups == null || SelectedBundle.Groups.Count == 0)
+            {
+                return "저장할 그룹 정보가 없습니다.";
+            }
+
+            if (SelectedBundle.Items == null || SelectedBundle.Items.Count == 0)
+            {
+                return "저장할 LOT 항목이 없습니다.";
+            }
+
+            if (SelectedBundle.TotalQty <= 0)
+            {
+                return "수량을 확인하세요.";
+            }
+
+            var outsourcePartnerId = SelectedBundle.Groups
+                .Select(x => x.OutsourcePartnerId)
+                .FirstOrDefault(x => x > 0);
+
+            if (outsourcePartnerId <= 0)
+            {
+                return "외주처 정보가 없습니다.";
+            }
+
+            return null;
+        }
+
+        private OutsourcePurchaseOrderCreateRequest BuildCreateRequest()
+        {
+            var outsourcePartnerId = SelectedBundle!.Groups
+                .Select(x => x.OutsourcePartnerId)
+                .FirstOrDefault(x => x > 0);
+
+            return new OutsourcePurchaseOrderCreateRequest
+            {
+                PurchaseOrderDate = CutEditModel.RequestDate.ToString("yyyy-MM-dd"),
+                DueDate = null,
+                ProcessType = ResolveProcessType(),
+                OutsourcePartnerId = outsourcePartnerId,
+                InboundPartnerId = null,
+                WorkDescription = ResolveWorkDescription(),
+                Remark = CutEditModel.Remark,
+                Qty = SelectedBundle.TotalQty,
+                UnitPrice = null,
+                SupplyAmount = null,
+                VatAmount = null,
+                TotalAmount = null,
+                Items = BuildCreateItems(),
+                FormSnapshot = BuildCutFormSnapshot()
+            };
+        }
+
+        private OutsourcePurchaseOrderCutSnapshotRequest BuildCutFormSnapshot()
+        {
+            var snapshot = new OutsourcePurchaseOrderCutSnapshotRequest
+            {
+                RequestCompanyName = CutEditModel.RequestPartnerName?.Trim(),
+                RequesterName = CutEditModel.RequesterName?.Trim(),
+                PurchaseOrderDate = CutEditModel.RequestDate.ToString("yyyy-MM-dd"),
+                RawMaterialInboundText = CutEditModel.RawMaterialInboundText?.Trim(),
+                Stock500WidthText = CutEditModel.Stock500Width?.ToString("0.##"),
+                Stock600WidthText = CutEditModel.Stock600Width?.ToString("0.##"),
+                Stock600Tpt0268Text = CutEditModel.Stock600Tpt0268?.ToString("0.##"),
+                Remark = CutEditModel.Remark?.Trim()
+            };
+
+            foreach (var item in CutEditModel.Items)
+            {
+                snapshot.Rows.Add(new OutsourcePurchaseOrderCutSnapshotRowRequest
+                {
+                    No = item.No,
+                    RawMaterialText = item.RawMaterialText?.Trim(),
+                    LengthMText = item.LengthM?.ToString("0.##"),
+                    InboundPlaceText = item.InboundPlaceDisplay?.Trim(),
+                    CutSpecText = item.CutSpec?.Trim(),
+                    SheetQtyText = item.SheetQty?.ToString()
+                });
+            }
+
+            return snapshot;
+        }
+
+
+
+        private List<OutsourcePurchaseOrderCreateItemRequest> BuildCreateItems()
+        {
+            var items = new List<OutsourcePurchaseOrderCreateItemRequest>();
+
+            if (SelectedBundle?.Items == null)
+            {
+                return items;
+            }
+
+            var seq = 1;
+            foreach (var item in SelectedBundle.Items.OrderBy(x => x.LotNo))
+            {
+                items.Add(new OutsourcePurchaseOrderCreateItemRequest
+                {
+                    LotId = item.LotId,
+                    OutsourceWorkInstructionId = item.OutsourceWorkInstructionId,
+                    ItemSeq = seq++,
+                    Qty = item.LotQty
+                });
+            }
+
+            return items;
+        }
+
+        private string ResolveProcessType()
+        {
+            if (string.Equals(SelectedBundle?.BundleType, "PRINT", StringComparison.OrdinalIgnoreCase))
+            {
+                return "PRINT";
+            }
+
+            return "CUT";
+        }
+
+        private string ResolveWorkDescription()
+        {
+            if (string.Equals(SelectedBundle?.BundleType, "PRINT", StringComparison.OrdinalIgnoreCase))
+            {
+                return "인쇄 외주 작업";
+            }
+
+            return "재단 외주 작업";
         }
 
         private void Print()
         {
-            if (SelectedBundle == null)
+            
+            _messageService.ShowInfo("출력 기능은 엑셀다운로드 방식으로 변경되었습니다.");
+        }
+
+        private void RemoveSavedBundle(OutsourcePurchaseOrderBundleRowModel? bundle)
+        {
+            if (bundle == null)
             {
-                _messageService.ShowWarning("출력할 발주 대상을 선택하세요.");
                 return;
             }
 
-            _messageService.ShowInfo($"{SelectedBundle.Title} 출력 기능은 다음 단계에서 연결합니다.");
+            var targetBundle = Bundles.FirstOrDefault(x => ReferenceEquals(x, bundle));
+            if (targetBundle != null)
+            {
+                Bundles.Remove(targetBundle);
+            }
+
+            if (string.Equals(bundle.BundleType, "CUT", StringComparison.OrdinalIgnoreCase))
+            {
+                CutGroups.Clear();
+            }
+            else if (string.Equals(bundle.BundleType, "PRINT", StringComparison.OrdinalIgnoreCase))
+            {
+                PrintGroups.Clear();
+            }
+
+            SelectedBundle = Bundles.FirstOrDefault();
+            OnPropertyChanged(nameof(Bundles));
+            OnPropertyChanged(nameof(IsCutBundleSelected));
+        }
+
+        private async Task DownloadExcelAsync(long outsourcePurchaseOrderId, string purchaseOrderNo)
+        {
+            var route = $"{ApiRoutes.OutsourcePurchaseOrderExcel}/{outsourcePurchaseOrderId}/excel";
+            var fileBytes = await _apiClient.GetBytesAsync(route);
+
+            if (fileBytes == null || fileBytes.Length == 0)
+            {
+                _messageService.ShowWarning("엑셀 다운로드에 실패했습니다.");
+                return;
+            }
+
+            var dialog = new SaveFileDialog
+            {
+                FileName = $"{purchaseOrderNo}.xlsx",
+                Filter = "Excel Workbook (*.xlsx)|*.xlsx",
+                DefaultExt = ".xlsx",
+                AddExtension = true,
+                OverwritePrompt = true
+            };
+
+            if (dialog.ShowDialog() != true)
+            {
+                return;
+            }
+
+            await File.WriteAllBytesAsync(dialog.FileName, fileBytes);
         }
     }
 }

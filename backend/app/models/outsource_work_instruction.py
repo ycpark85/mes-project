@@ -7,6 +7,7 @@ from sqlalchemy import BigInteger, Boolean, Date, DateTime, ForeignKey, Index, S
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from decimal import Decimal
 
 
 class OutsourceWorkInstruction(Base):
@@ -44,12 +45,14 @@ class OutsourceWorkInstruction(Base):
 
     partner = relationship("Partner")
     items: Mapped[List["OutsourceWorkInstructionItem"]] = relationship(
-        "OutsourceWorkInstructionItem",
-        back_populates="instruction",
-        cascade="all, delete-orphan",
+    "OutsourceWorkInstructionItem",
+    back_populates="instruction",
+    cascade="all, delete-orphan",
     )
+
     files: Mapped[List["OutsourceWorkInstructionFile"]] = relationship(
         "OutsourceWorkInstructionFile",
         back_populates="instruction",
         cascade="all, delete-orphan",
     )
+

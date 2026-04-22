@@ -8,6 +8,7 @@ from sqlalchemy import pool
 
 from alembic import context
 from app.db.base import Base
+from app.models import *
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 # this is the Alembic Config object, which provides
