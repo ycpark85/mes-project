@@ -380,28 +380,32 @@
                                                                         Binding="{Binding No}"
                                                                         Width="60"
                                                                         IsReadOnly="True" 
-                                                                        ElementStyle="{StaticResource CenterTextBlockStyle}"/>        
+                                                                        ElementStyle="{StaticResource CenterTextBlockStyle}"/>
                                                     <DataGridTextColumn Header="원단"
-                                                                        Binding="{Binding RawMaterialText, UpdateSourceTrigger=PropertyChanged}"
+                                                                        Binding="{Binding RawMaterialText}"
                                                                         Width="170"
+                                                                        IsReadOnly="True"
                                                                         ElementStyle="{StaticResource CenterTextBlockStyle}"/>      
                                                     <DataGridTextColumn Header="m 수(길이)"
-                                                                        Binding="{Binding LengthM, UpdateSourceTrigger=PropertyChanged}"
-                                                                        Width="130" 
-                                                                        ElementStyle="{StaticResource CenterTextBlockStyle}"/>      
+                                                                        Binding="{Binding LengthMDisplay}"
+                                                                        Width="130"
+                                                                        IsReadOnly="True"
+                                                                        ElementStyle="{StaticResource CenterTextBlockStyle}"/>  
                                                     <DataGridTextColumn Header="입고처"
                                                                         Binding="{Binding InboundPlaceDisplay, Mode=OneWay}"
                                                                         Width="300"
                                                                         IsReadOnly="True"
-                                                                        ElementStyle="{StaticResource CenterTextBlockStyle}"/>      
+                                                                        ElementStyle="{StaticResource CenterTextBlockStyle}"/>
                                                     <DataGridTextColumn Header="재단규격"
-                                                                        Binding="{Binding CutSpec, UpdateSourceTrigger=PropertyChanged}"
-                                                                        Width="150" 
+                                                                        Binding="{Binding CutSpec}"
+                                                                        Width="150"
+                                                                        IsReadOnly="True"
                                                                         ElementStyle="{StaticResource CenterTextBlockStyle}"/>      
                                                     <DataGridTextColumn Header="매수"
-                                                                        Binding="{Binding SheetQty, UpdateSourceTrigger=PropertyChanged}"
-                                                                        Width="*" 
-                                                                        ElementStyle="{StaticResource CenterTextBlockStyle}"/>      
+                                                                        Binding="{Binding SheetQtyDisplay}"
+                                                                        Width="*"
+                                                                        IsReadOnly="True"
+                                                                        ElementStyle="{StaticResource CenterTextBlockStyle}"/>  
                                                 </DataGrid.Columns>
                                             </DataGrid>
                                         </Border>

@@ -16,7 +16,13 @@ from .inspection_defect_attachment import InspectionDefectAttachment
 from .inspection_certificate import InspectionCertificate
 from .drawing_rivision_file import DrawingRevisionFile
 from .outsource_purchase_order import OutsourcePurchaseOrder
+from .outsource_work_instruction import OutsourceWorkInstruction
+from .outsource_work_instruction_item import OutsourceWorkInstructionItem
+from .outsource_work_instruction_file import OutsourceWorkInstructionFile
 from .outsource_purchase_order_item import OutsourcePurchaseOrderItem
+from .outsource_work_group import OutsourceWorkGroup
+from .outsource_work_group_item import OutsourceWorkGroupItem
+from .outsource_purchase_order_group import OutsourcePurchaseOrderGroup
 
 
 __all__ = [
@@ -37,8 +43,14 @@ __all__ = [
     "InspectionDefectAttachment",
     "InspectionCertificate",
     "DrawingRevisionFile",
+    "OutsourceWorkInstruction",
+    "OutsourceWorkInstructionItem",
+    "OutsourceWorkInstructionFile",
     "OutsourcePurchaseOrder",
     "OutsourcePurchaseOrderItem",
+    "OutsourceWorkGroup",
+    "OutsourceWorkGroupItem",
+    "OutsourcePurchaseOrderGroup",
 
 
     ]

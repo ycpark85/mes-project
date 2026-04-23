@@ -11,6 +11,21 @@ class OutsourceWorkInstructionFileCreate(BaseModel):
     file_path: str = Field(..., min_length=1)
     content_type: Optional[str] = None
 
+class OutsourceWorkInstructionGroupItemCreate(BaseModel):
+    lot_id: int
+    cuts_per_sheet: int = Field(..., gt=0)
+    expected_output_qty: Optional[int] = Field(default=None, ge=0)
+    remark: Optional[str] = None
+
+
+class OutsourceWorkInstructionGroupCreate(BaseModel):
+    group_seq: int = Field(..., ge=1)
+    is_bundle: bool = False
+    sheet_qty: int = Field(..., gt=0)
+    length_m: Optional[Decimal] = Field(default=None, ge=0)
+    sheet_cut_count: Optional[int] = Field(default=None, gt=0)
+    remark: Optional[str] = None
+    items: List[OutsourceWorkInstructionGroupItemCreate] = Field(..., min_length=1)
 
 class OutsourceWorkInstructionCreate(BaseModel):
     instruction_date: date
@@ -19,6 +34,19 @@ class OutsourceWorkInstructionCreate(BaseModel):
     lot_ids: List[int] = Field(..., min_length=1)
     memo: Optional[str] = None
     files: List[OutsourceWorkInstructionFileCreate] = Field(default_factory=list)
+    groups: List[OutsourceWorkInstructionGroupCreate] = Field(default_factory=list)
+
+class OutsourceWorkInstructionBatchGroupCreate(BaseModel):
+    partner_id: int
+    lot_ids: List[int] = Field(..., min_length=1)
+    memo: Optional[str] = None
+    files: List[OutsourceWorkInstructionFileCreate] = Field(default_factory=list)
+    groups: List[OutsourceWorkInstructionGroupCreate] = Field(default_factory=list)
+
+class OutsourceWorkInstructionBatchCreate(BaseModel):
+    instruction_date: date
+    groups: List[OutsourceWorkInstructionBatchGroupCreate] = Field(..., min_length=1)
+
 
 class OutsourceWorkInstructionFileOut(BaseModel):
     outsource_work_instruction_file_id: int
@@ -121,6 +149,8 @@ class OutsourcePurchaseOrderTargetOut(BaseModel):
     panel_length_mm: int | None = None
     product_spec: str | None = None
     cut_qty_per_panel: int | None = None
+    length_m: Decimal | None = None
+    sheet_qty: int | None = None
     is_print_product: bool = False
 
     
@@ -128,18 +158,6 @@ class OutsourcePurchaseOrderTargetOut(BaseModel):
     memo: Optional[str] = None
 
     files: List[OutsourceWorkInstructionFileOut] = Field(default_factory=list)
-
-class OutsourceWorkInstructionBatchGroupCreate(BaseModel):
-    partner_id: int
-    lot_ids: List[int] = Field(..., min_length=1)
-    memo: Optional[str] = None
-    files: List[OutsourceWorkInstructionFileCreate] = Field(default_factory=list)
-
-
-class OutsourceWorkInstructionBatchCreate(BaseModel):
-    instruction_date: date
-    groups: List[OutsourceWorkInstructionBatchGroupCreate] = Field(..., min_length=1)
-
 
 class OutsourceWorkInstructionBatchOut(BaseModel):
     items: List[OutsourceWorkInstructionOut] = Field(default_factory=list)
@@ -256,3 +274,7 @@ class OutsourcePurchaseOrderCutSnapshot(BaseModel):
     stock_600_tpt0268_text: Optional[str] = None
     remark: Optional[str] = None
     rows: List[OutsourcePurchaseOrderCutSnapshotRow] = Field(default_factory=list)
+
+
+
+

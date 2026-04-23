@@ -23,8 +23,14 @@ from app.models.outsource_work_instruction_file import OutsourceWorkInstructionF
 from app.models.outsource_work_instruction_item import OutsourceWorkInstructionItem
 from app.models.outsource_purchase_order import OutsourcePurchaseOrder
 from app.models.outsource_purchase_order_item import OutsourcePurchaseOrderItem
+from app.models.outsource_work_group import OutsourceWorkGroup
+from app.models.outsource_work_group_item import OutsourceWorkGroupItem
 from app.models.partner import Partner
 from app.models.product import Product
+
+
+
+
 from app.models.routing_template import RoutingTemplate
 from app.schemas.outsource_work_instruction import (
     OutsourcePurchaseOrderTargetListOut,
@@ -42,6 +48,8 @@ from app.schemas.outsource_work_instruction import (
     OutsourcePurchaseOrderOut,
     OutsourcePurchaseOrderItemOut,
     OutsourcePurchaseOrderWorkDone,
+    OutsourceWorkInstructionGroupCreate,
+    OutsourceWorkInstructionGroupItemCreate,
 
     
 )
@@ -212,6 +220,7 @@ def _create_instruction(
     lot_ids: list[int],
     memo: str | None,
     files: list,
+    groups: list[OutsourceWorkInstructionGroupCreate] | None = None,
 ) -> OutsourceWorkInstruction:
     instruction = OutsourceWorkInstruction(
         instruction_no=_generate_instruction_no(db, instruction_date),
@@ -223,6 +232,14 @@ def _create_instruction(
     )
     db.add(instruction)
     db.flush()
+
+    if groups:
+        _create_work_groups(
+            db=db,
+            instruction_id=instruction.outsource_work_instruction_id,
+            process_type=process_type,
+            groups=groups,
+        )
 
     for lot_id in lot_ids:
         db.add(
@@ -245,6 +262,46 @@ def _create_instruction(
 
     db.flush()
     return instruction
+
+def _filter_groups_for_lot_ids(
+    groups: list[OutsourceWorkInstructionGroupCreate],
+    allowed_lot_ids: list[int],
+) -> list[OutsourceWorkInstructionGroupCreate]:
+    allowed_set = set(allowed_lot_ids)
+    filtered_groups: list[OutsourceWorkInstructionGroupCreate] = []
+
+    for group in groups:
+        filtered_items = [
+            OutsourceWorkInstructionGroupItemCreate(
+                lot_id=item.lot_id,
+                cuts_per_sheet=item.cuts_per_sheet,
+                expected_output_qty=item.expected_output_qty,
+                remark=item.remark,
+            )
+            for item in group.items
+            if item.lot_id in allowed_set
+        ]
+
+        if not filtered_items:
+            continue
+
+        sheet_cut_count = group.sheet_cut_count
+        if group.is_bundle:
+            sheet_cut_count = sum(item.cuts_per_sheet for item in filtered_items)
+
+        filtered_groups.append(
+            OutsourceWorkInstructionGroupCreate(
+                group_seq=group.group_seq,
+                is_bundle=group.is_bundle,
+                sheet_qty=group.sheet_qty,
+                length_m=group.length_m,
+                sheet_cut_count=sheet_cut_count,
+                remark=group.remark,
+                items=filtered_items,
+            )
+        )
+
+    return filtered_groups
 
 def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
@@ -351,6 +408,94 @@ def _build_purchase_order_out(
         items=items,
     )
 
+def _resolve_group_sheet_cut_count(
+    db: Session,
+    process_type: str,
+    group_payload: OutsourceWorkInstructionGroupCreate,
+) -> int:
+    if group_payload.is_bundle:
+        if group_payload.sheet_cut_count is None or group_payload.sheet_cut_count <= 0:
+            raise HTTPException(
+                status_code=409,
+                detail="sheet_cut_count is required for bundle group",
+            )
+
+        cuts_sum = sum(item.cuts_per_sheet for item in group_payload.items)
+        if cuts_sum != group_payload.sheet_cut_count:
+            raise HTTPException(
+                status_code=409,
+                detail="sum(cuts_per_sheet) must equal sheet_cut_count for bundle group",
+            )
+
+        return group_payload.sheet_cut_count
+
+    if len(group_payload.items) != 1:
+        raise HTTPException(
+            status_code=409,
+            detail="non-bundle group must contain exactly one item",
+        )
+
+    lot_id = group_payload.items[0].lot_id
+
+    cut_qty_per_panel = db.execute(
+        select(Product.cut_qty_per_panel)
+        .join(Lot, Lot.product_id == Product.product_id)
+        .where(Lot.lot_id == lot_id)
+    ).scalar_one_or_none()
+
+    if cut_qty_per_panel is not None and int(cut_qty_per_panel) > 0:
+        return int(cut_qty_per_panel)
+
+    if group_payload.sheet_cut_count is not None and group_payload.sheet_cut_count > 0:
+        return group_payload.sheet_cut_count
+
+    raise HTTPException(
+        status_code=409,
+        detail="cut_qty_per_panel or sheet_cut_count is required for non-bundle group",
+    )
+
+def _create_work_groups(
+    db: Session,
+    instruction_id: int,
+    process_type: str,
+    groups: list[OutsourceWorkInstructionGroupCreate],
+) -> None:
+    for group_payload in groups:
+        sheet_cut_count = _resolve_group_sheet_cut_count(
+            db=db,
+            process_type=process_type,
+            group_payload=group_payload,
+        )
+
+        work_group = OutsourceWorkGroup(
+           outsource_work_instruction_id=instruction_id,
+            group_seq=group_payload.group_seq,
+            process_type=process_type,
+            is_bundle=group_payload.is_bundle,
+            sheet_qty=group_payload.sheet_qty,
+            length_m=group_payload.length_m,
+            sheet_cut_count=sheet_cut_count,
+            remark=group_payload.remark,
+        )
+        db.add(work_group)
+        db.flush()
+
+        for item in group_payload.items:
+            expected_output_qty = item.expected_output_qty
+            if expected_output_qty is None:
+                expected_output_qty = group_payload.sheet_qty * item.cuts_per_sheet
+
+            db.add(
+                OutsourceWorkGroupItem(
+                    outsource_work_group_id=work_group.outsource_work_group_id,
+                    lot_id=item.lot_id,
+                    cuts_per_sheet=item.cuts_per_sheet,
+                    expected_output_qty=expected_output_qty,
+                    remark=item.remark,
+                )
+            )
+
+
 @router.get("/purchase-orders/{outsource_purchase_order_id}/excel")
 def download_outsource_purchase_order_excel(
     outsource_purchase_order_id: int,
@@ -378,19 +523,7 @@ def download_outsource_purchase_order_excel(
 
 
 
-def _set_merged_safe(ws, cell_ref: str, value) -> None:
-    cell = ws[cell_ref]
 
-    if not isinstance(cell, MergedCell):
-        cell.value = value
-        return
-
-    for merged_range in ws.merged_cells.ranges:
-        if cell.coordinate in merged_range:
-            ws[merged_range.start_cell.coordinate] = value
-            return
-
-    ws[cell_ref] = value
 
 @lru_cache(maxsize=1)
 def _get_cut_template_bytes() -> bytes:
@@ -649,6 +782,15 @@ def create_outsource_work_instruction(
     db.add(instruction)
     db.flush()
 
+    if payload.groups:
+        _create_work_groups(
+            db=db,
+            instruction_id=instruction.outsource_work_instruction_id,
+            process_type=payload.process_type,
+            groups=payload.groups,
+        )
+
+
     for lot_id in payload.lot_ids:
         db.add(
             OutsourceWorkInstructionItem(
@@ -787,6 +929,8 @@ def create_outsource_work_instruction_batch(
                         status_code=409,
                         detail="Some lots are already registered for process PRINT",
                     )
+        cut_groups = _filter_groups_for_lot_ids(group.groups, cut_lot_ids) if group.groups else []
+        print_groups = _filter_groups_for_lot_ids(group.groups, print_lot_ids) if group.groups else []        
 
         if cut_lot_ids:
             created_instructions.append(
@@ -798,6 +942,7 @@ def create_outsource_work_instruction_batch(
                     lot_ids=cut_lot_ids,
                     memo=group.memo,
                     files=[],
+                    groups=cut_groups,
                 )
             )
 
@@ -811,6 +956,7 @@ def create_outsource_work_instruction_batch(
                     lot_ids=print_lot_ids,
                     memo=group.memo,
                     files=group.files,
+                    groups=print_groups,
                 )
             )
 
@@ -843,6 +989,8 @@ def get_purchase_order_targets(
             select(
                 OutsourceWorkInstruction,
                 OutsourceWorkInstructionItem,
+                OutsourceWorkGroup,
+                OutsourceWorkGroupItem,
                 Lot,
                 OrderLine,
                 Product,
@@ -855,6 +1003,16 @@ def get_purchase_order_targets(
                 OutsourceWorkInstructionItem.outsource_work_instruction_id
                 == OutsourceWorkInstruction.outsource_work_instruction_id,
             )
+            .join(
+                OutsourceWorkGroup,
+                OutsourceWorkGroup.outsource_work_instruction_id
+                == OutsourceWorkInstruction.outsource_work_instruction_id,
+            )
+            .join(
+                OutsourceWorkGroupItem,
+                OutsourceWorkGroupItem.outsource_work_group_id
+                == OutsourceWorkGroup.outsource_work_group_id,
+            )
             .join(Lot, Lot.lot_id == OutsourceWorkInstructionItem.lot_id)
             .join(OrderLine, OrderLine.order_line_id == Lot.order_line_id)
             .join(Product, Product.product_id == Lot.product_id)
@@ -863,6 +1021,7 @@ def get_purchase_order_targets(
             .join(Partner, Partner.partner_id == OutsourceWorkInstruction.partner_id)
             .where(
                 OutsourceWorkInstruction.process_type == process_type,
+                OutsourceWorkGroupItem.lot_id == Lot.lot_id,
                 ~exists(
                     select(1)
                     .select_from(OutsourcePurchaseOrderItem)
@@ -889,7 +1048,7 @@ def get_purchase_order_targets(
     instruction_ids = list(
         {
             instruction.outsource_work_instruction_id
-            for instruction, _, _, _, _, _, _, _ in rows
+            for instruction, _, _, _, _, _, _, _, _, _ in rows
         }
     )
 
@@ -919,6 +1078,8 @@ def get_purchase_order_targets(
     for (
         instruction,
         item,
+        work_group,
+        work_group_item,
         lot,
         order_line,
         product,
@@ -958,6 +1119,8 @@ def get_purchase_order_targets(
                 panel_length_mm=product.panel_length_mm,
                 product_spec=product.product_spec,
                 cut_qty_per_panel=product.cut_qty_per_panel,
+                length_m=work_group.length_m,
+                sheet_qty=work_group.sheet_qty,
                 is_print_product=is_print_product,
             )
         )

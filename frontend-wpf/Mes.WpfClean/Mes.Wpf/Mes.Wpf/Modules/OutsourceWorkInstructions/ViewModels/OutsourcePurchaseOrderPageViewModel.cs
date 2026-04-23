@@ -277,11 +277,6 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
                     _messageService.ShowError(result?.Message ?? "외주발주서 저장에 실패했습니다.");
                     return;
                 }
-
-                SavedPurchaseOrder = result.Data;
-
-                _messageService.ShowInfo($"저장되었습니다. 발주번호: {result.Data.PurchaseOrderNo}");
-
                 SavedPurchaseOrder = result.Data;
 
                 RemoveSavedBundle(savedBundle);
@@ -289,10 +284,6 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
                 await SearchAsync();
 
                 _messageService.ShowInfo($"저장되었습니다. 발주번호: {result.Data.PurchaseOrderNo}");
-
-                RemoveSavedBundle(savedBundle);
-
-                await SearchAsync();
             }
             finally
             {

@@ -4,6 +4,7 @@ using Mes.Wpf.Core.Interfaces;
 using Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos;
 using Microsoft.Win32;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
@@ -115,14 +116,23 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
             {
                 InstructionDate = DateTime.Today,
                 PartnerId = selectedLots[0].PartnerId,
-                PartnerName = selectedLots[0].PartnerName ?? string.Empty
+                PartnerName = selectedLots[0].PartnerName ?? string.Empty,
+                SheetQty = 1
             };
 
             foreach (var lot in selectedLots)
             {
                 lot.IsSelected = false;
+                lot.ManualCutsPerSheet = null;
                 draft.Lots.Add(lot);
             }
+
+            if (!draft.IsBundle)
+            {
+                draft.SheetCutCount = draft.FirstLot?.CutQtyPerPanel;
+            }
+
+            draft.RefreshDerivedValues();
 
             Drafts.Add(draft);
             SelectedDraft = draft;
@@ -147,6 +157,7 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
             foreach (var lot in SelectedDraft.Lots)
             {
                 lot.IsSelected = false;
+                lot.ManualCutsPerSheet = null;
                 CandidateLots.Add(lot);
             }
 
@@ -246,7 +257,8 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
                     PartnerId = draft.PartnerId,
                     Memo = string.IsNullOrWhiteSpace(draft.Memo) ? null : draft.Memo.Trim(),
                     LotIds = draft.Lots.Select(x => x.LotId).ToList(),
-                    Files = draft.Files.ToList()
+                    Files = draft.Files.ToList(),
+                    WorkGroups = BuildWorkGroups(draft)
                 });
             }
 
@@ -274,6 +286,108 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
             {
                 IsLoading = false;
             }
+        }
+
+        private List<OutsourceWorkInstructionGroupCreateRequest> BuildWorkGroups(OutsourceWorkInstructionDraftEditModel draft)
+        {
+            var groups = new List<OutsourceWorkInstructionGroupCreateRequest>();
+
+            if (draft.Lots.Count == 0)
+            {
+                return groups;
+            }
+
+            var group = new OutsourceWorkInstructionGroupCreateRequest
+            {
+                GroupSeq = 1,
+                IsBundle = draft.IsBundle,
+                SheetQty = ResolveSheetQty(draft),
+                LengthM = draft.LengthM,
+                SheetCutCount = ResolveSheetCutCount(draft),
+                Remark = string.IsNullOrWhiteSpace(draft.Memo) ? null : draft.Memo.Trim()
+            };
+
+            foreach (var lot in draft.Lots)
+            {
+                var cutsPerSheet = ResolveCutsPerSheet(draft, lot);
+
+                group.Items.Add(new OutsourceWorkInstructionGroupItemCreateRequest
+                {
+                    LotId = lot.LotId,
+                    CutsPerSheet = cutsPerSheet,
+                    ExpectedOutputQty = ResolveExpectedOutputQty(draft, cutsPerSheet),
+                    Remark = null
+                });
+            }
+
+            groups.Add(group);
+            return groups;
+        }
+
+        private int ResolveSheetQty(OutsourceWorkInstructionDraftEditModel draft)
+        {
+            return draft.SheetQty > 0 ? draft.SheetQty : 1;
+        }
+
+        private int? ResolveSheetCutCount(OutsourceWorkInstructionDraftEditModel draft)
+        {
+            if (!draft.IsBundle)
+            {
+                if (draft.FirstLot?.CutQtyPerPanel is int cutQtyPerPanel && cutQtyPerPanel > 0)
+                {
+                    return cutQtyPerPanel;
+                }
+
+                return draft.SheetCutCount.HasValue && draft.SheetCutCount.Value > 0
+                    ? draft.SheetCutCount.Value
+                    : null;
+            }
+
+            if (draft.SheetCutCount.HasValue && draft.SheetCutCount.Value > 0)
+            {
+                return draft.SheetCutCount.Value;
+            }
+
+            var manualSum = draft.Lots.Sum(x => x.ManualCutsPerSheet ?? 0);
+            return manualSum > 0 ? manualSum : null;
+        }
+
+        private int ResolveCutsPerSheet(
+            OutsourceWorkInstructionDraftEditModel draft,
+            OutsourceWorkInstructionCandidateLotRowModel lot)
+        {
+            if (draft.IsBundle)
+            {
+                if (lot.ManualCutsPerSheet.HasValue && lot.ManualCutsPerSheet.Value > 0)
+                {
+                    return lot.ManualCutsPerSheet.Value;
+                }
+
+                if (lot.CutQtyPerPanel.HasValue && lot.CutQtyPerPanel.Value > 0)
+                {
+                    return lot.CutQtyPerPanel.Value;
+                }
+
+                return 1;
+            }
+
+            if (lot.CutQtyPerPanel.HasValue && lot.CutQtyPerPanel.Value > 0)
+            {
+                return lot.CutQtyPerPanel.Value;
+            }
+
+            return 1;
+        }
+
+        private int? ResolveExpectedOutputQty(OutsourceWorkInstructionDraftEditModel draft, int cutsPerSheet)
+        {
+            var sheetQty = ResolveSheetQty(draft);
+            if (sheetQty <= 0 || cutsPerSheet <= 0)
+            {
+                return null;
+            }
+
+            return sheetQty * cutsPerSheet;
         }
 
         private async Task ResetAsync()

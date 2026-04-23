@@ -6,7 +6,6 @@ using System.Linq;
 using System.Text.Json.Serialization;
 using static Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos.OutsourcePurchaseOrderEditModel;
 
-
 namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
 {
     public class OutsourceWorkInstructionFileDto
@@ -87,6 +86,7 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
     public class OutsourceWorkInstructionCandidateLotRowModel : ViewModelBase
     {
         private bool _isSelected;
+        private int? _manualCutsPerSheet;
 
         public long LotId { get; set; }
         public string LotNo { get; set; } = string.Empty;
@@ -105,6 +105,12 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
         public int? PanelLengthMm { get; set; }
         public string? ProductSpec { get; set; }
         public int? CutQtyPerPanel { get; set; }
+
+        public int? ManualCutsPerSheet
+        {
+            get => _manualCutsPerSheet;
+            set => SetProperty(ref _manualCutsPerSheet, value);
+        }
 
         public string PlateSizeText =>
             PanelWidthMm.HasValue && PanelLengthMm.HasValue
@@ -177,6 +183,45 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
         public string? ContentType { get; set; }
     }
 
+    public sealed class OutsourceWorkInstructionGroupItemCreateRequest
+    {
+        [JsonPropertyName("lot_id")]
+        public long LotId { get; set; }
+
+        [JsonPropertyName("cuts_per_sheet")]
+        public int CutsPerSheet { get; set; }
+
+        [JsonPropertyName("expected_output_qty")]
+        public int? ExpectedOutputQty { get; set; }
+
+        [JsonPropertyName("remark")]
+        public string? Remark { get; set; }
+    }
+
+    public sealed class OutsourceWorkInstructionGroupCreateRequest
+    {
+        [JsonPropertyName("group_seq")]
+        public int GroupSeq { get; set; }
+
+        [JsonPropertyName("is_bundle")]
+        public bool IsBundle { get; set; }
+
+        [JsonPropertyName("sheet_qty")]
+        public int SheetQty { get; set; }
+
+        [JsonPropertyName("length_m")]
+        public decimal? LengthM { get; set; }
+
+        [JsonPropertyName("sheet_cut_count")]
+        public int? SheetCutCount { get; set; }
+
+        [JsonPropertyName("remark")]
+        public string? Remark { get; set; }
+
+        [JsonPropertyName("items")]
+        public List<OutsourceWorkInstructionGroupItemCreateRequest> Items { get; set; } = new();
+    }
+
     public class OutsourceWorkInstructionCreateRequest
     {
         [JsonPropertyName("instruction_date")]
@@ -196,6 +241,9 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
 
         [JsonPropertyName("files")]
         public List<OutsourceWorkInstructionFileCreateRequest> Files { get; set; } = new();
+
+        [JsonPropertyName("groups")]
+        public List<OutsourceWorkInstructionGroupCreateRequest> Groups { get; set; } = new();
     }
 
     public class OutsourceWorkInstructionItemDto
@@ -264,7 +312,10 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
         private long _partnerId;
         private string _partnerName = string.Empty;
         private string _memo = string.Empty;
-        
+        private decimal? _lengthM;
+        private int _sheetQty;
+        private int? _sheetCutCount;
+
         public Guid DraftId { get; set; } = Guid.NewGuid();
 
         public DateTime InstructionDate
@@ -291,6 +342,30 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
             set => SetProperty(ref _memo, value);
         }
 
+        public decimal? LengthM
+        {
+            get => _lengthM;
+            set
+            {
+                if (SetProperty(ref _lengthM, value))
+                {
+                    RecalculateSheetQty();
+                }
+            }
+        }
+
+        public int SheetQty
+        {
+            get => _sheetQty;
+            set => SetProperty(ref _sheetQty, value);
+        }
+
+        public int? SheetCutCount
+        {
+            get => _sheetCutCount;
+            set => SetProperty(ref _sheetCutCount, value);
+        }
+
         public List<OutsourceWorkInstructionCandidateLotRowModel> Lots { get; } = new();
         public List<OutsourceWorkInstructionFileCreateRequest> Files { get; } = new();
 
@@ -302,10 +377,28 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
 
         public string PlateDataPath => Files.Count > 0 ? Files[0].FilePath : string.Empty;
 
-        // 현재 데이터 소스 미연결 상태
         public string PlateSize => FirstLot?.PlateSizeText ?? string.Empty;
         public string Spec => FirstLot?.SpecText ?? string.Empty;
         public string CutCountText => FirstLot?.CutCountText ?? string.Empty;
+
+        public void RefreshDerivedValues()
+        {
+            if (!IsBundle)
+            {
+                SheetCutCount = FirstLot?.CutQtyPerPanel;
+            }
+
+            RecalculateSheetQty();
+
+            OnPropertyChanged(nameof(IsBundle));
+            OnPropertyChanged(nameof(BundleText));
+            OnPropertyChanged(nameof(LotSummary));
+            OnPropertyChanged(nameof(FirstLot));
+            OnPropertyChanged(nameof(PlateSize));
+            OnPropertyChanged(nameof(Spec));
+            OnPropertyChanged(nameof(CutCountText));
+        }
+
         public void Clear()
         {
             DraftId = Guid.NewGuid();
@@ -313,8 +406,46 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
             PartnerId = 0;
             PartnerName = string.Empty;
             Memo = string.Empty;
+            LengthM = null;
+            SheetQty = 0;
+            SheetCutCount = null;
             Lots.Clear();
             Files.Clear();
+        }
+
+        private void RecalculateSheetQty()
+        {
+            var panelLengthMm = FirstLot?.PanelLengthMm;
+
+            if (!LengthM.HasValue || !panelLengthMm.HasValue || panelLengthMm.Value <= 0)
+            {
+                SheetQty = 0;
+                return;
+            }
+
+            var panelLengthMeter = panelLengthMm.Value / 1000m;
+            if (panelLengthMeter <= 0)
+            {
+                SheetQty = 0;
+                return;
+            }
+
+            var usableLengthM = LengthM.Value * 0.98m;
+            if (usableLengthM <= 0)
+            {
+                SheetQty = 0;
+                return;
+            }
+
+            var rawQty = usableLengthM / panelLengthMeter;
+            if (rawQty <= 0)
+            {
+                SheetQty = 0;
+                return;
+            }
+
+            var roundedQty = Math.Round(rawQty / 5m, 0, MidpointRounding.AwayFromZero) * 5m;
+            SheetQty = roundedQty < 0 ? 0 : (int)roundedQty;
         }
     }
 
@@ -331,6 +462,9 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
 
         [JsonPropertyName("files")]
         public List<OutsourceWorkInstructionFileCreateRequest> Files { get; set; } = new();
+
+        [JsonPropertyName("groups")]
+        public List<OutsourceWorkInstructionGroupCreateRequest> WorkGroups { get; set; } = new();
     }
 
     public class OutsourceWorkInstructionBatchCreateRequest
@@ -425,6 +559,12 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
         [JsonPropertyName("cut_qty_per_panel")]
         public int? CutQtyPerPanel { get; set; }
 
+        [JsonPropertyName("length_m")]
+        public decimal? LengthM { get; set; }
+
+        [JsonPropertyName("sheet_qty")]
+        public int? SheetQty { get; set; }
+
         [JsonPropertyName("is_print_product")]
         public bool IsPrintProduct { get; set; }
 
@@ -441,6 +581,7 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
         [JsonPropertyName("items")]
         public List<OutsourcePurchaseOrderTargetDto> Items { get; set; } = new();
     }
+
     public class OutsourcePurchaseOrderTargetGroupRowModel : ViewModelBase
     {
         public long OutsourceWorkInstructionId { get; set; }
@@ -589,8 +730,8 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
 
         public class OutsourcePurchaseOrderBundleRowModel : ViewModelBase
         {
-            public string BundleType { get; set; } = string.Empty;   // CUT / PRINT
-            public string Title { get; set; } = string.Empty;        // 재단 발주묶음 / 인쇄 발주묶음
+            public string BundleType { get; set; } = string.Empty;
+            public string Title { get; set; } = string.Empty;
 
             public List<OutsourcePurchaseOrderTargetGroupRowModel> Groups { get; set; } = new();
             public List<OutsourcePurchaseOrderTargetDto> Items { get; set; } = new();
@@ -603,6 +744,7 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
             public string ProcessType => BundleType;
         }
     }
+
     public class OutsourceCutPurchaseOrderItemEditModel : ViewModelBase
     {
         private int _no;
@@ -613,6 +755,8 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
         private string _cutSpec = string.Empty;
         private int? _sheetQty;
         private int? _panelLengthMm;
+        private decimal? _savedLengthM;
+        private int? _savedSheetQty;
 
         public long SourceOutsourceWorkInstructionId { get; set; }
 
@@ -621,6 +765,33 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
         public string LotSummary { get; set; } = string.Empty;
 
         public bool IsBundle { get; set; }
+        public decimal? SavedLengthM
+{
+    get => _savedLengthM;
+    set
+    {
+        if (SetProperty(ref _savedLengthM, value))
+        {
+            OnPropertyChanged(nameof(LengthMDisplay));
+        }
+    }
+}
+
+public int? SavedSheetQty
+{
+    get => _savedSheetQty;
+    set
+    {
+        if (SetProperty(ref _savedSheetQty, value))
+        {
+            OnPropertyChanged(nameof(SheetQtyDisplay));
+        }
+    }
+}
+
+public string LengthMDisplay => SavedLengthM?.ToString("0.##") ?? string.Empty;
+
+public string SheetQtyDisplay => SavedSheetQty?.ToString() ?? string.Empty;
 
         public int No
         {
@@ -722,8 +893,23 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
                 return;
             }
 
-            var qty = Math.Floor(LengthM.Value / panelLengthMeter);
-            SheetQty = qty < 0 ? 0 : (int)qty;
+            var usableLengthM = LengthM.Value * 0.98m;
+            if (usableLengthM <= 0)
+            {
+                SheetQty = 0;
+                return;
+            }
+
+            var rawQty = usableLengthM / panelLengthMeter;
+            if (rawQty <= 0)
+            {
+                SheetQty = 0;
+                return;
+            }
+
+            var roundedQty = Math.Round(rawQty / 5m, 0, MidpointRounding.AwayFromZero) * 5m;
+
+            SheetQty = roundedQty < 0 ? 0 : (int)roundedQty;
         }
     }
 
@@ -861,10 +1047,12 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
                     RawMaterialText = rawMaterialText,
                     PanelLengthMm = firstItem.PanelLengthMm,
                     LengthM = null,
+                    SavedLengthM = firstItem.LengthM,
                     InboundPlaceName = inboundPlaceName,
                     SourcePartnerName = sourcePartnerName,
                     CutSpec = cutSpec,
-                    SheetQty = null
+                    SheetQty = null,
+                    SavedSheetQty = firstItem.SheetQty
                 };
 
                 foreach (var lotId in group.Items.Select(x => x.LotId).Distinct())
@@ -890,7 +1078,4 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
             Items.Clear();
         }
     }
-
-
-
 }
