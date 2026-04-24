@@ -515,19 +515,176 @@
                         </ScrollViewer>
                     </Grid>
 
-                    <!-- PRINT 임시 -->
+                    <!-- PRINT -->
                     <Grid Style="{StaticResource PrintPanelStyle}">
                         <Border BorderBrush="{StaticResource CardBorderBrush}"
-                    BorderThickness="1"
-                    CornerRadius="8"
-                    Padding="20"
-                    Background="{StaticResource LightFillBrush}">
-                            <TextBlock Text="인쇄 발주서 화면은 다음 단계에서 구성합니다."
-                           HorizontalAlignment="Center"
-                           VerticalAlignment="Center"
-                           FontSize="18"
-                           FontWeight="SemiBold"
-                           Foreground="#4B5563" />
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                Padding="20"
+                                Background="{StaticResource LightFillBrush}">       
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="12" />
+                                    <RowDefinition Height="*" />
+                                    <RowDefinition Height="12" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <!-- 제목 -->
+                                <Border Grid.Row="0"
+                                        BorderBrush="Black"
+                                        BorderThickness="1"
+                                        Background="White"
+                                        Padding="0,10"
+                                        Margin="0,0,0,12">      
+                                    <TextBlock Text="가공의뢰서_인쇄"
+                                               HorizontalAlignment="Center"
+                                               FontSize="20"
+                                               FontWeight="Bold"
+                                               Foreground="Black" />        
+                                </Border>
+
+                                <!-- 헤더 -->
+                                <Grid Grid.Row="1" Margin="0,0,0,8">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="110" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="110" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <Border Grid.Row="0" Grid.Column="0" BorderBrush="Black" BorderThickness="1" Background="White" Padding="8">
+                                        <TextBlock Text="업체명" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                    </Border>
+                                    <Border Grid.Row="0" Grid.Column="1" BorderBrush="Black" BorderThickness="1" Background="White" Padding="4">
+                                        <TextBox Text="{Binding PrintEditModel.VendorName, UpdateSourceTrigger=PropertyChanged}"
+                             BorderThickness="0"
+                             Background="Transparent"
+                             VerticalContentAlignment="Center" />
+                                    </Border>
+
+                                    <Border Grid.Row="0" Grid.Column="2" BorderBrush="Black" BorderThickness="1" Background="White" Padding="8">
+                                        <TextBlock Text="의뢰일자" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                    </Border>
+                                    <Border Grid.Row="0" Grid.Column="3" BorderBrush="Black" BorderThickness="1" Background="White" Padding="8">
+                                        <TextBlock Text="{Binding PrintEditModel.PurchaseOrderDate, StringFormat=yyyy-MM-dd}"
+                               VerticalAlignment="Center" />
+                                    </Border>
+
+                                    <Border Grid.Row="1" Grid.Column="0" BorderBrush="Black" BorderThickness="1" Background="White" Padding="8">
+                                        <TextBlock Text="의뢰업체" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                    </Border>
+                                    <Border Grid.Row="1" Grid.Column="1" BorderBrush="Black" BorderThickness="1" Background="White" Padding="8">
+                                        <TextBlock Text="{Binding PrintEditModel.RequestCompanyName}"
+                               VerticalAlignment="Center" />
+                                    </Border>
+
+                                    <Border Grid.Row="1" Grid.Column="2" BorderBrush="Black" BorderThickness="1" Background="White" Padding="8">
+                                        <TextBlock Text="의뢰자" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                    </Border>
+                                    <Border Grid.Row="1" Grid.Column="3" BorderBrush="Black" BorderThickness="1" Background="White" Padding="8">
+                                        <TextBlock Text="{Binding PrintEditModel.RequesterName}"
+                               VerticalAlignment="Center" />
+                                    </Border>
+                                </Grid>
+
+                                <!-- 본문 -->
+                                <DataGrid Grid.Row="3"
+                                          ItemsSource="{Binding PrintEditModel.Items}"
+                                          AutoGenerateColumns="False"
+                                          CanUserAddRows="False"
+                                          CanUserDeleteRows="False"
+                                          HeadersVisibility="Column"
+                                          GridLinesVisibility="All"
+                                          RowHeaderWidth="0"
+                                          BorderBrush="Black"
+                                          BorderThickness="1"
+                                          Background="White"
+                                          AlternatingRowBackground="White"
+                                          Height="340"
+                                          MaxHeight="340"
+                                          Width="Auto"
+                                          ScrollViewer.CanContentScroll="True"
+                                          ScrollViewer.VerticalScrollBarVisibility="Visible"
+                                          ScrollViewer.HorizontalScrollBarVisibility="Visible"
+                                          IsReadOnly="False">          
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="NO"
+                                        Binding="{Binding No}"
+                                        IsReadOnly="True"
+                                        Width="50" />
+                                        <DataGridTextColumn Header="업체명"
+                                        Binding="{Binding CustomerName}"
+                                        IsReadOnly="True"
+                                        Width="150" />
+                                        <DataGridTextColumn Header="품목명"
+                                        Binding="{Binding ProductName}"
+                                        IsReadOnly="True"
+                                        Width="180" />
+                                        <DataGridTextColumn Header="원단규격"
+                                        Binding="{Binding MaterialSpec}"
+                                        IsReadOnly="True"
+                                        Width="120" />
+                                        <DataGridTextColumn Header="인쇄수량"
+                                        Binding="{Binding PrintSheetQty}"
+                                        IsReadOnly="True"
+                                        Width="90" />
+                                        <DataGridTextColumn Header="샘플"
+                                        Binding="{Binding Sample, UpdateSourceTrigger=PropertyChanged}"
+                                        Width="70" />
+                                        <DataGridTextColumn Header="도수"
+                                        Binding="{Binding PlateCount, UpdateSourceTrigger=PropertyChanged}"
+                                        Width="70" />
+                                        <DataGridTextColumn Header="색상"
+                                        Binding="{Binding ColorName, UpdateSourceTrigger=PropertyChanged}"
+                                        Width="90" />
+                                        <DataGridTextColumn Header="원단종류"
+                                        Binding="{Binding MaterialType, UpdateSourceTrigger=PropertyChanged}"
+                                        Width="110" />
+                                        <DataGridTextColumn Header="비고"
+                                        Binding="{Binding Remark, UpdateSourceTrigger=PropertyChanged}"
+                                        Width="180" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+
+                                <!-- 하단 비고 -->
+                                <Grid Grid.Row="5">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="110" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <Border Grid.Column="0"
+                        BorderBrush="Black"
+                        BorderThickness="1"
+                        Background="White"
+                        Padding="8">
+                                        <TextBlock Text="하단 비고"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Top" />
+                                    </Border>
+
+                                    <Border Grid.Column="1"
+                        BorderBrush="Black"
+                        BorderThickness="1"
+                        Background="White"
+                        Padding="4">
+                                        <TextBox Text="{Binding PrintEditModel.FooterRemark, UpdateSourceTrigger=PropertyChanged}"
+                             AcceptsReturn="True"
+                             TextWrapping="Wrap"
+                             MinHeight="70"
+                             BorderThickness="0"
+                             Background="Transparent"
+                             VerticalContentAlignment="Top" />
+                                    </Border>
+                                </Grid>
+                            </Grid>
                         </Border>
                     </Grid>
                 </Grid>

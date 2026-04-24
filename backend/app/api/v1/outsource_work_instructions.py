@@ -50,7 +50,10 @@ from app.schemas.outsource_work_instruction import (
     OutsourcePurchaseOrderWorkDone,
     OutsourceWorkInstructionGroupCreate,
     OutsourceWorkInstructionGroupItemCreate,
-
+    OutsourcePurchaseOrderCutSnapshot,
+    OutsourcePurchaseOrderPrintSnapshot,
+    OutsourcePurchaseOrderListOut,
+    OutsourcePurchaseOrderListItemOut
     
 )
 
@@ -506,10 +509,16 @@ def download_outsource_purchase_order_excel(
         raise HTTPException(status_code=404, detail="Outsource purchase order not found")
 
     result = _build_purchase_order_out(db, purchase_order)
-    file_bytes = _build_purchase_order_excel_template_bytes(
-        result,
-        purchase_order.form_snapshot_json,
-    )
+    if purchase_order.process_type == "PRINT":
+        file_bytes = _build_print_purchase_order_excel_template_bytes(
+            result,
+            purchase_order.form_snapshot_json,
+        )
+    else:
+        file_bytes = _build_purchase_order_excel_template_bytes(
+            result,
+            purchase_order.form_snapshot_json,
+        )
 
     filename = f"{result.purchase_order_no}.xlsx"
 
@@ -533,6 +542,62 @@ def _get_cut_template_bytes() -> bytes:
         / "outsource_purchase_order_cut_template.xlsx"
     )
     return template_path.read_bytes()
+
+@lru_cache(maxsize=1)
+def _get_print_template_bytes() -> bytes:
+    template_path = (
+        Path(__file__).resolve().parents[2]
+        / "templates"
+        / "outsource_purchase_order_print_template.xlsx"
+    )
+    return template_path.read_bytes()
+
+def _build_print_purchase_order_excel_template_bytes(
+    purchase_order: OutsourcePurchaseOrderOut,
+    form_snapshot: dict | None,
+) -> bytes:
+    wb = load_workbook(BytesIO(_get_print_template_bytes()))
+    ws = wb.active
+    merged_map = _build_merged_cell_map(ws)
+
+    snapshot = form_snapshot or {}
+    rows = snapshot.get("rows") or []
+
+    # 헤더
+    _set_merged_safe(ws, merged_map, "D5", snapshot.get("request_company_name") or "")
+    _set_merged_safe(ws, merged_map, "F5", snapshot.get("requester_name") or "")
+    _set_merged_safe(
+        ws,
+        merged_map,
+        "J5",
+        snapshot.get("purchase_order_date") or str(purchase_order.purchase_order_date),
+    )
+
+    # 본문
+    start_row = 8
+    max_rows = 16
+
+    for idx, row_data in enumerate(rows[:max_rows]):
+        r = start_row + idx
+
+        _set_merged_safe(ws, merged_map, f"B{r}", row_data.get("no", ""))
+        _set_merged_safe(ws, merged_map, f"C{r}", row_data.get("customer_name", ""))
+        _set_merged_safe(ws, merged_map, f"D{r}", row_data.get("product_name", ""))
+        _set_merged_safe(ws, merged_map, f"E{r}", row_data.get("material_spec", ""))
+        _set_merged_safe(ws, merged_map, f"F{r}", row_data.get("print_sheet_qty", ""))
+        _set_merged_safe(ws, merged_map, f"G{r}", row_data.get("sample", ""))
+        _set_merged_safe(ws, merged_map, f"H{r}", row_data.get("plate_count", ""))
+        _set_merged_safe(ws, merged_map, f"I{r}", row_data.get("color_name", ""))
+        _set_merged_safe(ws, merged_map, f"J{r}", row_data.get("material_type", ""))
+        _set_merged_safe(ws, merged_map, f"K{r}", row_data.get("remark", ""))
+
+    # 하단 비고
+    _set_merged_safe(ws, merged_map, "D24", snapshot.get("footer_remark") or "")
+
+    stream = BytesIO()
+    wb.save(stream)
+    stream.seek(0)
+    return stream.getvalue()
 
 
 def _build_merged_cell_map(ws) -> dict[str, str]:
@@ -595,7 +660,7 @@ def _build_purchase_order_excel_template_bytes(
 
     # 하단 재고/비고
     _set_merged_safe(ws, merged_map, "H30", snapshot.get("stock_500_width_text") or "")
-    _set_merged_safe(ws, merged_map, "I30", snapshot.get("stock_600_width_text") or "")
+    _set_merged_safe(ws, merged_map, "J30", snapshot.get("stock_600_width_text") or "")
     _set_merged_safe(ws, merged_map, "O30", snapshot.get("stock_600_tpt0268_text") or "")
     _set_merged_safe(ws, merged_map, "B32", snapshot.get("remark") or "")
 
@@ -1161,6 +1226,18 @@ def create_outsource_purchase_order(
     if int(lot_count) != len(set(lot_ids)):
         raise HTTPException(status_code=409, detail="Some lots do not exist")
 
+    form_snapshot_json = None
+
+    if payload.form_snapshot:
+        if payload.process_type == "CUT":
+            form_snapshot_json = OutsourcePurchaseOrderCutSnapshot.model_validate(
+                payload.form_snapshot
+            ).model_dump()
+        elif payload.process_type == "PRINT":
+            form_snapshot_json = OutsourcePurchaseOrderPrintSnapshot.model_validate(
+                payload.form_snapshot
+            ).model_dump()
+
     purchase_order = OutsourcePurchaseOrder(
         purchase_order_no=_generate_purchase_order_no(
             db,
@@ -1174,7 +1251,7 @@ def create_outsource_purchase_order(
         inbound_partner_id=payload.inbound_partner_id,
         work_description=payload.work_description,
         remark=payload.remark,
-        form_snapshot_json=payload.form_snapshot.model_dump() if payload.form_snapshot else None,
+        form_snapshot_json=form_snapshot_json,
         qty=payload.qty,
         unit_price=payload.unit_price,
         supply_amount=payload.supply_amount,
@@ -1366,4 +1443,61 @@ def ship_outsource_purchase_order_item(
         product_code=product.product_code if product else None,
         product_name=product.product_name if product else None,
         lot_qty=lot.lot_qty if lot else None,
+    )
+
+@router.get(
+    "/purchase-orders",
+    response_model=OutsourcePurchaseOrderListOut,
+)
+def get_outsource_purchase_orders(
+    date_from: date | None = Query(default=None),
+    date_to: date | None = Query(default=None),
+    process_type: str | None = Query(default=None),
+    q: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+):
+    stmt = (
+        select(OutsourcePurchaseOrder, Partner)
+        .join(Partner, Partner.partner_id == OutsourcePurchaseOrder.outsource_partner_id)
+        .order_by(
+            OutsourcePurchaseOrder.purchase_order_date.desc(),
+            OutsourcePurchaseOrder.outsource_purchase_order_id.desc(),
+        )
+    )
+
+    if date_from:
+        stmt = stmt.where(OutsourcePurchaseOrder.purchase_order_date >= date_from)
+
+    if date_to:
+        stmt = stmt.where(OutsourcePurchaseOrder.purchase_order_date <= date_to)
+
+    normalized_process_type = (process_type or "").strip().upper()
+    if normalized_process_type in {"CUT", "PRINT"}:
+        stmt = stmt.where(OutsourcePurchaseOrder.process_type == normalized_process_type)
+
+    if q and q.strip():
+        like = f"%{q.strip()}%"
+        stmt = stmt.where(
+            (OutsourcePurchaseOrder.purchase_order_no.like(like))
+            | (Partner.name.like(like))
+            | (OutsourcePurchaseOrder.remark.like(like))
+        )
+
+    rows = db.execute(stmt).all()
+
+    return OutsourcePurchaseOrderListOut(
+        items=[
+            OutsourcePurchaseOrderListItemOut(
+                outsource_purchase_order_id=purchase_order.outsource_purchase_order_id,
+                purchase_order_no=purchase_order.purchase_order_no,
+                purchase_order_date=purchase_order.purchase_order_date,
+                process_type=purchase_order.process_type,
+                outsource_partner_id=purchase_order.outsource_partner_id,
+                outsource_partner_name=partner.name if partner else None,
+                qty=purchase_order.qty,
+                remark=purchase_order.remark,
+                created_at=purchase_order.created_at,
+            )
+            for purchase_order, partner in rows
+        ]
     )

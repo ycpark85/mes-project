@@ -194,7 +194,7 @@ class OutsourcePurchaseOrderCreate(BaseModel):
     vat_amount: Optional[Decimal] = Field(default=None, ge=0)
     total_amount: Optional[Decimal] = Field(default=None, ge=0)
     items: List[OutsourcePurchaseOrderCreateItem] = Field(..., min_length=1)
-    form_snapshot: Optional[OutsourcePurchaseOrderCutSnapshot] = None
+    form_snapshot: Optional[dict] = None
 
 
 class OutsourcePurchaseOrderItemOut(BaseModel):
@@ -274,6 +274,43 @@ class OutsourcePurchaseOrderCutSnapshot(BaseModel):
     stock_600_tpt0268_text: Optional[str] = None
     remark: Optional[str] = None
     rows: List[OutsourcePurchaseOrderCutSnapshotRow] = Field(default_factory=list)
+
+class OutsourcePurchaseOrderPrintSnapshotRow(BaseModel):
+    no: int
+    customer_name: Optional[str] = None
+    product_name: Optional[str] = None
+    material_spec: Optional[str] = None
+    print_sheet_qty: Optional[str] = None
+    sample: Optional[str] = None
+    plate_count: Optional[str] = None
+    color_name: Optional[str] = None
+    material_type: Optional[str] = None
+    remark: Optional[str] = None
+
+
+class OutsourcePurchaseOrderPrintSnapshot(BaseModel):
+    vendor_name: Optional[str] = None
+    request_company_name: Optional[str] = None
+    requester_name: Optional[str] = None
+    purchase_order_date: Optional[str] = None
+    footer_remark: Optional[str] = None
+    rows: List[OutsourcePurchaseOrderPrintSnapshotRow] = Field(default_factory=list)
+
+class OutsourcePurchaseOrderListItemOut(BaseModel):
+    outsource_purchase_order_id: int
+    purchase_order_no: str
+    purchase_order_date: date
+    process_type: str
+    outsource_partner_id: int
+    outsource_partner_name: Optional[str] = None
+    qty: int
+    remark: Optional[str] = None
+    created_at: datetime
+
+
+class OutsourcePurchaseOrderListOut(BaseModel):
+    items: List[OutsourcePurchaseOrderListItemOut] = Field(default_factory=list)
+
 
 
 

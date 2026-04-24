@@ -1,0 +1,96 @@
+﻿<UserControl x:Class="Mes.Wpf.Modules.OutsourceWorkInstructions.Views.OutsourcePurchaseOrderListView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DesignHeight="800"
+             d:DesignWidth="1400">
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="12" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0"
+                BorderBrush="#D1D5DB"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="16"
+                Background="White">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="90" />
+                    <ColumnDefinition Width="140" />
+                    <ColumnDefinition Width="90" />
+                    <ColumnDefinition Width="140" />
+                    <ColumnDefinition Width="90" />
+                    <ColumnDefinition Width="120" />
+                    <ColumnDefinition Width="90" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="8" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0" Text="시작일" VerticalAlignment="Center" />
+                <DatePicker Grid.Column="1" SelectedDate="{Binding DateFrom, UpdateSourceTrigger=PropertyChanged}" />
+
+                <TextBlock Grid.Column="2" Text="종료일" VerticalAlignment="Center" />
+                <DatePicker Grid.Column="3" SelectedDate="{Binding DateTo, UpdateSourceTrigger=PropertyChanged}" />
+
+                <TextBlock Grid.Column="4" Text="공정구분" VerticalAlignment="Center" />
+                <ComboBox Grid.Column="5"
+                          ItemsSource="{Binding ProcessTypeOptions}"
+                          SelectedItem="{Binding SelectedProcessType}" />
+
+                <TextBlock Grid.Column="6" Text="검색어" VerticalAlignment="Center" />
+                <TextBox Grid.Column="7"
+                         Text="{Binding SearchKeyword, UpdateSourceTrigger=PropertyChanged}" />
+
+                <Button Grid.Column="8" Content="조회" Command="{Binding SearchCommand}" MinWidth="80" />
+                <Button Grid.Column="10" Content="초기화" Command="{Binding ResetCommand}" MinWidth="80" />
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="2"
+                BorderBrush="#D1D5DB"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="8"
+                Background="White">
+            <DataGrid ItemsSource="{Binding Items}"
+                      SelectedItem="{Binding SelectedItem}"
+                      AutoGenerateColumns="False"
+                      CanUserAddRows="False"
+                      CanUserDeleteRows="False"
+                      IsReadOnly="True"
+                      RowHeaderWidth="0"
+                      HeadersVisibility="Column"
+                      GridLinesVisibility="All">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="발주일자" Binding="{Binding PurchaseOrderDate}" Width="120" />
+                    <DataGridTextColumn Header="발주번호" Binding="{Binding PurchaseOrderNo}" Width="170" />
+                    <DataGridTextColumn Header="공정구분" Binding="{Binding ProcessType}" Width="90" />
+                    <DataGridTextColumn Header="외주처" Binding="{Binding OutsourcePartnerName}" Width="180" />
+                    <DataGridTextColumn Header="수량" Binding="{Binding Qty}" Width="90" />
+                    <DataGridTextColumn Header="비고" Binding="{Binding Remark}" Width="*" />
+
+                    <DataGridTemplateColumn Header="다운로드" Width="90">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Button Content="다운로드"
+                                        Padding="6,2"
+                                        FontSize="11"
+                                        Command="{Binding DataContext.DownloadCommand, RelativeSource={RelativeSource AncestorType=Page}}"
+                                        CommandParameter="{Binding}" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+        </Border>
+    </Grid>
+</UserControl>

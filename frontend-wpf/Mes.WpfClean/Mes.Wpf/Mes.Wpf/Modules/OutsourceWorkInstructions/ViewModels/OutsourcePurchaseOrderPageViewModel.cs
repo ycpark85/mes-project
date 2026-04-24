@@ -35,6 +35,7 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
             Bundles = new ObservableCollection<OutsourcePurchaseOrderBundleRowModel>();
 
             CutEditModel = new OutsourceCutPurchaseOrderEditModel();
+            PrintEditModel = new OutsourcePrintPurchaseOrderEditModel();
 
             RefreshCommand = new AsyncRelayCommand(SearchAsync);
             ResetCommand = new RelayCommand(Reset);
@@ -49,6 +50,7 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
         public ObservableCollection<OutsourcePurchaseOrderBundleRowModel> Bundles { get; }
 
         public OutsourceCutPurchaseOrderEditModel CutEditModel { get; }
+        public OutsourcePrintPurchaseOrderEditModel PrintEditModel { get; }
 
         public OutsourcePurchaseOrderResponse? SavedPurchaseOrder
         {
@@ -80,20 +82,29 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
                     return;
                 }
 
-                if (value != null && value.BundleType == "CUT")
+                if (value != null && string.Equals(value.BundleType, "CUT", StringComparison.OrdinalIgnoreCase))
                 {
                     CutEditModel.LoadFromBundle(value);
+                    PrintEditModel.Clear();
+                }
+                else if (value != null && string.Equals(value.BundleType, "PRINT", StringComparison.OrdinalIgnoreCase))
+                {
+                    CutEditModel.Clear();
+                    PrintEditModel.LoadFromBundle(value);
                 }
                 else
                 {
                     CutEditModel.Clear();
+                    PrintEditModel.Clear();
                 }
 
                 OnPropertyChanged(nameof(IsCutBundleSelected));
+                OnPropertyChanged(nameof(IsPrintBundleSelected));
             }
         }
 
-        public bool IsCutBundleSelected => SelectedBundle?.BundleType == "CUT";
+        public bool IsCutBundleSelected => string.Equals(SelectedBundle?.BundleType, "CUT", StringComparison.OrdinalIgnoreCase);
+        public bool IsPrintBundleSelected => string.Equals(SelectedBundle?.BundleType, "PRINT", StringComparison.OrdinalIgnoreCase);
 
         public async Task InitializeAsync()
         {
@@ -231,6 +242,7 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
             SelectedBundle = null;
             SavedPurchaseOrder = null;
             CutEditModel.Clear();
+            PrintEditModel.Clear();
             _ = SearchAsync();
         }
 
@@ -247,13 +259,14 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
                 return;
             }
 
-            if (!string.Equals(SelectedBundle.BundleType, "CUT", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(SelectedBundle.BundleType, "CUT", StringComparison.OrdinalIgnoreCase))
             {
-                _messageService.ShowWarning("현재는 재단 외주발주서 저장만 지원합니다.");
-                return;
+                NormalizeCutEditModel();
             }
-
-            NormalizeCutEditModel();
+            else if (string.Equals(SelectedBundle.BundleType, "PRINT", StringComparison.OrdinalIgnoreCase))
+            {
+                NormalizePrintEditModel();
+            }
 
             var validationMessage = ValidateForSave();
             if (!string.IsNullOrWhiteSpace(validationMessage))
@@ -277,13 +290,15 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
                     _messageService.ShowError(result?.Message ?? "외주발주서 저장에 실패했습니다.");
                     return;
                 }
+
                 SavedPurchaseOrder = result.Data;
 
                 RemoveSavedBundle(savedBundle);
-
                 await SearchAsync();
 
                 _messageService.ShowInfo($"저장되었습니다. 발주번호: {result.Data.PurchaseOrderNo}");
+
+                
             }
             finally
             {
@@ -308,9 +323,10 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
                 return "저장할 발주 대상이 없습니다.";
             }
 
-            if (!string.Equals(SelectedBundle.BundleType, "CUT", StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(SelectedBundle.BundleType, "CUT", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(SelectedBundle.BundleType, "PRINT", StringComparison.OrdinalIgnoreCase))
             {
-                return "현재는 재단 외주발주서만 저장할 수 있습니다.";
+                return "저장 가능한 발주 대상이 아닙니다.";
             }
 
             if (SelectedBundle.Groups == null || SelectedBundle.Groups.Count == 0)
@@ -337,6 +353,12 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
                 return "외주처 정보가 없습니다.";
             }
 
+            if (string.Equals(SelectedBundle.BundleType, "PRINT", StringComparison.OrdinalIgnoreCase) &&
+                PrintEditModel.Items.Count == 0)
+            {
+                return "인쇄 발주서 행 정보가 없습니다.";
+            }
+
             return null;
         }
 
@@ -346,22 +368,28 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
                 .Select(x => x.OutsourcePartnerId)
                 .FirstOrDefault(x => x > 0);
 
+            var isPrint = string.Equals(SelectedBundle.BundleType, "PRINT", StringComparison.OrdinalIgnoreCase);
+
             return new OutsourcePurchaseOrderCreateRequest
             {
-                PurchaseOrderDate = CutEditModel.RequestDate.ToString("yyyy-MM-dd"),
+                PurchaseOrderDate = isPrint
+                    ? (PrintEditModel.PurchaseOrderDate ?? DateTime.Today).ToString("yyyy-MM-dd")
+                    : CutEditModel.RequestDate.ToString("yyyy-MM-dd"),
                 DueDate = null,
                 ProcessType = ResolveProcessType(),
                 OutsourcePartnerId = outsourcePartnerId,
                 InboundPartnerId = null,
                 WorkDescription = ResolveWorkDescription(),
-                Remark = CutEditModel.Remark,
+                Remark = isPrint ? PrintEditModel.FooterRemark : CutEditModel.Remark,
                 Qty = SelectedBundle.TotalQty,
                 UnitPrice = null,
                 SupplyAmount = null,
                 VatAmount = null,
                 TotalAmount = null,
                 Items = BuildCreateItems(),
-                FormSnapshot = BuildCutFormSnapshot()
+                FormSnapshot = isPrint
+                    ? BuildPrintFormSnapshot()
+                    : BuildCutFormSnapshot()
             };
         }
 
@@ -385,10 +413,61 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
                 {
                     No = item.No,
                     RawMaterialText = item.RawMaterialText?.Trim(),
-                    LengthMText = item.LengthM?.ToString("0.##"),
+                    LengthMText = (item.SavedLengthM ?? item.LengthM)?.ToString("0.##"),
                     InboundPlaceText = item.InboundPlaceDisplay?.Trim(),
                     CutSpecText = item.CutSpec?.Trim(),
-                    SheetQtyText = item.SheetQty?.ToString()
+                    SheetQtyText = (item.SavedSheetQty ?? item.SheetQty)?.ToString()
+                });
+            }
+
+            return snapshot;
+        }
+
+        private void NormalizePrintEditModel()
+        {
+            PrintEditModel.VendorName = PrintEditModel.VendorName?.Trim() ?? string.Empty;
+            PrintEditModel.RequestCompanyName = PrintEditModel.RequestCompanyName?.Trim() ?? string.Empty;
+            PrintEditModel.RequesterName = PrintEditModel.RequesterName?.Trim() ?? string.Empty;
+            PrintEditModel.FooterRemark = PrintEditModel.FooterRemark?.Trim();
+
+            foreach (var item in PrintEditModel.Items)
+            {
+                item.CustomerName = item.CustomerName?.Trim();
+                item.ProductName = item.ProductName?.Trim();
+                item.MaterialSpec = item.MaterialSpec?.Trim();
+                item.Sample = item.Sample?.Trim();
+                item.PlateCount = item.PlateCount?.Trim();
+                item.ColorName = item.ColorName?.Trim();
+                item.MaterialType = item.MaterialType?.Trim();
+                item.Remark = item.Remark?.Trim();
+            }
+        }
+
+        private OutsourcePurchaseOrderPrintSnapshotRequest BuildPrintFormSnapshot()
+        {
+            var snapshot = new OutsourcePurchaseOrderPrintSnapshotRequest
+            {
+                VendorName = PrintEditModel.VendorName?.Trim(),
+                RequestCompanyName = PrintEditModel.RequestCompanyName?.Trim(),
+                RequesterName = PrintEditModel.RequesterName?.Trim(),
+                PurchaseOrderDate = (PrintEditModel.PurchaseOrderDate ?? DateTime.Today).ToString("yyyy-MM-dd"),
+                FooterRemark = PrintEditModel.FooterRemark?.Trim()
+            };
+
+            foreach (var item in PrintEditModel.Items)
+            {
+                snapshot.Rows.Add(new OutsourcePurchaseOrderPrintSnapshotRowRequest
+                {
+                    No = item.No,
+                    CustomerName = item.CustomerName?.Trim(),
+                    ProductName = item.ProductName?.Trim(),
+                    MaterialSpec = item.MaterialSpec?.Trim(),
+                    PrintSheetQty = item.PrintSheetQty.ToString(),
+                    Sample = item.Sample?.Trim(),
+                    PlateCount = item.PlateCount?.Trim(),
+                    ColorName = item.ColorName?.Trim(),
+                    MaterialType = item.MaterialType?.Trim(),
+                    Remark = item.Remark?.Trim()
                 });
             }
 
@@ -472,6 +551,7 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
             SelectedBundle = Bundles.FirstOrDefault();
             OnPropertyChanged(nameof(Bundles));
             OnPropertyChanged(nameof(IsCutBundleSelected));
+            OnPropertyChanged(nameof(IsPrintBundleSelected));
         }
 
         private async Task DownloadExcelAsync(long outsourcePurchaseOrderId, string purchaseOrderNo)

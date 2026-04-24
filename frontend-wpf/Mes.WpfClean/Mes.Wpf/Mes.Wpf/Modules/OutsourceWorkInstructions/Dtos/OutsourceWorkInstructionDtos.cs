@@ -745,6 +745,8 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
         }
     }
 
+
+
     public class OutsourceCutPurchaseOrderItemEditModel : ViewModelBase
     {
         private int _no;
@@ -766,10 +768,10 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
 
         public bool IsBundle { get; set; }
         public decimal? SavedLengthM
-{
-    get => _savedLengthM;
-    set
-    {
+        {
+            get => _savedLengthM;
+            set
+         {
         if (SetProperty(ref _savedLengthM, value))
         {
             OnPropertyChanged(nameof(LengthMDisplay));
@@ -1077,5 +1079,217 @@ public string SheetQtyDisplay => SavedSheetQty?.ToString() ?? string.Empty;
             Remark = string.Empty;
             Items.Clear();
         }
+
     }
+    public sealed class OutsourcePrintPurchaseOrderEditModel : ViewModelBase
+    {
+        private string _vendorName = "상림UV";
+        private string _requestCompanyName = "세미산업";
+        private string _requesterName = "김완준";
+        private DateTime? _purchaseOrderDate = DateTime.Today;
+        private string? _footerRemark;
+
+        public OutsourcePrintPurchaseOrderEditModel()
+        {
+            Items = new ObservableCollection<OutsourcePrintPurchaseOrderItemEditModel>();
+        }
+
+        public string VendorName
+        {
+            get => _vendorName;
+            set => SetProperty(ref _vendorName, value);
+        }
+
+        public string RequestCompanyName
+        {
+            get => _requestCompanyName;
+            set => SetProperty(ref _requestCompanyName, value);
+        }
+
+        public string RequesterName
+        {
+            get => _requesterName;
+            set => SetProperty(ref _requesterName, value);
+        }
+
+        public DateTime? PurchaseOrderDate
+        {
+            get => _purchaseOrderDate;
+            set => SetProperty(ref _purchaseOrderDate, value);
+        }
+
+        public string? FooterRemark
+        {
+            get => _footerRemark;
+            set => SetProperty(ref _footerRemark, value);
+        }
+
+        public ObservableCollection<OutsourcePrintPurchaseOrderItemEditModel> Items { get; }
+
+        public void LoadFromBundle(OutsourcePurchaseOrderBundleRowModel bundle)
+        {
+            Clear();
+
+            VendorName = BuildVendorName(bundle);
+            RequestCompanyName = "세미산업";
+            RequesterName = "김완준";
+            PurchaseOrderDate = DateTime.Today;
+
+            var no = 1;
+
+            foreach (var group in bundle.Groups.OrderBy(x => x.InstructionDate).ThenBy(x => x.InstructionNo))
+            {
+                var firstItem = group.Items.FirstOrDefault();
+                if (firstItem == null)
+                {
+                    continue;
+                }
+
+                var customerNames = string.Join(", ",
+                    group.Items
+                        .Select(x => x.PartnerName?.Trim())
+                        .Where(x => !string.IsNullOrWhiteSpace(x))
+                        .Distinct());
+
+                var productName = group.Items
+                        .Select(x => x.ProductName?.Trim())
+                        .FirstOrDefault(x => !string.IsNullOrWhiteSpace(x)) ?? string.Empty;
+
+                Items.Add(new OutsourcePrintPurchaseOrderItemEditModel
+                {
+                    No = no++,
+                    CustomerName = customerNames,
+                    ProductName = productName,
+                    MaterialSpec = BuildMaterialSpec(firstItem),
+                    PrintSheetQty = firstItem.SheetQty ?? 0,
+                    Sample = null,
+                    PlateCount = null,
+                    ColorName = null,
+                    MaterialType = null,
+                    Remark = null
+                });
+            }
+        }
+
+        private static string BuildVendorName(OutsourcePurchaseOrderBundleRowModel bundle)
+        {
+            return string.Join(", ",
+                bundle.Items
+                    .Select(x => x.PartnerName?.Trim())
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                    .Distinct());
+        }
+
+
+
+        private static string BuildMaterialSpec(OutsourcePurchaseOrderTargetDto item)
+        {
+            if (item.PanelWidthMm.HasValue && item.PanelLengthMm.HasValue)
+            {
+                return $"{item.PanelWidthMm.Value:0.##} x {item.PanelLengthMm.Value:0.##}";
+            }
+
+            return item.ProductSpec?.Trim() ?? string.Empty;
+        }
+
+        public void Clear()
+        {
+            VendorName = "상림UV";
+            RequestCompanyName = "세미산업";
+            RequesterName = "김완준";
+            PurchaseOrderDate = DateTime.Today;
+            FooterRemark = null;
+            Items.Clear();
+        }
+    }
+
+    public sealed class OutsourcePrintPurchaseOrderItemEditModel : ViewModelBase
+    {
+        private int _no;
+        private string? _customerName;
+        private string? _productName;
+        private string? _materialSpec;
+        private int _printSheetQty;
+        private string? _sample;
+        private string? _plateCount;
+        private string? _colorName;
+        private string? _materialType;
+        private string? _remark;
+
+        public int No
+        {
+            get => _no;
+            set => SetProperty(ref _no, value);
+        }
+
+        public string? CustomerName
+        {
+            get => _customerName;
+            set => SetProperty(ref _customerName, value);
+        }
+
+        public string? ProductName
+        {
+            get => _productName;
+            set => SetProperty(ref _productName, value);
+        }
+
+        public string? MaterialSpec
+        {
+            get => _materialSpec;
+            set => SetProperty(ref _materialSpec, value);
+        }
+
+        public int PrintSheetQty
+        {
+            get => _printSheetQty;
+            set => SetProperty(ref _printSheetQty, value);
+        }
+
+        public string? Sample
+        {
+            get => _sample;
+            set => SetProperty(ref _sample, value);
+        }
+
+        public string? PlateCount
+        {
+            get => _plateCount;
+            set => SetProperty(ref _plateCount, value);
+        }
+
+        public string? ColorName
+        {
+            get => _colorName;
+            set => SetProperty(ref _colorName, value);
+        }
+
+        public string? MaterialType
+        {
+            get => _materialType;
+            set => SetProperty(ref _materialType, value);
+        }
+
+        public string? Remark
+        {
+            get => _remark;
+            set => SetProperty(ref _remark, value);
+        }
+
+        public void Clear()
+        {
+            No = 0;
+            CustomerName = null;
+            ProductName = null;
+            MaterialSpec = null;
+            PrintSheetQty = 0;
+            Sample = null;
+            PlateCount = null;
+            ColorName = null;
+            MaterialType = null;
+            Remark = null;
+        }
+    }
+
+
 }

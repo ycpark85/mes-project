@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
+using System.Collections.ObjectModel;
+using Mes.Wpf.Core.Common;
 
 namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
 {
@@ -46,7 +48,7 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
         public List<OutsourcePurchaseOrderCreateItemRequest> Items { get; set; } = new();
 
         [JsonPropertyName("form_snapshot")]
-        public OutsourcePurchaseOrderCutSnapshotRequest? FormSnapshot { get; set; }
+        public object? FormSnapshot { get; set; }
     }
 
     public sealed class OutsourcePurchaseOrderCreateItemRequest
@@ -227,4 +229,134 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
         [JsonPropertyName("sheet_qty_text")]
         public string? SheetQtyText { get; set; }
     }
+
+    public sealed class OutsourcePurchaseOrderPrintSnapshotRequest
+    {
+        [JsonPropertyName("vendor_name")]
+        public string? VendorName { get; set; }
+
+        [JsonPropertyName("request_company_name")]
+        public string? RequestCompanyName { get; set; }
+
+        [JsonPropertyName("requester_name")]
+        public string? RequesterName { get; set; }
+
+        [JsonPropertyName("purchase_order_date")]
+        public string? PurchaseOrderDate { get; set; }
+
+        [JsonPropertyName("footer_remark")]
+        public string? FooterRemark { get; set; }
+
+        [JsonPropertyName("rows")]
+        public List<OutsourcePurchaseOrderPrintSnapshotRowRequest> Rows { get; set; } = new();
+    }
+
+    public sealed class OutsourcePurchaseOrderPrintSnapshotRowRequest
+    {
+        [JsonPropertyName("no")]
+        public int No { get; set; }
+
+        [JsonPropertyName("customer_name")]
+        public string? CustomerName { get; set; }
+
+        [JsonPropertyName("product_name")]
+        public string? ProductName { get; set; }
+
+        [JsonPropertyName("material_spec")]
+        public string? MaterialSpec { get; set; }
+
+        [JsonPropertyName("print_sheet_qty")]
+        public string? PrintSheetQty { get; set; }
+
+        [JsonPropertyName("sample")]
+        public string? Sample { get; set; }
+
+        [JsonPropertyName("plate_count")]
+        public string? PlateCount { get; set; }
+
+        [JsonPropertyName("color_name")]
+        public string? ColorName { get; set; }
+
+        [JsonPropertyName("material_type")]
+        public string? MaterialType { get; set; }
+
+        [JsonPropertyName("remark")]
+        public string? Remark { get; set; }
+    }
+
+    public sealed class OutsourcePurchaseOrderListDto
+    {
+        [JsonPropertyName("items")]
+        public List<OutsourcePurchaseOrderListItemDto> Items { get; set; } = new();
+    }
+
+    public sealed class OutsourcePurchaseOrderListItemDto : ViewModelBase
+    {
+        private long _outsourcePurchaseOrderId;
+        private string _purchaseOrderNo = string.Empty;
+        private string _purchaseOrderDate = string.Empty;
+        private string _processType = string.Empty;
+        private long _outsourcePartnerId;
+        private string? _outsourcePartnerName;
+        private int _qty;
+        private string? _remark;
+
+        [JsonPropertyName("outsource_purchase_order_id")]
+        public long OutsourcePurchaseOrderId
+        {
+            get => _outsourcePurchaseOrderId;
+            set => SetProperty(ref _outsourcePurchaseOrderId, value);
+        }
+
+        [JsonPropertyName("purchase_order_no")]
+        public string PurchaseOrderNo
+        {
+            get => _purchaseOrderNo;
+            set => SetProperty(ref _purchaseOrderNo, value);
+        }
+
+        [JsonPropertyName("purchase_order_date")]
+        public string PurchaseOrderDate
+        {
+            get => _purchaseOrderDate;
+            set => SetProperty(ref _purchaseOrderDate, value);
+        }
+
+        [JsonPropertyName("process_type")]
+        public string ProcessType
+        {
+            get => _processType;
+            set => SetProperty(ref _processType, value);
+        }
+
+        [JsonPropertyName("outsource_partner_id")]
+        public long OutsourcePartnerId
+        {
+            get => _outsourcePartnerId;
+            set => SetProperty(ref _outsourcePartnerId, value);
+        }
+
+        [JsonPropertyName("outsource_partner_name")]
+        public string? OutsourcePartnerName
+        {
+            get => _outsourcePartnerName;
+            set => SetProperty(ref _outsourcePartnerName, value);
+        }
+
+        [JsonPropertyName("qty")]
+        public int Qty
+        {
+            get => _qty;
+            set => SetProperty(ref _qty, value);
+        }
+
+        [JsonPropertyName("remark")]
+        public string? Remark
+        {
+            get => _remark;
+            set => SetProperty(ref _remark, value);
+        }
+    }
+
+
 }

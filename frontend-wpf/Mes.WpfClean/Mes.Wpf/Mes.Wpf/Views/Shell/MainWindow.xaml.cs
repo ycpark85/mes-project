@@ -27,6 +27,9 @@ using Mes.Wpf.Modules.InspectionSchedules.Views;
 
 using Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels;
 using Mes.Wpf.Modules.OutsourceWorkInstructions.Views;
+
+using Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels;
+using Mes.Wpf.Modules.OutsourceWorkInstructions.Views;
 using System.Threading.Tasks;
 
 
@@ -350,6 +353,21 @@ namespace Mes.Wpf.Views.Shell
 
             HeaderTitle.Text = "외주 발주서 작성 / 출력";
             HeaderSubtitle.Text = "재단 / 인쇄 발주 대상 조회 / 발주서 헤더·상세 입력 / 출력";
+
+            await viewModel.InitializeAsync();
+        }
+
+        private async void OutsourcePurchaseOrderList_Click(object sender, RoutedEventArgs e)
+        {
+            var view = new OutsourcePurchaseOrderListView();
+            var viewModel = new OutsourcePurchaseOrderListPageViewModel(_apiClient, _messageService);
+
+            view.DataContext = viewModel;
+            MainContent.Content = view;
+            MainContent.Visibility = Visibility.Visible;
+
+            HeaderTitle.Text = "외주발주 리스트";
+            HeaderSubtitle.Text = "저장된 외주발주 목록 조회 / 발주서 엑셀 다운로드";
 
             await viewModel.InitializeAsync();
         }
