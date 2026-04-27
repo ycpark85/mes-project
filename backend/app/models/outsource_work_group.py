@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 from typing import List, Optional
 
 from sqlalchemy import (
@@ -35,6 +36,18 @@ class OutsourceWorkGroup(Base):
             "sheet_cut_count > 0",
             name="ck_outsource_work_group__sheet_cut_count_gt_0",
         ),
+        CheckConstraint(
+            "status IS NULL OR status IN ('VENDOR_RECEIVED','WORK_DONE','SHIPPED')",
+            name="ck_outsource_work_group__status",
+        ),
+        CheckConstraint(
+            "work_done_sheet_qty IS NULL OR work_done_sheet_qty >= 0",
+            name="ck_outsource_work_group__work_done_sheet_qty_ge_0",
+        ),
+        CheckConstraint(
+            "outsource_processing_fee IS NULL OR outsource_processing_fee >= 0",
+            name="ck_outsource_work_group__outsource_processing_fee_ge_0",
+        ),
         Index(
             "ix_outsource_work_group__instruction_id",
             "outsource_work_instruction_id",
@@ -65,8 +78,36 @@ class OutsourceWorkGroup(Base):
     sheet_qty: Mapped[int] = mapped_column(BigInteger, nullable=False)
     length_m: Mapped[Optional[float]] = mapped_column(Numeric(18, 2), nullable=True)
     sheet_cut_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
     remark: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    vendor_received_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
 
+    work_done_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    shipped_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    work_done_sheet_qty: Mapped[Optional[int]] = mapped_column(
+        BigInteger,
+        nullable=True,
+    )
+
+    outsource_processing_fee: Mapped[Optional[Decimal]] = mapped_column(
+        Numeric(18, 2),
+        nullable=True,
+    )
+
+    work_done_remark: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    remark: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

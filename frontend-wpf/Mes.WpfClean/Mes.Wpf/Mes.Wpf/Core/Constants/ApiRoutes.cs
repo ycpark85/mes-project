@@ -34,6 +34,7 @@
         public const string OutsourcePurchaseOrderItemWorkDone = "api/v1/outsource-work-instructions/purchase-orders/items";
         public const string OutsourcePurchaseOrderItemShip = "api/v1/outsource-work-instructions/purchase-orders/items";
         public const string OutsourcePurchaseOrderExcel = "api/v1/outsource-work-instructions/purchase-orders";
+        public const string BohyunOutsourceGroups = "api/v1/outsource-work-instructions/bohyun-groups";
 
     }
 }

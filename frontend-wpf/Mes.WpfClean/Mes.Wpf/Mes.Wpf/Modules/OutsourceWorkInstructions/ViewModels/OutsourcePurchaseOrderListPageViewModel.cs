@@ -125,18 +125,10 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
         private async Task DownloadAsync()
         {
             var target = SelectedItem;
+
             if (target == null)
             {
                 _messageService.ShowWarning("다운로드할 외주발주를 선택하세요.");
-                return;
-            }
-
-            var route = $"{ApiRoutes.OutsourcePurchaseOrderExcel}/{target.OutsourcePurchaseOrderId}/excel";
-            var fileBytes = await _apiClient.GetBytesAsync(route);
-
-            if (fileBytes == null || fileBytes.Length == 0)
-            {
-                _messageService.ShowWarning("엑셀 다운로드에 실패했습니다.");
                 return;
             }
 
@@ -154,8 +146,27 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
                 return;
             }
 
-            await File.WriteAllBytesAsync(dialog.FileName, fileBytes);
-            _messageService.ShowInfo("다운로드되었습니다.");
+            try
+            {
+                IsLoading = true;
+
+                var route = $"{ApiRoutes.OutsourcePurchaseOrderExcel}/{target.OutsourcePurchaseOrderId}/excel";
+                var fileBytes = await _apiClient.GetBytesAsync(route);
+
+                if (fileBytes == null || fileBytes.Length == 0)
+                {
+                    _messageService.ShowWarning("엑셀 다운로드에 실패했습니다.");
+                    return;
+                }
+
+                await File.WriteAllBytesAsync(dialog.FileName, fileBytes);
+
+                _messageService.ShowInfo("다운로드되었습니다.");
+            }
+            finally
+            {
+                IsLoading = false;
+            }
         }
 
         private string BuildListUrl()

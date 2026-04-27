@@ -29,6 +29,10 @@ class OutsourceWorkGroupItem(Base):
             "expected_output_qty IS NULL OR expected_output_qty >= 0",
             name="ck_outsource_work_group_item__expected_output_qty_ge_0",
         ),
+        CheckConstraint(
+            "actual_output_qty IS NULL OR actual_output_qty >= 0",
+            name="ck_outsource_work_group_item__actual_output_qty_ge_0",
+        ),
         Index(
             "ix_outsource_work_group_item__work_group_id",
             "outsource_work_group_id",
@@ -61,6 +65,7 @@ class OutsourceWorkGroupItem(Base):
 
     cuts_per_sheet: Mapped[int] = mapped_column(Integer, nullable=False)
     expected_output_qty: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    actual_output_qty: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
     remark: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(

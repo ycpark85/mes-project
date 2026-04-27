@@ -313,6 +313,81 @@ class OutsourcePurchaseOrderListOut(BaseModel):
     items: List[OutsourcePurchaseOrderListItemOut] = Field(default_factory=list)
 
 
+# =========================
+# bohyun outsource management dto
+# =========================
+
+class BohyunOutsourceGroupItemOut(BaseModel):
+    outsource_work_group_item_id: int
+    lot_id: int
+
+    lot_no: Optional[str] = None
+    order_no: Optional[str] = None
+    line_no: Optional[int] = None
+
+    product_id: Optional[int] = None
+    product_code: Optional[str] = None
+    product_name: Optional[str] = None
+
+    cuts_per_sheet: int
+    expected_output_qty: Optional[int] = None
+    actual_output_qty: Optional[int] = None
+
+    remark: Optional[str] = None
+
+
+class BohyunOutsourceGroupListItemOut(BaseModel):
+    outsource_work_group_id: int
+    outsource_work_instruction_id: int
+
+    instruction_no: str
+    instruction_date: date
+    process_type: str
+
+    partner_id: int
+    partner_name: Optional[str] = None
+    inbound_source_name: Optional[str] = None
+    
+    is_bundle: bool
+    group_seq: int
+
+    sheet_qty: int
+    work_done_sheet_qty: Optional[int] = None
+
+    length_m: Optional[Decimal] = None
+    sheet_cut_count: int
+
+    status: str
+
+    vendor_received_at: Optional[datetime] = None
+    work_done_at: Optional[datetime] = None
+    shipped_at: Optional[datetime] = None
+
+    outsource_processing_fee: Optional[Decimal] = None
+    work_done_remark: Optional[str] = None
+
+    lot_nos: List[str] = Field(default_factory=list)
+    product_names: List[str] = Field(default_factory=list)
+
+    items: List[BohyunOutsourceGroupItemOut] = Field(default_factory=list)
+
+
+class BohyunOutsourceGroupListOut(BaseModel):
+    items: List[BohyunOutsourceGroupListItemOut] = Field(default_factory=list)
+    total_count: int = 0
+    
+
+
+class BohyunOutsourceGroupWorkDone(BaseModel):
+    work_done_sheet_qty: int = Field(..., ge=0)
+    outsource_processing_fee: Optional[Decimal] = Field(default=None, ge=0)
+    remark: Optional[str] = None
+
+
+class BohyunOutsourceGroupShipBatch(BaseModel):
+    group_ids: List[int] = Field(..., min_length=1)    
+
+
 
 
 

@@ -15,7 +15,7 @@ namespace Mes.Wpf.Core.Interfaces
         Task<ApiResult<T>> PostMultipartAsync<T>(string relativeUrl, MultipartFormDataContent content);
         Task<ApiResult<T>> PatchMultipartAsync<T>(string relativeUrl, MultipartFormDataContent content);
 
-        Task<byte[]?> GetBytesAsync(string uri);
+        Task<byte[]?> GetBytesAsync(string relativeUrl);
 
         string BuildAbsoluteUrl(string relativeUrl);
     }

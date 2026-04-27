@@ -97,19 +97,30 @@
                             <Button Content="LOT 공정관리"
                                     Style="{StaticResource BaseButtonStyle}"
                                     Margin="0,0,0,10"
-                                    Click="LotProcess_Click"/>
+                                    Click="LotProcess_Click"/>                            
+                        </StackPanel>
+                    </Expander>
+                    <Expander Header="SCM메뉴"
+                              IsExpanded="False"
+                              Margin="0,0,0,12">        
+                        <StackPanel Margin="0,10,0,0">
+               
                             <Button Content="외주 작업지시"
                                     Style="{StaticResource BaseButtonStyle}"
                                     Margin="0,0,0,10"
-                                    Click="OutsourceWorkInstruction_Click"/>
+                                    Click="OutsourceWorkInstruction_Click"/>        
                             <Button Content="외주 발주서 작성 / 출력"
                                      Style="{StaticResource BaseButtonStyle}"
                                      Margin="0,0,0,10"
-                                     Click="OutsourcePurchaseOrder_Click"/>
+                                     Click="OutsourcePurchaseOrder_Click"/>             
                             <Button Content="외주발주 리스트"
                                      Style="{StaticResource BaseButtonStyle}"
                                      Margin="0,0,0,10"
                                      Click="OutsourcePurchaseOrderList_Click"/>
+                            <Button Content="보현문화 외주관리"
+                                    Style="{StaticResource BaseButtonStyle}"
+                                    Margin="0,0,0,10"
+                                    Click="BohyunOutsourceManagement_Click"/>       
                         </StackPanel>
                     </Expander>
                     <Expander Header="검수메뉴"

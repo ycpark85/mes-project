@@ -7,6 +7,8 @@
              d:DesignHeight="800"
              d:DesignWidth="1400">
     <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+
         <Style x:Key="PurchaseOrderListDataGridStyle" TargetType="DataGrid">
             <Setter Property="AutoGenerateColumns" Value="False"/>
             <Setter Property="CanUserAddRows" Value="False"/>
@@ -67,20 +69,20 @@
         </Style>
 
         <Style x:Key="PurchaseOrderListCenterTextStyle"
-           TargetType="TextBlock"
-           BasedOn="{StaticResource PurchaseOrderListTextStyle}">
+               TargetType="TextBlock"
+               BasedOn="{StaticResource PurchaseOrderListTextStyle}">
             <Setter Property="TextAlignment" Value="Center"/>
         </Style>
 
         <Style x:Key="PurchaseOrderListRightTextStyle"
-           TargetType="TextBlock"
-           BasedOn="{StaticResource PurchaseOrderListTextStyle}">
+               TargetType="TextBlock"
+               BasedOn="{StaticResource PurchaseOrderListTextStyle}">
             <Setter Property="TextAlignment" Value="Right"/>
         </Style>
 
         <Style x:Key="PurchaseOrderDownloadButtonStyle"
-           TargetType="Button"
-           BasedOn="{StaticResource BaseButtonStyle}">
+               TargetType="Button"
+               BasedOn="{StaticResource BaseButtonStyle}">
             <Setter Property="Padding" Value="10,4"/>
             <Setter Property="Height" Value="28"/>
             <Setter Property="MinWidth" Value="72"/>
@@ -89,7 +91,6 @@
             <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
     </UserControl.Resources>
-
 
     <Grid Margin="16">
         <Grid.RowDefinitions>
@@ -145,64 +146,86 @@
                 CornerRadius="8"
                 Padding="8"
                 Background="White">
-            <DataGrid Grid.Row="2"
-          ItemsSource="{Binding Items}"
-          SelectedItem="{Binding SelectedItem}"
-          Style="{StaticResource PurchaseOrderListDataGridStyle}"
-          ColumnHeaderStyle="{StaticResource PurchaseOrderListHeaderStyle}"
-          CellStyle="{StaticResource PurchaseOrderListCellStyle}"
-          RowStyle="{StaticResource PurchaseOrderListRowStyle}"
-          Margin="0">
-
+            <DataGrid ItemsSource="{Binding Items}"
+                      SelectedItem="{Binding SelectedItem}"
+                      Style="{StaticResource PurchaseOrderListDataGridStyle}"
+                      ColumnHeaderStyle="{StaticResource PurchaseOrderListHeaderStyle}"
+                      CellStyle="{StaticResource PurchaseOrderListCellStyle}"
+                      RowStyle="{StaticResource PurchaseOrderListRowStyle}"
+                      Margin="0">
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="발주일자"
-                            Binding="{Binding PurchaseOrderDate}"
-                            Width="130"
-                            IsReadOnly="True"
-                            ElementStyle="{StaticResource PurchaseOrderListCenterTextStyle}" />
+                                        Binding="{Binding PurchaseOrderDate}"
+                                        Width="130"
+                                        IsReadOnly="True"
+                                        ElementStyle="{StaticResource PurchaseOrderListCenterTextStyle}" />
 
                     <DataGridTextColumn Header="발주번호"
-                            Binding="{Binding PurchaseOrderNo}"
-                            Width="190"
-                            IsReadOnly="True"
-                            ElementStyle="{StaticResource PurchaseOrderListCenterTextStyle}" />
+                                        Binding="{Binding PurchaseOrderNo}"
+                                        Width="190"
+                                        IsReadOnly="True"
+                                        ElementStyle="{StaticResource PurchaseOrderListCenterTextStyle}" />
 
                     <DataGridTextColumn Header="공정구분"
-                            Binding="{Binding ProcessType}"
-                            Width="90"
-                            IsReadOnly="True"
-                            ElementStyle="{StaticResource PurchaseOrderListCenterTextStyle}" />
+                                        Binding="{Binding ProcessType}"
+                                        Width="90"
+                                        IsReadOnly="True"
+                                        ElementStyle="{StaticResource PurchaseOrderListCenterTextStyle}" />
 
                     <DataGridTextColumn Header="외주처"
-                            Binding="{Binding OutsourcePartnerName}"
-                            Width="140"
-                            IsReadOnly="True"
-                            ElementStyle="{StaticResource PurchaseOrderListCenterTextStyle}" />
+                                        Binding="{Binding OutsourcePartnerName}"
+                                        Width="140"
+                                        IsReadOnly="True"
+                                        ElementStyle="{StaticResource PurchaseOrderListCenterTextStyle}" />
 
                     <DataGridTextColumn Header="수량"
-                            Binding="{Binding Qty, StringFormat=N0}"
-                            Width="110"
-                            IsReadOnly="True"
-                            ElementStyle="{StaticResource PurchaseOrderListCenterTextStyle}" />
+                                        Binding="{Binding Qty, StringFormat=N0}"
+                                        Width="110"
+                                        IsReadOnly="True"
+                                        ElementStyle="{StaticResource PurchaseOrderListCenterTextStyle}" />
 
                     <DataGridTextColumn Header="비고"
-                            Binding="{Binding Remark}"
-                            Width="*"
-                            IsReadOnly="True"
-                            ElementStyle="{StaticResource PurchaseOrderListCenterTextStyle}" />
+                                        Binding="{Binding Remark}"
+                                        Width="*"
+                                        IsReadOnly="True"
+                                        ElementStyle="{StaticResource PurchaseOrderListCenterTextStyle}" />
 
                     <DataGridTemplateColumn Header="다운로드" Width="110" IsReadOnly="True">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <Button Content="다운로드"
-                            Style="{StaticResource PurchaseOrderDownloadButtonStyle}"
-                            Command="{Binding DataContext.DownloadCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                            CommandParameter="{Binding}" />
+                                        Style="{StaticResource PurchaseOrderDownloadButtonStyle}"
+                                        Command="{Binding DataContext.DownloadCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                        CommandParameter="{Binding}" />
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
                 </DataGrid.Columns>
             </DataGrid>
         </Border>
+
+        <Grid Grid.RowSpan="3"
+              Background="#66000000"
+              Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Border Width="240"
+                    Height="100"
+                    Background="White"
+                    CornerRadius="8"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Padding="16">
+                <StackPanel HorizontalAlignment="Center"
+                            VerticalAlignment="Center">
+                    <TextBlock Text="다운로드 중입니다..."
+                               FontSize="15"
+                               FontWeight="Bold"
+                               HorizontalAlignment="Center"
+                               Margin="0,0,0,10"/>
+                    <ProgressBar Width="170"
+                                 Height="12"
+                                 IsIndeterminate="True"/>
+                </StackPanel>
+            </Border>
+        </Grid>
     </Grid>
 </UserControl>

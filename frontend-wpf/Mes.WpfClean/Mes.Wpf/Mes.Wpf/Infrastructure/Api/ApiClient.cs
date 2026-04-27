@@ -235,16 +235,12 @@ namespace Mes.Wpf.Infrastructure.Api
             }
         }
 
-        public string BuildAbsoluteUrl(string relativeUrl)
-        {
-            return new Uri(_httpClient.BaseAddress!, relativeUrl).ToString();
-        }
-
-        public async Task<byte[]?> GetBytesAsync(string uri)
+        public async Task<byte[]?> GetBytesAsync(string relativeUrl)
         {
             try
             {
-                using var response = await _httpClient.GetAsync(uri);
+                var response = await _httpClient.GetAsync(relativeUrl);
+
                 if (!response.IsSuccessStatusCode)
                 {
                     return null;
@@ -257,5 +253,12 @@ namespace Mes.Wpf.Infrastructure.Api
                 return null;
             }
         }
+
+        public string BuildAbsoluteUrl(string relativeUrl)
+        {
+            return new Uri(_httpClient.BaseAddress!, relativeUrl).ToString();
+        }
+
+        
     }
 }

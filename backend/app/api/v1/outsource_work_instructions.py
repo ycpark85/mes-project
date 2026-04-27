@@ -7,7 +7,7 @@ from typing import List
 from uuid import uuid4
 from openpyxl import load_workbook
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status as http_status
-from sqlalchemy import func, select, exists
+from sqlalchemy import func, select, exists, or_
 from sqlalchemy.orm import Session,aliased
 from io import BytesIO
 from fastapi.responses import StreamingResponse
@@ -53,12 +53,47 @@ from app.schemas.outsource_work_instruction import (
     OutsourcePurchaseOrderCutSnapshot,
     OutsourcePurchaseOrderPrintSnapshot,
     OutsourcePurchaseOrderListOut,
-    OutsourcePurchaseOrderListItemOut
-    
+    OutsourcePurchaseOrderListItemOut,
+    BohyunOutsourceGroupItemOut,
+    BohyunOutsourceGroupListItemOut,
+    BohyunOutsourceGroupListOut,
+    BohyunOutsourceGroupWorkDone,
+    BohyunOutsourceGroupShipBatch,    
 )
 
 router = APIRouter(prefix="/outsource-work-instructions", tags=["OutsourceWorkInstruction"])
 
+BOHYUN_DB_STATUS_VENDOR_RECEIVED = "VENDOR_RECEIVED"
+BOHYUN_DB_STATUS_WORK_DONE = "WORK_DONE"
+BOHYUN_DB_STATUS_SHIPPED = "SHIPPED"
+
+BOHYUN_UI_STATUS_WAITING_INBOUND = "WAITING_INBOUND"
+BOHYUN_UI_STATUS_INBOUNDED = "INBOUNDED"
+BOHYUN_UI_STATUS_WORK_DONE = "WORK_DONE"
+BOHYUN_UI_STATUS_SHIPPED = "SHIPPED"
+
+
+def _to_bohyun_ui_status(db_status: str | None) -> str:
+    if db_status == BOHYUN_DB_STATUS_VENDOR_RECEIVED:
+        return BOHYUN_UI_STATUS_INBOUNDED
+
+    if db_status == BOHYUN_DB_STATUS_WORK_DONE:
+        return BOHYUN_UI_STATUS_WORK_DONE
+
+    if db_status == BOHYUN_DB_STATUS_SHIPPED:
+        return BOHYUN_UI_STATUS_SHIPPED
+
+    return BOHYUN_UI_STATUS_WAITING_INBOUND
+
+def _get_bohyun_inbound_source_name(
+    process_type: str) -> str | None:
+    if process_type == "CUT":
+        return "코리아라벨"
+
+    if process_type == "PRINT":
+        return "상림UV"
+
+    return None
 
 def _normalize_ext(filename: str) -> str:
     return Path(filename).suffix.lower().strip()
@@ -511,7 +546,330 @@ def _create_work_groups(
                     remark=item.remark,
                 )
             )
+@router.get("/bohyun-groups", response_model=BohyunOutsourceGroupListOut)
+def get_bohyun_outsource_groups(
+    date_from: date | None = Query(default=None),
+    date_to: date | None = Query(default=None),
+    process_type: str | None = Query(default=None),
+    status: str | None = Query(default=None),
+    q: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+):
+    if process_type and process_type not in ("CUT", "PRINT", "DIECUT"):
+        raise HTTPException(status_code=409, detail="Invalid process_type")
 
+    if status and status not in (
+        BOHYUN_UI_STATUS_WAITING_INBOUND,
+        BOHYUN_UI_STATUS_INBOUNDED,
+        BOHYUN_UI_STATUS_WORK_DONE,
+        BOHYUN_UI_STATUS_SHIPPED,
+    ):
+        raise HTTPException(status_code=409, detail="Invalid status")
+
+    stmt = (
+        select(OutsourceWorkGroup, OutsourceWorkInstruction, Partner)
+        .join(
+            OutsourceWorkInstruction,
+            OutsourceWorkInstruction.outsource_work_instruction_id
+            == OutsourceWorkGroup.outsource_work_instruction_id,
+        )
+        .join(Partner, Partner.partner_id == OutsourceWorkInstruction.partner_id)
+        .where(OutsourceWorkGroup.process_type.in_(("CUT", "PRINT", "DIECUT")))
+        .where(
+            or_(
+                OutsourceWorkGroup.status.is_(None),
+                OutsourceWorkGroup.status != BOHYUN_DB_STATUS_SHIPPED,
+            )
+        )
+        .order_by(
+            OutsourceWorkInstruction.instruction_date.desc(),
+            OutsourceWorkInstruction.instruction_no.desc(),
+            OutsourceWorkGroup.group_seq.asc(),
+        )
+    )
+
+    if date_from:
+        stmt = stmt.where(OutsourceWorkInstruction.instruction_date >= date_from)
+
+    if date_to:
+        stmt = stmt.where(OutsourceWorkInstruction.instruction_date <= date_to)
+
+    if process_type:
+        stmt = stmt.where(OutsourceWorkGroup.process_type == process_type)
+
+    if status == BOHYUN_UI_STATUS_WAITING_INBOUND:
+        stmt = stmt.where(OutsourceWorkGroup.status.is_(None))
+    elif status == BOHYUN_UI_STATUS_INBOUNDED:
+        stmt = stmt.where(OutsourceWorkGroup.status == BOHYUN_DB_STATUS_VENDOR_RECEIVED)
+    elif status == BOHYUN_UI_STATUS_WORK_DONE:
+        stmt = stmt.where(OutsourceWorkGroup.status == BOHYUN_DB_STATUS_WORK_DONE)
+    elif status == BOHYUN_UI_STATUS_SHIPPED:
+        stmt = stmt.where(OutsourceWorkGroup.status == BOHYUN_DB_STATUS_SHIPPED)
+
+    if q:
+        like = f"%{q.strip()}%"
+
+        exists_item_stmt = (
+            select(OutsourceWorkGroupItem.outsource_work_group_item_id)
+            .join(Lot, Lot.lot_id == OutsourceWorkGroupItem.lot_id)
+            .join(OrderLine, OrderLine.order_line_id == Lot.order_line_id)
+            .join(Product, Product.product_id == Lot.product_id)
+            .where(OutsourceWorkGroupItem.outsource_work_group_id == OutsourceWorkGroup.outsource_work_group_id)
+            .where(
+                (Lot.lot_no.like(like))
+                | (OrderLine.order_no.like(like))
+                | (Product.product_code.like(like))
+                | (Product.product_name.like(like))
+            )
+            .limit(1)
+        )
+
+        stmt = stmt.where(
+            (OutsourceWorkInstruction.instruction_no.like(like))
+            | (Partner.name.like(like))
+            | exists(exists_item_stmt)
+        )
+
+    rows = db.execute(stmt).all()
+
+    result_items: list[BohyunOutsourceGroupListItemOut] = []
+
+    for work_group, instruction, partner in rows:
+        group_item_rows = (
+            db.execute(
+                select(OutsourceWorkGroupItem, Lot, OrderLine, Product)
+                .join(Lot, Lot.lot_id == OutsourceWorkGroupItem.lot_id)
+                .join(OrderLine, OrderLine.order_line_id == Lot.order_line_id)
+                .join(Product, Product.product_id == Lot.product_id)
+                .where(
+                    OutsourceWorkGroupItem.outsource_work_group_id
+                    == work_group.outsource_work_group_id
+                )
+                .order_by(
+                    Lot.lot_no.asc(),
+                    OutsourceWorkGroupItem.outsource_work_group_item_id.asc(),
+                )
+            )
+            .all()
+        )
+
+        group_items: list[BohyunOutsourceGroupItemOut] = []
+        lot_nos: list[str] = []
+        product_names: list[str] = []
+
+        for group_item, lot, order_line, product in group_item_rows:
+            if lot.lot_no:
+                lot_nos.append(lot.lot_no)
+
+            if product.product_name:
+                product_names.append(product.product_name)
+
+            group_items.append(
+                BohyunOutsourceGroupItemOut(
+                    outsource_work_group_item_id=group_item.outsource_work_group_item_id,
+                    lot_id=lot.lot_id,
+                    lot_no=lot.lot_no,
+                    order_no=order_line.order_no,
+                    line_no=order_line.line_no,
+                    product_id=product.product_id,
+                    product_code=product.product_code,
+                    product_name=product.product_name,
+                    cuts_per_sheet=group_item.cuts_per_sheet,
+                    expected_output_qty=group_item.expected_output_qty,
+                    actual_output_qty=group_item.actual_output_qty,
+                    remark=group_item.remark,
+                )
+            )
+
+        result_items.append(
+            BohyunOutsourceGroupListItemOut(
+                outsource_work_group_id=work_group.outsource_work_group_id,
+                outsource_work_instruction_id=instruction.outsource_work_instruction_id,
+                instruction_no=instruction.instruction_no,
+                instruction_date=instruction.instruction_date,
+                process_type=work_group.process_type,
+                partner_id=partner.partner_id,
+                partner_name=partner.name,
+                inbound_source_name=_get_bohyun_inbound_source_name(
+                      work_group.process_type,
+                ),
+                is_bundle=work_group.is_bundle,
+                group_seq=work_group.group_seq,
+                sheet_qty=work_group.sheet_qty,
+                work_done_sheet_qty=work_group.work_done_sheet_qty,
+                length_m=work_group.length_m,
+                sheet_cut_count=work_group.sheet_cut_count,
+                status=_to_bohyun_ui_status(work_group.status),
+                vendor_received_at=work_group.vendor_received_at,
+                work_done_at=work_group.work_done_at,
+                shipped_at=work_group.shipped_at,
+                outsource_processing_fee=work_group.outsource_processing_fee,
+                work_done_remark=work_group.work_done_remark,
+                lot_nos=lot_nos,
+                product_names=list(dict.fromkeys(product_names)),
+                items=group_items,
+            )
+        )
+
+    return BohyunOutsourceGroupListOut(
+        items=result_items,
+        total_count=len(result_items),
+    )
+
+@router.post("/bohyun-groups/{group_id}/inbound")
+def inbound_bohyun_outsource_group(
+    group_id: int,
+    db: Session = Depends(get_db),
+):
+    work_group = db.get(OutsourceWorkGroup, group_id)
+
+    if not work_group:
+        raise HTTPException(
+            status_code=404,
+            detail="Outsource work group not found",
+        )
+
+    if work_group.status == BOHYUN_DB_STATUS_SHIPPED:
+        raise HTTPException(
+            status_code=409,
+            detail="Already shipped group cannot be inbounded",
+        )
+
+    if work_group.status == BOHYUN_DB_STATUS_WORK_DONE:
+        raise HTTPException(
+            status_code=409,
+            detail="Already work done group cannot be inbounded",
+        )
+
+    if work_group.status == BOHYUN_DB_STATUS_VENDOR_RECEIVED:
+        raise HTTPException(
+            status_code=409,
+            detail="Already inbounded",
+        )
+
+    work_group.status = BOHYUN_DB_STATUS_VENDOR_RECEIVED
+    work_group.vendor_received_at = datetime.now()
+
+    db.commit()
+
+    return {"success": True}            
+
+@router.post("/bohyun-groups/{group_id}/work-done")
+def complete_bohyun_outsource_group_work(
+    group_id: int,
+    payload: BohyunOutsourceGroupWorkDone,
+    db: Session = Depends(get_db),
+):
+    work_group = db.get(OutsourceWorkGroup, group_id)
+
+    if not work_group:
+        raise HTTPException(
+            status_code=404,
+            detail="Outsource work group not found",
+        )
+
+    if work_group.status == BOHYUN_DB_STATUS_SHIPPED:
+        raise HTTPException(
+            status_code=409,
+            detail="Already shipped group cannot be work done",
+        )
+
+    if work_group.status == BOHYUN_DB_STATUS_WORK_DONE:
+        raise HTTPException(
+            status_code=409,
+            detail="Already work done",
+        )
+
+    if work_group.status != BOHYUN_DB_STATUS_VENDOR_RECEIVED:
+        raise HTTPException(
+            status_code=409,
+            detail="Only inbounded group can be work done",
+        )
+
+    group_items = (
+        db.execute(
+            select(OutsourceWorkGroupItem)
+            .where(
+                OutsourceWorkGroupItem.outsource_work_group_id
+                == work_group.outsource_work_group_id
+            )
+            .order_by(
+                OutsourceWorkGroupItem.outsource_work_group_item_id.asc()
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    if not group_items:
+        raise HTTPException(
+            status_code=409,
+            detail="Outsource work group has no items",
+        )
+
+    for group_item in group_items:
+        group_item.actual_output_qty = (
+            payload.work_done_sheet_qty * group_item.cuts_per_sheet
+        )
+
+    work_group.status = BOHYUN_DB_STATUS_WORK_DONE
+    work_group.work_done_at = datetime.now()
+    work_group.work_done_sheet_qty = payload.work_done_sheet_qty
+    work_group.outsource_processing_fee = payload.outsource_processing_fee
+    work_group.work_done_remark = payload.remark
+
+    db.commit()
+
+    return {"success": True}
+
+
+@router.post("/bohyun-groups/ship-batch")
+def ship_bohyun_outsource_groups(
+    payload: BohyunOutsourceGroupShipBatch,
+    db: Session = Depends(get_db),
+):
+    requested_group_ids = list(dict.fromkeys(payload.group_ids))
+
+    work_groups = (
+        db.execute(
+            select(OutsourceWorkGroup)
+            .where(
+                OutsourceWorkGroup.outsource_work_group_id.in_(
+                    requested_group_ids
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    if len(work_groups) != len(requested_group_ids):
+        raise HTTPException(
+            status_code=404,
+            detail="Some outsource work groups were not found",
+        )
+
+    invalid_groups = [
+        work_group
+        for work_group in work_groups
+        if work_group.status != BOHYUN_DB_STATUS_WORK_DONE
+    ]
+
+    if invalid_groups:
+        raise HTTPException(
+            status_code=409,
+            detail="Only work done groups can be shipped",
+        )
+
+    now = datetime.now()
+
+    for work_group in work_groups:
+        work_group.status = BOHYUN_DB_STATUS_SHIPPED
+        work_group.shipped_at = now
+
+    db.commit()
+
+    return {"success": True}
 
 @router.get("/purchase-orders/{outsource_purchase_order_id}/excel")
 def download_outsource_purchase_order_excel(

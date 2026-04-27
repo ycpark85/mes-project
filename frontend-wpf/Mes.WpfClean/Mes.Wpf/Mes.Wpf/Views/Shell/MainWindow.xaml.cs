@@ -28,8 +28,9 @@ using Mes.Wpf.Modules.InspectionSchedules.Views;
 using Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels;
 using Mes.Wpf.Modules.OutsourceWorkInstructions.Views;
 
-using Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels;
-using Mes.Wpf.Modules.OutsourceWorkInstructions.Views;
+using Mes.Wpf.Modules.BohyunOutsourceManagement.ViewModels;
+using Mes.Wpf.Modules.BohyunOutsourceManagement.Views;
+
 using System.Threading.Tasks;
 
 
@@ -368,6 +369,23 @@ namespace Mes.Wpf.Views.Shell
 
             HeaderTitle.Text = "외주발주 리스트";
             HeaderSubtitle.Text = "저장된 외주발주 목록 조회 / 발주서 엑셀 다운로드";
+
+            await viewModel.InitializeAsync();
+        }
+
+        private async void BohyunOutsourceManagement_Click(object sender, RoutedEventArgs e)
+        {
+            var view = new BohyunOutsourceManagementView();
+
+            var viewModel = new BohyunOutsourceManagementViewModel(_apiClient, _messageService);
+
+            view.DataContext = viewModel;
+
+            MainContent.Content = view;
+            MainContent.Visibility = Visibility.Visible;
+
+            HeaderTitle.Text = "보현문화 외주관리";
+            HeaderSubtitle.Text = "보현문화 입고 / 작업완료 / 출고 처리";
 
             await viewModel.InitializeAsync();
         }

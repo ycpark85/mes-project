@@ -1,0 +1,198 @@
+﻿<UserControl x:Class="Mes.Wpf.Modules.BohyunOutsourceManagement.Views.BohyunOutsourceManagementView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0"
+                Padding="16"
+                Margin="0,0,0,12"
+                Background="White"
+                BorderBrush="#E5E7EB"
+                BorderThickness="1"
+                CornerRadius="8">
+            <WrapPanel VerticalAlignment="Center">
+                <StackPanel Margin="0,0,12,0">
+                    <TextBlock Text="시작일"/>
+                    <DatePicker Width="130"
+                                SelectedDate="{Binding DateFrom}"/>
+                </StackPanel>
+
+                <StackPanel Margin="0,0,12,0">
+                    <TextBlock Text="종료일"/>
+                    <DatePicker Width="130"
+                                SelectedDate="{Binding DateTo}"/>
+                </StackPanel>
+
+                <StackPanel Margin="0,0,12,0">
+                    <TextBlock Text="공정구분"/>
+                    <ComboBox Width="120"
+                              ItemsSource="{Binding ProcessTypeOptions}"
+                              SelectedItem="{Binding SelectedProcessType}"/>
+                </StackPanel>
+
+                <StackPanel Margin="0,0,12,0">
+                    <TextBlock Text="상태"/>
+                    <ComboBox Width="150"
+                              ItemsSource="{Binding StatusOptions}"
+                              SelectedItem="{Binding SelectedStatus}"/>
+                </StackPanel>
+
+                <StackPanel Margin="0,0,12,0">
+                    <TextBlock Text="검색어"/>
+                    <TextBox Width="240"
+                             Text="{Binding SearchKeyword, UpdateSourceTrigger=PropertyChanged}"/>
+                </StackPanel>
+
+                <Button Content="조회"
+                        Width="80"
+                        Height="30"
+                        Margin="0,18,8,0"
+                        Command="{Binding SearchCommand}"/>
+
+                <Button Content="초기화"
+                        Width="80"
+                        Height="30"
+                        Margin="0,18,8,0"
+                        Command="{Binding ResetCommand}"/>
+
+                <Button Content="묶음 출고 처리"
+                        Width="130"
+                        Height="30"
+                        Margin="0,18,0,0"
+                        Command="{Binding ShipSelectedCommand}"/>
+            </WrapPanel>
+        </Border>
+
+        <DataGrid Grid.Row="1"
+                  ItemsSource="{Binding Items}"
+                  SelectedItem="{Binding SelectedItem}"
+                  AutoGenerateColumns="False"
+                  CanUserAddRows="False"
+                  IsReadOnly="False"
+                  SelectionMode="Single"
+                  HeadersVisibility="Column"
+                  Margin="0,0,0,12">
+            <DataGrid.Columns>
+                <DataGridCheckBoxColumn Header="선택"
+                                        Width="50"
+                                        Binding="{Binding IsChecked, UpdateSourceTrigger=PropertyChanged}"/>
+
+                <DataGridTextColumn Header="작업지시일자"
+                                    Width="110"
+                                    Binding="{Binding InstructionDate, StringFormat=yyyy-MM-dd}"/>
+
+                <DataGridTextColumn Header="작업지시번호"
+                                    Width="140"
+                                    Binding="{Binding InstructionNo}"/>
+
+                <DataGridTextColumn Header="공정"
+                                    Width="80"
+                                    Binding="{Binding ProcessTypeName}"/>
+
+                <DataGridTextColumn Header="작업구분"
+                                    Width="80"
+                                    Binding="{Binding WorkTypeName}"/>
+
+                <DataGridTextColumn Header="입고처"
+                                    Width="120"
+                                    Binding="{Binding InboundSourceName}"/>
+
+                <DataGridTextColumn Header="거래처"
+                                    Width="180"
+                                    Binding="{Binding PartnerName}"/>
+
+                <DataGridTextColumn Header="품목명"
+                                    Width="220"
+                                    Binding="{Binding ProductNamesText}"/>
+
+                <DataGridTextColumn Header="발주 시트수"
+                                    Width="100"
+                                    Binding="{Binding SheetQty}"/>
+
+                <DataGridTextColumn Header="완료 시트수"
+                                    Width="100"
+                                    Binding="{Binding WorkDoneSheetQty}"/>
+
+                <DataGridTextColumn Header="상태"
+                                    Width="100"
+                                    Binding="{Binding StatusName}"/>
+
+                <DataGridTemplateColumn Header="입고완료"
+                                        Width="90">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Button Content="입고완료"
+                                    IsEnabled="{Binding CanInbound}"
+                                    Command="{Binding DataContext.InboundCompleteCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                    CommandParameter="{Binding}"/>      
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <DataGridTemplateColumn Header="작업완료"
+                                        Width="90">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Button Content="작업완료"
+                                    IsEnabled="{Binding CanWorkDone}"
+                                    Command="{Binding DataContext.WorkDoneCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                    CommandParameter="{Binding}"/>      
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <Border Grid.Row="2"
+                Padding="16"
+                Background="White"
+                BorderBrush="#E5E7EB"
+                BorderThickness="1"
+                CornerRadius="8">
+            <Grid DataContext="{Binding SelectedItem}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="선택 상세"
+                               FontWeight="Bold"
+                               Margin="0,0,0,8"/>
+                    <TextBlock Text="{Binding InstructionNo, StringFormat=작업지시번호: {0}}"/>
+                    <TextBlock Text="{Binding InstructionDate, StringFormat=작업지시일자: {0:yyyy-MM-dd}}"/>
+                    <TextBlock Text="{Binding ProcessTypeName, StringFormat=공정: {0}}"/>
+                    <TextBlock Text="{Binding WorkTypeName, StringFormat=작업구분: {0}}"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1">
+                    <TextBlock Text="{Binding InboundSourceName, StringFormat=입고처: {0}}"/>
+                    <TextBlock Text="{Binding PartnerName, StringFormat=거래처: {0}}"/>
+                    <TextBlock Text="{Binding ProductNamesText, StringFormat=품목명: {0}}"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="{Binding SheetQty, StringFormat=발주 시트수: {0}}"/>
+                    <TextBlock Text="{Binding WorkDoneSheetQty, StringFormat=완료 시트수: {0}}"/>
+                    <TextBlock Text="{Binding SheetCutCount, StringFormat=시트 컷수: {0}}"/>
+                    <TextBlock Text="{Binding OutsourceProcessingFee, StringFormat=외주가공비: {0:N0}}"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="3">
+                    <TextBlock Text="{Binding StatusName, StringFormat=상태: {0}}"/>
+                    <TextBlock Text="{Binding VendorReceivedAt, StringFormat=입고완료: {0:yyyy-MM-dd HH:mm}}"/>
+                    <TextBlock Text="{Binding WorkDoneAt, StringFormat=작업완료: {0:yyyy-MM-dd HH:mm}}"/>
+                    <TextBlock Text="{Binding ShippedAt, StringFormat=출고일시: {0:yyyy-MM-dd HH:mm}}"/>
+                    <TextBlock Text="{Binding WorkDoneRemark, StringFormat=비고: {0}}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>
