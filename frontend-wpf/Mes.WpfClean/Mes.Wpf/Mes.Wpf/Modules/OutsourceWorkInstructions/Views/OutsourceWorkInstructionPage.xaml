@@ -35,7 +35,7 @@
                         <DataGrid.Columns>
                             <DataGridCheckBoxColumn Header="선택" Binding="{Binding IsSelected}" Width="55" />
                             <DataGridTextColumn Header="LOT" Binding="{Binding LotNo}" Width="120" />
-                            <DataGridTextColumn Header="거래처" Binding="{Binding PartnerName}" Width="140" />
+                            <DataGridTextColumn Header="거래처" Binding="{Binding CustomerPartnerName}" Width="140" />
                             <DataGridTextColumn Header="품목코드" Binding="{Binding ProductCode}" Width="110" />
                             <DataGridTextColumn Header="품목명" Binding="{Binding ProductName}" Width="180" />
                             <DataGridTextColumn Header="발주수량" Binding="{Binding LotQty}" Width="90" />
@@ -69,7 +69,7 @@
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="작업일" Binding="{Binding InstructionDate, StringFormat=yyyy-MM-dd}" Width="100" />
                                 <DataGridTextColumn Header="구분" Binding="{Binding BundleText}" Width="60" />
-                                <DataGridTextColumn Header="거래처" Binding="{Binding PartnerName}" Width="130" />
+                                <DataGridTextColumn Header="거래처" Binding="{Binding CustomerPartnerName}" Width="130" />
                                 <DataGridTextColumn Header="LOT" Binding="{Binding LotSummary}" Width="180" />
                                 <DataGridTextColumn Header="판사이즈" Binding="{Binding PlateSize}" Width="90" />
                                 <DataGridTextColumn Header="규격" Binding="{Binding Spec}" Width="90" />

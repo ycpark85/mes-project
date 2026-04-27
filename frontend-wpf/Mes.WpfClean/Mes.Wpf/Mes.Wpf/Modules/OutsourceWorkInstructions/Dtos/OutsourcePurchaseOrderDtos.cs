@@ -1,8 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Text.Json.Serialization;
-using System.Collections.ObjectModel;
-using Mes.Wpf.Core.Common;
 
 namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
 {
@@ -144,13 +141,13 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
         public string? Status { get; set; }
 
         [JsonPropertyName("vendor_received_at")]
-        public DateTime? VendorReceivedAt { get; set; }
+        public string? VendorReceivedAt { get; set; }
 
         [JsonPropertyName("work_done_at")]
-        public DateTime? WorkDoneAt { get; set; }
+        public string? WorkDoneAt { get; set; }
 
         [JsonPropertyName("shipped_at")]
-        public DateTime? ShippedAt { get; set; }
+        public string? ShippedAt { get; set; }
 
         [JsonPropertyName("work_done_qty")]
         public int? WorkDoneQty { get; set; }
@@ -179,6 +176,7 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
         [JsonPropertyName("lot_qty")]
         public int? LotQty { get; set; }
     }
+
     public sealed class OutsourcePurchaseOrderCutSnapshotRequest
     {
         [JsonPropertyName("request_company_name")]
@@ -290,73 +288,30 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
         public List<OutsourcePurchaseOrderListItemDto> Items { get; set; } = new();
     }
 
-    public sealed class OutsourcePurchaseOrderListItemDto : ViewModelBase
+    public sealed class OutsourcePurchaseOrderListItemDto
     {
-        private long _outsourcePurchaseOrderId;
-        private string _purchaseOrderNo = string.Empty;
-        private string _purchaseOrderDate = string.Empty;
-        private string _processType = string.Empty;
-        private long _outsourcePartnerId;
-        private string? _outsourcePartnerName;
-        private int _qty;
-        private string? _remark;
-
         [JsonPropertyName("outsource_purchase_order_id")]
-        public long OutsourcePurchaseOrderId
-        {
-            get => _outsourcePurchaseOrderId;
-            set => SetProperty(ref _outsourcePurchaseOrderId, value);
-        }
+        public long OutsourcePurchaseOrderId { get; set; }
 
         [JsonPropertyName("purchase_order_no")]
-        public string PurchaseOrderNo
-        {
-            get => _purchaseOrderNo;
-            set => SetProperty(ref _purchaseOrderNo, value);
-        }
+        public string PurchaseOrderNo { get; set; } = string.Empty;
 
         [JsonPropertyName("purchase_order_date")]
-        public string PurchaseOrderDate
-        {
-            get => _purchaseOrderDate;
-            set => SetProperty(ref _purchaseOrderDate, value);
-        }
+        public string PurchaseOrderDate { get; set; } = string.Empty;
 
         [JsonPropertyName("process_type")]
-        public string ProcessType
-        {
-            get => _processType;
-            set => SetProperty(ref _processType, value);
-        }
+        public string ProcessType { get; set; } = string.Empty;
 
         [JsonPropertyName("outsource_partner_id")]
-        public long OutsourcePartnerId
-        {
-            get => _outsourcePartnerId;
-            set => SetProperty(ref _outsourcePartnerId, value);
-        }
+        public long OutsourcePartnerId { get; set; }
 
         [JsonPropertyName("outsource_partner_name")]
-        public string? OutsourcePartnerName
-        {
-            get => _outsourcePartnerName;
-            set => SetProperty(ref _outsourcePartnerName, value);
-        }
+        public string? OutsourcePartnerName { get; set; }
 
         [JsonPropertyName("qty")]
-        public int Qty
-        {
-            get => _qty;
-            set => SetProperty(ref _qty, value);
-        }
+        public int Qty { get; set; }
 
         [JsonPropertyName("remark")]
-        public string? Remark
-        {
-            get => _remark;
-            set => SetProperty(ref _remark, value);
-        }
+        public string? Remark { get; set; }
     }
-
-
 }

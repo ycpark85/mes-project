@@ -52,11 +52,11 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
         [JsonPropertyName("product_name")]
         public string ProductName { get; set; } = string.Empty;
 
-        [JsonPropertyName("partner_id")]
-        public long PartnerId { get; set; }
+        [JsonPropertyName("customer_partner_id")]
+        public long CustomerPartnerId { get; set; }
 
-        [JsonPropertyName("partner_name")]
-        public string? PartnerName { get; set; }
+        [JsonPropertyName("customer_partner_name")]
+        public string? CustomerPartnerName { get; set; }
 
         [JsonPropertyName("lot_qty")]
         public int LotQty { get; set; }
@@ -96,8 +96,8 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
         public long ProductId { get; set; }
         public string ProductCode { get; set; } = string.Empty;
         public string ProductName { get; set; } = string.Empty;
-        public long PartnerId { get; set; }
-        public string? PartnerName { get; set; }
+        public long CustomerPartnerId { get; set; }
+        public string? CustomerPartnerName { get; set; }
         public int LotQty { get; set; }
         public List<string> AvailableProcessTypes { get; set; } = new();
 
@@ -141,8 +141,8 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
                 ProductId = dto.ProductId,
                 ProductCode = dto.ProductCode,
                 ProductName = dto.ProductName,
-                PartnerId = dto.PartnerId,
-                PartnerName = dto.PartnerName,
+                CustomerPartnerId = dto.CustomerPartnerId,
+                CustomerPartnerName = dto.CustomerPartnerName,
                 LotQty = dto.LotQty,
                 AvailableProcessTypes = dto.AvailableProcessTypes ?? new List<string>(),
                 PanelWidthMm = dto.PanelWidthMm,
@@ -230,8 +230,8 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
         [JsonPropertyName("process_type")]
         public string ProcessType { get; set; } = "CUT";
 
-        [JsonPropertyName("partner_id")]
-        public long PartnerId { get; set; }
+        [JsonPropertyName("customer_partner_id")]
+        public long CustomerPartnerId { get; set; }
 
         [JsonPropertyName("lot_ids")]
         public List<long> LotIds { get; set; } = new();
@@ -290,8 +290,8 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
         [JsonPropertyName("process_type")]
         public string ProcessType { get; set; } = string.Empty;
 
-        [JsonPropertyName("partner_id")]
-        public long PartnerId { get; set; }
+        [JsonPropertyName("customer_partner_id")]
+        public long CustomerPartnerId { get; set; }
 
         [JsonPropertyName("is_bundle")]
         public bool IsBundle { get; set; }
@@ -309,8 +309,8 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
     public class OutsourceWorkInstructionDraftEditModel : ViewModelBase
     {
         private DateTime _instructionDate = DateTime.Today;
-        private long _partnerId;
-        private string _partnerName = string.Empty;
+        private long _customerPartnerId;
+        private string _customerPartnerName = string.Empty;
         private string _memo = string.Empty;
         private decimal? _lengthM;
         private int _sheetQty;
@@ -324,16 +324,16 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
             set => SetProperty(ref _instructionDate, value);
         }
 
-        public long PartnerId
+        public long CustomerPartnerId
         {
-            get => _partnerId;
-            set => SetProperty(ref _partnerId, value);
+            get => _customerPartnerId;
+            set => SetProperty(ref _customerPartnerId, value);
         }
 
-        public string PartnerName
+        public string CustomerPartnerName
         {
-            get => _partnerName;
-            set => SetProperty(ref _partnerName, value);
+            get => _customerPartnerName;
+            set => SetProperty(ref _customerPartnerName, value);
         }
 
         public string Memo
@@ -403,8 +403,8 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
         {
             DraftId = Guid.NewGuid();
             InstructionDate = DateTime.Today;
-            PartnerId = 0;
-            PartnerName = string.Empty;
+            CustomerPartnerId = 0;
+            CustomerPartnerName = string.Empty;
             Memo = string.Empty;
             LengthM = null;
             SheetQty = 0;
@@ -451,8 +451,8 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
 
     public class OutsourceWorkInstructionBatchGroupCreateRequest
     {
-        [JsonPropertyName("partner_id")]
-        public long PartnerId { get; set; }
+        [JsonPropertyName("customer_partner_id")]
+        public long CustomerPartnerId { get; set; }
 
         [JsonPropertyName("lot_ids")]
         public List<long> LotIds { get; set; } = new();
@@ -526,6 +526,12 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
         [JsonPropertyName("product_name")]
         public string ProductName { get; set; } = string.Empty;
 
+        [JsonPropertyName("customer_partner_id")]
+        public long CustomerPartnerId { get; set; }
+
+        [JsonPropertyName("customer_partner_name")]
+        public string? CustomerPartnerName { get; set; }
+
         [JsonPropertyName("lot_qty")]
         public int LotQty { get; set; }
 
@@ -567,9 +573,6 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
 
         [JsonPropertyName("is_print_product")]
         public bool IsPrintProduct { get; set; }
-
-        [JsonPropertyName("partner_name")]
-        public string? PartnerName { get; set; }
 
         public string ReworkText => IsRework ? "재작업" : string.Empty;
         public string BundleText => IsBundle ? "묶음" : "개별";
@@ -745,15 +748,13 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
         }
     }
 
-
-
     public class OutsourceCutPurchaseOrderItemEditModel : ViewModelBase
     {
         private int _no;
         private string _rawMaterialText = string.Empty;
         private decimal? _lengthM;
         private string _inboundPlaceName = string.Empty;
-        private string _sourcePartnerName = string.Empty;
+        private string _customerPartnerName = string.Empty;
         private string _cutSpec = string.Empty;
         private int? _sheetQty;
         private int? _panelLengthMm;
@@ -767,33 +768,34 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
         public string LotSummary { get; set; } = string.Empty;
 
         public bool IsBundle { get; set; }
+
         public decimal? SavedLengthM
         {
             get => _savedLengthM;
             set
-         {
-        if (SetProperty(ref _savedLengthM, value))
-        {
-            OnPropertyChanged(nameof(LengthMDisplay));
+            {
+                if (SetProperty(ref _savedLengthM, value))
+                {
+                    OnPropertyChanged(nameof(LengthMDisplay));
+                }
+            }
         }
-    }
-}
 
-public int? SavedSheetQty
-{
-    get => _savedSheetQty;
-    set
-    {
-        if (SetProperty(ref _savedSheetQty, value))
+        public int? SavedSheetQty
         {
-            OnPropertyChanged(nameof(SheetQtyDisplay));
+            get => _savedSheetQty;
+            set
+            {
+                if (SetProperty(ref _savedSheetQty, value))
+                {
+                    OnPropertyChanged(nameof(SheetQtyDisplay));
+                }
+            }
         }
-    }
-}
 
-public string LengthMDisplay => SavedLengthM?.ToString("0.##") ?? string.Empty;
+        public string LengthMDisplay => SavedLengthM?.ToString("0.##") ?? string.Empty;
 
-public string SheetQtyDisplay => SavedSheetQty?.ToString() ?? string.Empty;
+        public string SheetQtyDisplay => SavedSheetQty?.ToString() ?? string.Empty;
 
         public int No
         {
@@ -831,12 +833,12 @@ public string SheetQtyDisplay => SavedSheetQty?.ToString() ?? string.Empty;
             }
         }
 
-        public string SourcePartnerName
+        public string CustomerPartnerName
         {
-            get => _sourcePartnerName;
+            get => _customerPartnerName;
             set
             {
-                if (SetProperty(ref _sourcePartnerName, value))
+                if (SetProperty(ref _customerPartnerName, value))
                 {
                     OnPropertyChanged(nameof(InboundPlaceDisplay));
                 }
@@ -847,12 +849,12 @@ public string SheetQtyDisplay => SavedSheetQty?.ToString() ?? string.Empty;
         {
             get
             {
-                if (string.IsNullOrWhiteSpace(SourcePartnerName))
+                if (string.IsNullOrWhiteSpace(CustomerPartnerName))
                 {
                     return InboundPlaceName;
                 }
 
-                return $"{InboundPlaceName}({SourcePartnerName})";
+                return $"{InboundPlaceName}({CustomerPartnerName})";
             }
         }
 
@@ -992,7 +994,7 @@ public string SheetQtyDisplay => SavedSheetQty?.ToString() ?? string.Empty;
 
         public void LoadFromBundle(OutsourcePurchaseOrderBundleRowModel bundle)
         {
-            CompanyName = "코리아 라벨";
+            CompanyName = BuildOutsourcePartnerName(bundle);
             RequestPartnerName = "세미산업";
             RequesterName = "김완준";
             RequestDate = DateTime.Today;
@@ -1026,13 +1028,13 @@ public string SheetQtyDisplay => SavedSheetQty?.ToString() ?? string.Empty;
 
                 var inboundPlaceName = string.Join(", ", inboundPlaces);
 
-                var sourcePartners = group.Items
-                    .Select(x => x.PartnerName)
+                var customerPartners = group.Items
+                    .Select(x => x.CustomerPartnerName)
                     .Where(x => !string.IsNullOrWhiteSpace(x))
                     .Distinct()
                     .ToList();
 
-                var sourcePartnerName = string.Join(", ", sourcePartners!);
+                var customerPartnerName = string.Join(", ", customerPartners!);
 
                 var lotSummary = string.Join(", ",
                     group.Items
@@ -1051,7 +1053,7 @@ public string SheetQtyDisplay => SavedSheetQty?.ToString() ?? string.Empty;
                     LengthM = null,
                     SavedLengthM = firstItem.LengthM,
                     InboundPlaceName = inboundPlaceName,
-                    SourcePartnerName = sourcePartnerName,
+                    CustomerPartnerName = customerPartnerName,
                     CutSpec = cutSpec,
                     SheetQty = null,
                     SavedSheetQty = firstItem.SheetQty
@@ -1066,9 +1068,19 @@ public string SheetQtyDisplay => SavedSheetQty?.ToString() ?? string.Empty;
             }
         }
 
+        private static string BuildOutsourcePartnerName(OutsourcePurchaseOrderBundleRowModel bundle)
+        {
+            return string.Join(", ",
+                bundle.Groups
+                    .Select(x => x.OutsourcePartnerName?.Trim())
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                    .Distinct());
+        }
+
+
         public void Clear()
         {
-            CompanyName = "코리아 라벨";
+            CompanyName = string.Empty;
             RequestPartnerName = "세미산업";
             RequesterName = "김완준";
             RequestDate = DateTime.Today;
@@ -1079,8 +1091,8 @@ public string SheetQtyDisplay => SavedSheetQty?.ToString() ?? string.Empty;
             Remark = string.Empty;
             Items.Clear();
         }
-
     }
+
     public sealed class OutsourcePrintPurchaseOrderEditModel : ViewModelBase
     {
         private string _vendorName = "상림UV";
@@ -1130,7 +1142,7 @@ public string SheetQtyDisplay => SavedSheetQty?.ToString() ?? string.Empty;
         {
             Clear();
 
-            VendorName = BuildVendorName(bundle);
+            VendorName = BuildOutsourceVendorName(bundle);
             RequestCompanyName = "세미산업";
             RequesterName = "김완준";
             PurchaseOrderDate = DateTime.Today;
@@ -1147,13 +1159,13 @@ public string SheetQtyDisplay => SavedSheetQty?.ToString() ?? string.Empty;
 
                 var customerNames = string.Join(", ",
                     group.Items
-                        .Select(x => x.PartnerName?.Trim())
+                        .Select(x => x.CustomerPartnerName?.Trim())
                         .Where(x => !string.IsNullOrWhiteSpace(x))
                         .Distinct());
 
                 var productName = group.Items
-                        .Select(x => x.ProductName?.Trim())
-                        .FirstOrDefault(x => !string.IsNullOrWhiteSpace(x)) ?? string.Empty;
+                    .Select(x => x.ProductName?.Trim())
+                    .FirstOrDefault(x => !string.IsNullOrWhiteSpace(x)) ?? string.Empty;
 
                 Items.Add(new OutsourcePrintPurchaseOrderItemEditModel
                 {
@@ -1171,16 +1183,14 @@ public string SheetQtyDisplay => SavedSheetQty?.ToString() ?? string.Empty;
             }
         }
 
-        private static string BuildVendorName(OutsourcePurchaseOrderBundleRowModel bundle)
+        private static string BuildOutsourceVendorName(OutsourcePurchaseOrderBundleRowModel bundle)
         {
             return string.Join(", ",
                 bundle.Items
-                    .Select(x => x.PartnerName?.Trim())
+                    .Select(x => x.OutsourcePartnerName?.Trim())
                     .Where(x => !string.IsNullOrWhiteSpace(x))
                     .Distinct());
         }
-
-
 
         private static string BuildMaterialSpec(OutsourcePurchaseOrderTargetDto item)
         {
@@ -1290,6 +1300,4 @@ public string SheetQtyDisplay => SavedSheetQty?.ToString() ?? string.Empty;
             Remark = null;
         }
     }
-
-
 }

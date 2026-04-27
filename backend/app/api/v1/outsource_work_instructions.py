@@ -158,6 +158,20 @@ def _get_inbound_partner_name(process_type: str, template_name: str) -> str:
         return "상림"
 
     return ""
+
+def _get_fixed_outsource_partner_name(process_type: str) -> str:
+    normalized = (process_type or "").strip().upper()
+
+    if normalized == "CUT":
+        return "코리아 라벨"
+
+    if normalized == "PRINT":
+        return "상림UV"
+
+    raise HTTPException(status_code=409, detail="Invalid process_type")
+
+
+
 def _build_instruction_out(
     db: Session,
     instruction: OutsourceWorkInstruction,
@@ -760,8 +774,8 @@ def get_candidate_lots(
                 product_id=product.product_id,
                 product_code=product.product_code,
                 product_name=product.product_name,
-                partner_id=partner.partner_id,
-                partner_name=partner.name,
+                customer_partner_id=partner.partner_id,
+                customer_partner_name=partner.name,
                 lot_qty=lot.lot_qty,
                 available_process_types=available,
                 panel_width_mm=product.panel_width_mm,
@@ -840,7 +854,7 @@ def create_outsource_work_instruction(
         instruction_no=_generate_instruction_no(db, payload.instruction_date),
         instruction_date=payload.instruction_date,
         process_type=payload.process_type,
-        partner_id=payload.partner_id,
+        partner_id=payload.customer_partner_id,
         is_bundle=len(payload.lot_ids) > 1,
         memo=payload.memo,
     )
@@ -917,7 +931,7 @@ def create_outsource_work_instruction_batch(
     created_instructions: list[OutsourceWorkInstruction] = []
 
     for group in payload.groups:
-        partner = db.get(Partner, group.partner_id)
+        partner = db.get(Partner, group.customer_partner_id)
         if not partner or not partner.is_active:
             raise HTTPException(status_code=404, detail="Partner not found or inactive")
 
@@ -1003,7 +1017,7 @@ def create_outsource_work_instruction_batch(
                     db=db,
                     instruction_date=payload.instruction_date,
                     process_type="CUT",
-                    partner_id=group.partner_id,
+                    partner_id=group.customer_partner_id,
                     lot_ids=cut_lot_ids,
                     memo=group.memo,
                     files=[],
@@ -1017,7 +1031,7 @@ def create_outsource_work_instruction_batch(
                     db=db,
                     instruction_date=payload.instruction_date,
                     process_type="PRINT",
-                    partner_id=group.partner_id,
+                    partner_id=group.customer_partner_id,
                     lot_ids=print_lot_ids,
                     memo=group.memo,
                     files=group.files,
@@ -1131,6 +1145,7 @@ def get_purchase_order_targets(
 
         for file_row in file_rows:
             instruction_id = file_row.outsource_work_instruction_id
+            
             if instruction_id not in file_map:
                 file_map[instruction_id] = []
 
@@ -1153,6 +1168,7 @@ def get_purchase_order_targets(
         source_partner,
     ) in rows:
         inbound_partner_name = _get_inbound_partner_name(normalized_process_type, routing_template.template_name)
+        fixed_outsource_partner_name = _get_fixed_outsource_partner_name(normalized_process_type)
         available = _get_available_process_types(routing_template.template_name)
         is_print_product = "PRINT" in available
 
@@ -1172,10 +1188,11 @@ def get_purchase_order_targets(
                 product_id=product.product_id,
                 product_code=product.product_code,
                 product_name=product.product_name,
-                partner_name=source_partner.name,
+                customer_partner_id=source_partner.partner_id,
+                customer_partner_name=source_partner.name,
                 lot_qty=lot.lot_qty,
-                outsource_partner_id=outsource_partner.partner_id,
-                outsource_partner_name=outsource_partner.name,
+                outsource_partner_id=0,
+                outsource_partner_name=fixed_outsource_partner_name,
                 inbound_partner_name=inbound_partner_name,
                 is_bundle=instruction.is_bundle,
                 memo=instruction.memo,
@@ -1457,8 +1474,7 @@ def get_outsource_purchase_orders(
     db: Session = Depends(get_db),
 ):
     stmt = (
-        select(OutsourcePurchaseOrder, Partner)
-        .join(Partner, Partner.partner_id == OutsourcePurchaseOrder.outsource_partner_id)
+        select(OutsourcePurchaseOrder)
         .order_by(
             OutsourcePurchaseOrder.purchase_order_date.desc(),
             OutsourcePurchaseOrder.outsource_purchase_order_id.desc(),
@@ -1479,11 +1495,10 @@ def get_outsource_purchase_orders(
         like = f"%{q.strip()}%"
         stmt = stmt.where(
             (OutsourcePurchaseOrder.purchase_order_no.like(like))
-            | (Partner.name.like(like))
             | (OutsourcePurchaseOrder.remark.like(like))
         )
 
-    rows = db.execute(stmt).all()
+    rows = db.execute(stmt).scalars().all()
 
     return OutsourcePurchaseOrderListOut(
         items=[
@@ -1492,12 +1507,12 @@ def get_outsource_purchase_orders(
                 purchase_order_no=purchase_order.purchase_order_no,
                 purchase_order_date=purchase_order.purchase_order_date,
                 process_type=purchase_order.process_type,
-                outsource_partner_id=purchase_order.outsource_partner_id,
-                outsource_partner_name=partner.name if partner else None,
+                outsource_partner_id=0,
+                outsource_partner_name=_get_fixed_outsource_partner_name(purchase_order.process_type),
                 qty=purchase_order.qty,
                 remark=purchase_order.remark,
                 created_at=purchase_order.created_at,
             )
-            for purchase_order, partner in rows
+            for purchase_order in rows
         ]
     )

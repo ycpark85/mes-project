@@ -30,14 +30,14 @@ class OutsourceWorkInstructionGroupCreate(BaseModel):
 class OutsourceWorkInstructionCreate(BaseModel):
     instruction_date: date
     process_type: str
-    partner_id: int
+    customer_partner_id: int
     lot_ids: List[int] = Field(..., min_length=1)
     memo: Optional[str] = None
     files: List[OutsourceWorkInstructionFileCreate] = Field(default_factory=list)
     groups: List[OutsourceWorkInstructionGroupCreate] = Field(default_factory=list)
 
 class OutsourceWorkInstructionBatchGroupCreate(BaseModel):
-    partner_id: int
+    customer_partner_id: int
     lot_ids: List[int] = Field(..., min_length=1)
     memo: Optional[str] = None
     files: List[OutsourceWorkInstructionFileCreate] = Field(default_factory=list)
@@ -100,8 +100,8 @@ class OutsourceWorkInstructionCandidateLotOut(BaseModel):
     product_id: int
     product_code: str
     product_name: str
-    partner_id: int
-    partner_name: Optional[str] = None
+    customer_partner_id: int
+    customer_partner_name: Optional[str] = None
     lot_qty: int
     available_process_types: List[str]
 
@@ -143,7 +143,8 @@ class OutsourcePurchaseOrderTargetOut(BaseModel):
     outsource_partner_id: int
     outsource_partner_name: Optional[str] = None
     inbound_partner_name: str
-    partner_name: str | None = None
+    customer_partner_id: int
+    customer_partner_name: str | None = None
 
     panel_width_mm: int | None = None
     panel_length_mm: int | None = None

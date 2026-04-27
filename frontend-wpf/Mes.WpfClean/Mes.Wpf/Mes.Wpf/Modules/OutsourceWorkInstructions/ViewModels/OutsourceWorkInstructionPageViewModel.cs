@@ -105,8 +105,8 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
                 return;
             }
 
-            var firstPartnerId = selectedLots[0].PartnerId;
-            if (selectedLots.Any(x => x.PartnerId != firstPartnerId))
+            var firstPartnerId = selectedLots[0].CustomerPartnerId;
+            if (selectedLots.Any(x => x.CustomerPartnerId != firstPartnerId))
             {
                 _messageService.ShowWarning("같은 거래처 기준 LOT만 묶을 수 있습니다.");
                 return;
@@ -115,8 +115,8 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
             var draft = new OutsourceWorkInstructionDraftEditModel
             {
                 InstructionDate = DateTime.Today,
-                PartnerId = selectedLots[0].PartnerId,
-                PartnerName = selectedLots[0].PartnerName ?? string.Empty,
+                CustomerPartnerId = selectedLots[0].CustomerPartnerId,
+                CustomerPartnerName = selectedLots[0].CustomerPartnerName ?? string.Empty,
                 SheetQty = 1
             };
 
@@ -254,7 +254,7 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
             {
                 request.Groups.Add(new OutsourceWorkInstructionBatchGroupCreateRequest
                 {
-                    PartnerId = draft.PartnerId,
+                    CustomerPartnerId = draft.CustomerPartnerId,
                     Memo = string.IsNullOrWhiteSpace(draft.Memo) ? null : draft.Memo.Trim(),
                     LotIds = draft.Lots.Select(x => x.LotId).ToList(),
                     Files = draft.Files.ToList(),
