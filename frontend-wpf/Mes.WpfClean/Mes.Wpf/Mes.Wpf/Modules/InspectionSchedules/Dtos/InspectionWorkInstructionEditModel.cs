@@ -6,6 +6,9 @@ namespace Mes.Wpf.Modules.InspectionSchedules.Dtos
     public class InspectionWorkInstructionEditModel : ViewModelBase
     {
         private long? _lotId;
+        private long? _outsourceWorkGroupId;
+        private long? _outsourceWorkGroupItemId;
+        private string _bundleNo = string.Empty;
         private string _lotNo = string.Empty;
         private string _productCode = string.Empty;
         private string _productName = string.Empty;
@@ -17,6 +20,24 @@ namespace Mes.Wpf.Modules.InspectionSchedules.Dtos
         {
             get => _lotId;
             set => SetProperty(ref _lotId, value);
+        }
+
+        public long? OutsourceWorkGroupId
+        {
+            get => _outsourceWorkGroupId;
+            set => SetProperty(ref _outsourceWorkGroupId, value);
+        }
+
+        public long? OutsourceWorkGroupItemId
+        {
+            get => _outsourceWorkGroupItemId;
+            set => SetProperty(ref _outsourceWorkGroupItemId, value);
+        }
+
+        public string BundleNo
+        {
+            get => _bundleNo;
+            set => SetProperty(ref _bundleNo, value);
         }
 
         public string LotNo
@@ -58,6 +79,9 @@ namespace Mes.Wpf.Modules.InspectionSchedules.Dtos
         public void LoadFromDto(InspectionWorkInstructionLotListItemDto dto)
         {
             LotId = dto.LotId;
+            OutsourceWorkGroupId = dto.OutsourceWorkGroupId;
+            OutsourceWorkGroupItemId = dto.OutsourceWorkGroupItemId;
+            BundleNo = dto.BundleNo ?? string.Empty;
             LotNo = dto.LotNo ?? string.Empty;
             ProductCode = dto.ProductCode ?? string.Empty;
             ProductName = dto.ProductName ?? string.Empty;
@@ -73,6 +97,9 @@ namespace Mes.Wpf.Modules.InspectionSchedules.Dtos
         public void Clear()
         {
             LotId = null;
+            OutsourceWorkGroupId = null;
+            OutsourceWorkGroupItemId = null;
+            BundleNo = string.Empty;
             LotNo = string.Empty;
             ProductCode = string.Empty;
             ProductName = string.Empty;

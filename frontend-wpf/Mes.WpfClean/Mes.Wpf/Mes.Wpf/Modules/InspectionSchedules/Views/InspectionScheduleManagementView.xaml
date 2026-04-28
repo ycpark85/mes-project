@@ -247,6 +247,16 @@
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Header="묶음" Width="95">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding BundleNo}"
+                                           Style="{StaticResource CenteredTextBlockStyle}"
+                                           FontWeight="SemiBold"/>  
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    
                     <DataGridTemplateColumn Header="고객사" Width="170">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
@@ -299,6 +309,16 @@
                                 <DatePicker Style="{StaticResource CompactDatePickerStyle}"
                                             SelectedDate="{Binding InspectionDate, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                             SelectedDateChanged="RowInspectionDatePicker_OnSelectedDateChanged"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <DataGridTemplateColumn Header="외주상태" Width="110">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding DiecutStatus}"
+                                           Style="{StaticResource CenteredTextBlockStyle}"
+                                           FontWeight="SemiBold"/>  
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>

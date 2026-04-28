@@ -120,7 +120,11 @@
                             <Button Content="보현문화 외주관리"
                                     Style="{StaticResource BaseButtonStyle}"
                                     Margin="0,0,0,10"
-                                    Click="BohyunOutsourceManagement_Click"/>       
+                                    Click="BohyunOutsourceManagement_Click"/>
+                            <Button Content="보현문화 출고리스트"
+                                    Style="{StaticResource BaseButtonStyle}"
+                                    Margin="0,0,0,10"
+                                    Click="BohyunOutsourceShipmentList_Click"/> 
                         </StackPanel>
                     </Expander>
                     <Expander Header="검수메뉴"

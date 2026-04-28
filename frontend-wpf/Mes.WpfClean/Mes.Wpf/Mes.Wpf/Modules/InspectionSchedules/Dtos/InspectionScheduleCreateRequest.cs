@@ -13,5 +13,11 @@ namespace Mes.Wpf.Modules.InspectionSchedules.Dtos
 
         [JsonPropertyName("memo")]
         public string? Memo { get; set; }
+
+        [JsonPropertyName("outsource_work_group_id")]
+        public long? OutsourceWorkGroupId { get; set; }
+
+        [JsonPropertyName("outsource_work_group_item_id")]
+        public long? OutsourceWorkGroupItemId { get; set; }
     }
 }

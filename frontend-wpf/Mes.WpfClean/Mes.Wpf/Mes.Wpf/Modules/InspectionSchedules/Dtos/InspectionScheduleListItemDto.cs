@@ -14,6 +14,18 @@ namespace Mes.Wpf.Modules.InspectionSchedules.Dtos
         [JsonPropertyName("lot_no")]
         public string LotNo { get; set; } = string.Empty;
 
+        [JsonPropertyName("outsource_work_group_id")]
+        public long? OutsourceWorkGroupId { get; set; }
+
+        [JsonPropertyName("outsource_work_group_item_id")]
+        public long? OutsourceWorkGroupItemId { get; set; }
+
+        [JsonPropertyName("bundle_no")]
+        public string? BundleNo { get; set; }
+
+        [JsonPropertyName("diecut_status")]
+        public string? DiecutStatus { get; set; }
+
         [JsonPropertyName("inspection_date")]
         public DateTime InspectionDate { get; set; }
 

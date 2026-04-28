@@ -32,7 +32,9 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
             RefreshCommand = new AsyncRelayCommand(LoadAsync, () => !IsLoading);
             RegisterCommand = new AsyncRelayCommand(RegisterAsync, () => !IsLoading);
             ClearSelectionCommand = new AsyncRelayCommand(ClearSelectionAsync, () => !IsLoading);
-            SelectLotCommand = new AsyncRelayCommand<InspectionWorkInstructionLotListItemDto>(SelectLotAsync, item => !IsLoading && item != null);
+            SelectLotCommand = new AsyncRelayCommand<InspectionWorkInstructionLotListItemDto>(
+                SelectLotAsync,
+                item => !IsLoading && item != null);
 
             EditModel.Clear();
         }
@@ -42,8 +44,11 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
         public InspectionWorkInstructionEditModel EditModel { get; }
 
         public ICommand RefreshCommand { get; }
+
         public ICommand RegisterCommand { get; }
+
         public ICommand ClearSelectionCommand { get; }
+
         public ICommand SelectLotCommand { get; }
 
         public bool IsLoading
@@ -87,25 +92,28 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
             {
                 IsLoading = true;
 
-                var result = await _apiClient.GetAsync<InspectionWorkInstructionLotListResponseDto>(BuildListUrl());
+                var result = await _apiClient.GetAsync<InspectionWorkInstructionLotListResponseDto>(
+                    BuildListUrl());
+
                 if (!result.Success || result.Data == null)
                 {
                     Items.Clear();
                     TotalCount = 0;
                     SelectedItem = null;
                     EditModel.Clear();
-                    _messageService.ShowError(result.Message ?? "미등록 LOT 목록 조회에 실패했습니다.");
+
+                    _messageService.ShowError(result.Message ?? "검수 작업지시 대상 조회에 실패했습니다.");
                     return;
                 }
 
                 Items.Clear();
+
                 foreach (var item in result.Data.Items)
                 {
                     Items.Add(item);
                 }
 
                 TotalCount = Items.Count;
-
                 SelectedItem = null;
                 EditModel.Clear();
             }
@@ -130,6 +138,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
         {
             SelectedItem = null;
             EditModel.Clear();
+
             return Task.CompletedTask;
         }
 
@@ -142,7 +151,12 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                 return;
             }
 
-            var confirm = _messageService.Confirm($"LOT [{EditModel.LotNo}]의 검수 작업지시를 등록하시겠습니까?");
+            var confirmMessage = string.IsNullOrWhiteSpace(EditModel.BundleNo)
+                ? $"LOT [{EditModel.LotNo}]의 검수 작업지시를 등록하시겠습니까?"
+                : $"묶음 [{EditModel.BundleNo}] 전체 LOT에 같은 검수일정을 등록하시겠습니까?";
+
+            var confirm = _messageService.Confirm(confirmMessage);
+
             if (!confirm)
             {
                 return;
@@ -156,7 +170,11 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                 {
                     LotId = EditModel.LotId!.Value,
                     InspectionDate = EditModel.InspectionDate!.Value.Date,
-                    Memo = string.IsNullOrWhiteSpace(EditModel.Memo) ? null : EditModel.Memo.Trim()
+                    Memo = string.IsNullOrWhiteSpace(EditModel.Memo)
+                        ? null
+                        : EditModel.Memo.Trim(),
+                    OutsourceWorkGroupId = EditModel.OutsourceWorkGroupId,
+                    OutsourceWorkGroupItemId = EditModel.OutsourceWorkGroupItemId
                 };
 
                 var result = await _apiClient.PostAsync<InspectionScheduleCreateRequest, object>(
@@ -186,16 +204,16 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
         {
             var queryParts = new List<string>
             {
-                "page=1",
-                "size=200",
-                "inspection_schedule_registered=false"
+                "limit=200",
+                "offset=0"
             };
 
-            return $"{ApiRoutes.Lots}?{string.Join("&", queryParts)}";
+            return $"{ApiRoutes.InspectionWorkInstructionTargets}?{string.Join("&", queryParts)}";
         }
 
         private void NormalizeEditModel()
         {
+            EditModel.BundleNo = EditModel.BundleNo?.Trim() ?? string.Empty;
             EditModel.LotNo = EditModel.LotNo?.Trim() ?? string.Empty;
             EditModel.ProductCode = EditModel.ProductCode?.Trim().ToUpperInvariant() ?? string.Empty;
             EditModel.ProductName = EditModel.ProductName?.Trim() ?? string.Empty;

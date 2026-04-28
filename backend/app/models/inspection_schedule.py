@@ -41,6 +41,8 @@ class InspectionSchedule(Base):
         ),
         Index("ix_inspection_schedule__inspection_date", "inspection_date"),
         Index("ix_inspection_schedule__lot_id", "lot_id"),
+        Index("ix_inspection_schedule__outsource_work_group_id", "outsource_work_group_id"),
+        Index("ix_inspection_schedule__outsource_work_group_item_id", "outsource_work_group_item_id"),
     )
 
     inspection_schedule_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
@@ -50,6 +52,23 @@ class InspectionSchedule(Base):
         ForeignKey("lot.lot_id", ondelete="CASCADE"),
         nullable=False,
     )
+    outsource_work_group_id: Mapped[Optional[int]] = mapped_column(
+        BigInteger,
+        ForeignKey(
+            "outsource_work_group.outsource_work_group_id",
+            ondelete="SET NULL",
+        ),
+        nullable=True,
+    )
+
+    outsource_work_group_item_id: Mapped[Optional[int]] = mapped_column(
+        BigInteger,
+        ForeignKey(
+            "outsource_work_group_item.outsource_work_group_item_id",
+            ondelete="SET NULL",
+        ),
+        nullable=True,
+    )   
 
     inspection_date: Mapped[date] = mapped_column(Date, nullable=False)
 
@@ -77,3 +96,5 @@ class InspectionSchedule(Base):
     received_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     lot = relationship("Lot")
+    outsource_work_group = relationship("OutsourceWorkGroup")
+    outsource_work_group_item = relationship("OutsourceWorkGroupItem")

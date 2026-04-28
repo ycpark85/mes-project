@@ -390,6 +390,23 @@ namespace Mes.Wpf.Views.Shell
             await viewModel.InitializeAsync();
         }
 
+        private async void BohyunOutsourceShipmentList_Click(object sender, RoutedEventArgs e)
+        {
+            var view = new BohyunOutsourceShipmentListView();
+
+            var viewModel = new BohyunOutsourceShipmentListViewModel(_apiClient, _messageService);
+
+            view.DataContext = viewModel;
+
+            MainContent.Content = view;
+            MainContent.Visibility = Visibility.Visible;
+
+            HeaderTitle.Text = "보현문화 출고리스트";
+            HeaderSubtitle.Text = "보현문화 출고완료 내역 확인";
+
+            await viewModel.InitializeAsync();
+        }
+
 
     }
 }

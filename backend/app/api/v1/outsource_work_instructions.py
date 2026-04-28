@@ -1,64 +1,61 @@
 from __future__ import annotations
+
+from datetime import date, datetime, timezone
 from functools import lru_cache
-from datetime import date, datetime,timezone
+from io import BytesIO
 from pathlib import Path
-from fastapi.responses import StreamingResponse
 from typing import List
 from uuid import uuid4
-from openpyxl import load_workbook
+
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status as http_status
-from sqlalchemy import func, select, exists, or_
-from sqlalchemy.orm import Session,aliased
-from io import BytesIO
 from fastapi.responses import StreamingResponse
-from openpyxl import Workbook
-from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+from openpyxl import load_workbook
 from openpyxl.cell.cell import MergedCell
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+from sqlalchemy import exists, func, or_, select
+from sqlalchemy.orm import Session, aliased
+
 from app.core.config import settings
 from app.db.session import get_db
 from app.models.lot import Lot
 from app.models.order_line import OrderLine
-from app.models.outsource_work_instruction import OutsourceWorkInstruction
-from app.models.outsource_work_instruction_file import OutsourceWorkInstructionFile
-from app.models.outsource_work_instruction_item import OutsourceWorkInstructionItem
 from app.models.outsource_purchase_order import OutsourcePurchaseOrder
 from app.models.outsource_purchase_order_item import OutsourcePurchaseOrderItem
 from app.models.outsource_work_group import OutsourceWorkGroup
 from app.models.outsource_work_group_item import OutsourceWorkGroupItem
+from app.models.outsource_work_instruction import OutsourceWorkInstruction
+from app.models.outsource_work_instruction_file import OutsourceWorkInstructionFile
+from app.models.outsource_work_instruction_item import OutsourceWorkInstructionItem
 from app.models.partner import Partner
 from app.models.product import Product
-
-
-
-
 from app.models.routing_template import RoutingTemplate
 from app.schemas.outsource_work_instruction import (
+    BohyunOutsourceGroupItemOut,
+    BohyunOutsourceGroupListItemOut,
+    BohyunOutsourceGroupListOut,
+    BohyunOutsourceGroupShipBatch,
+    BohyunOutsourceGroupWorkDone,
+    OutsourcePurchaseOrderCreate,
+    OutsourcePurchaseOrderCutSnapshot,
+    OutsourcePurchaseOrderItemOut,
+    OutsourcePurchaseOrderListItemOut,
+    OutsourcePurchaseOrderListOut,
+    OutsourcePurchaseOrderOut,
+    OutsourcePurchaseOrderPrintSnapshot,
     OutsourcePurchaseOrderTargetListOut,
     OutsourcePurchaseOrderTargetOut,
+    OutsourcePurchaseOrderWorkDone,
+    OutsourceWorkInstructionBatchCreate,
+    OutsourceWorkInstructionBatchOut,
     OutsourceWorkInstructionCandidateLotListOut,
     OutsourceWorkInstructionCandidateLotOut,
     OutsourceWorkInstructionCreate,
     OutsourceWorkInstructionFileOut,
+    OutsourceWorkInstructionGroupCreate,
+    OutsourceWorkInstructionGroupItemCreate,
     OutsourceWorkInstructionItemOut,
     OutsourceWorkInstructionOut,
     OutsourceWorkInstructionPlateUploadOut,
-    OutsourceWorkInstructionBatchCreate,
-    OutsourceWorkInstructionBatchOut,
-    OutsourcePurchaseOrderCreate,
-    OutsourcePurchaseOrderOut,
-    OutsourcePurchaseOrderItemOut,
-    OutsourcePurchaseOrderWorkDone,
-    OutsourceWorkInstructionGroupCreate,
-    OutsourceWorkInstructionGroupItemCreate,
-    OutsourcePurchaseOrderCutSnapshot,
-    OutsourcePurchaseOrderPrintSnapshot,
-    OutsourcePurchaseOrderListOut,
-    OutsourcePurchaseOrderListItemOut,
-    BohyunOutsourceGroupItemOut,
-    BohyunOutsourceGroupListItemOut,
-    BohyunOutsourceGroupListOut,
-    BohyunOutsourceGroupWorkDone,
-    BohyunOutsourceGroupShipBatch,    
 )
 
 router = APIRouter(prefix="/outsource-work-instructions", tags=["OutsourceWorkInstruction"])
@@ -85,15 +82,65 @@ def _to_bohyun_ui_status(db_status: str | None) -> str:
 
     return BOHYUN_UI_STATUS_WAITING_INBOUND
 
-def _get_bohyun_inbound_source_name(
-    process_type: str) -> str | None:
-    if process_type == "CUT":
-        return "코리아라벨"
 
-    if process_type == "PRINT":
-        return "상림UV"
+def _get_outsource_partner_name_by_process_type(process_type: str) -> str | None:
+    normalized = (process_type or "").strip().upper()
+
+    if normalized == "CUT":
+        return "코리아라벨 주식회사"
+
+    if normalized == "PRINT":
+        return "주식회사 상림크리에이티브"
+
+    if normalized == "DIECUT":
+        return "보현문화"
 
     return None
+
+
+def _get_bohyun_inbound_source_name(process_type: str) -> str | None:
+    return _get_outsource_partner_name_by_process_type(process_type)
+
+
+def _get_outsource_partner_by_process_type(
+    db: Session,
+    process_type: str,
+) -> Partner | None:
+    partner_name = _get_outsource_partner_name_by_process_type(process_type)
+
+    if not partner_name:
+        return None
+
+    return (
+        db.execute(
+            select(Partner)
+            .where(Partner.name == partner_name)
+            .where(Partner.partner_type == "VENDOR")
+            .where(Partner.is_active.is_(True))
+        )
+        .scalar_one_or_none()
+    )
+
+
+def _require_outsource_partner_by_process_type(
+    db: Session,
+    process_type: str,
+) -> Partner:
+    outsource_partner = _get_outsource_partner_by_process_type(
+        db=db,
+        process_type=process_type,
+    )
+
+    if outsource_partner is None:
+        partner_name = _get_outsource_partner_name_by_process_type(process_type)
+
+        raise HTTPException(
+            status_code=409,
+            detail=f"외주처 정보가 없습니다. partner 테이블에 [{partner_name}] VENDOR 거래처를 등록해주세요.",
+        )
+
+    return outsource_partner
+
 
 def _normalize_ext(filename: str) -> str:
     return Path(filename).suffix.lower().strip()
@@ -178,12 +225,38 @@ def _get_available_process_types(template_name: str | None) -> List[str]:
 
     return ["CUT"]
 
+def _get_primary_outsource_process_type(template_name: str | None) -> str:
+    available_process_types = _get_available_process_types(template_name)
+
+    if "PRINT" in available_process_types:
+        return "PRINT"
+
+    return "CUT"
+
+
+
+def _is_bohyun_target_work_group(
+    process_type: str,
+    template_name: str | None,
+) -> bool:
+    available_process_types = _get_available_process_types(template_name)
+    is_print_product = "PRINT" in available_process_types
+
+    if process_type == "CUT":
+        return not is_print_product
+
+    if process_type == "PRINT":
+        return is_print_product
+
+    if process_type == "DIECUT":
+        return True
+
+    return False    
+
 
 def _get_inbound_partner_name(process_type: str, template_name: str) -> str:
     available = _get_available_process_types(template_name)
 
-    # 무지제품: CUT만 가능
-    # 인쇄제품: CUT + PRINT 가능
     is_print_product = "PRINT" in available
 
     if process_type == "CUT":
@@ -193,18 +266,6 @@ def _get_inbound_partner_name(process_type: str, template_name: str) -> str:
         return "상림"
 
     return ""
-
-def _get_fixed_outsource_partner_name(process_type: str) -> str:
-    normalized = (process_type or "").strip().upper()
-
-    if normalized == "CUT":
-        return "코리아 라벨"
-
-    if normalized == "PRINT":
-        return "상림UV"
-
-    raise HTTPException(status_code=409, detail="Invalid process_type")
-
 
 
 def _build_instruction_out(
@@ -260,7 +321,10 @@ def _build_instruction_out(
             )
             for item, lot, order_line, product in item_rows
         ],
-        files=[OutsourceWorkInstructionFileOut.model_validate(x, from_attributes=True) for x in file_rows],
+        files=[
+            OutsourceWorkInstructionFileOut.model_validate(x, from_attributes=True)
+            for x in file_rows
+        ],
     )
 
 
@@ -315,6 +379,7 @@ def _create_instruction(
     db.flush()
     return instruction
 
+
 def _filter_groups_for_lot_ids(
     groups: list[OutsourceWorkInstructionGroupCreate],
     allowed_lot_ids: list[int],
@@ -338,6 +403,7 @@ def _filter_groups_for_lot_ids(
             continue
 
         sheet_cut_count = group.sheet_cut_count
+
         if group.is_bundle:
             sheet_cut_count = sum(item.cuts_per_sheet for item in filtered_items)
 
@@ -355,12 +421,14 @@ def _filter_groups_for_lot_ids(
 
     return filtered_groups
 
+
 def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
 def _generate_purchase_order_no(db: Session, process_type: str, order_date) -> str:
-    prefix = "OCUT" if process_type == "CUT" else "OPRT"
+    normalized = (process_type or "").strip().upper()
+    prefix = "OCUT" if normalized == "CUT" else "OPRT"
     ymd = order_date.strftime("%Y%m%d")
     like_prefix = f"{prefix}-{ymd}-"
 
@@ -405,6 +473,7 @@ def _build_purchase_order_out(
     )
 
     items: list[OutsourcePurchaseOrderItemOut] = []
+
     for item, lot, order_line, product in item_rows:
         items.append(
             OutsourcePurchaseOrderItemOut(
@@ -460,6 +529,7 @@ def _build_purchase_order_out(
         items=items,
     )
 
+
 def _resolve_group_sheet_cut_count(
     db: Session,
     process_type: str,
@@ -473,6 +543,7 @@ def _resolve_group_sheet_cut_count(
             )
 
         cuts_sum = sum(item.cuts_per_sheet for item in group_payload.items)
+
         if cuts_sum != group_payload.sheet_cut_count:
             raise HTTPException(
                 status_code=409,
@@ -506,6 +577,7 @@ def _resolve_group_sheet_cut_count(
         detail="cut_qty_per_panel or sheet_cut_count is required for non-bundle group",
     )
 
+
 def _create_work_groups(
     db: Session,
     instruction_id: int,
@@ -520,7 +592,7 @@ def _create_work_groups(
         )
 
         work_group = OutsourceWorkGroup(
-           outsource_work_instruction_id=instruction_id,
+            outsource_work_instruction_id=instruction_id,
             group_seq=group_payload.group_seq,
             process_type=process_type,
             is_bundle=group_payload.is_bundle,
@@ -534,6 +606,7 @@ def _create_work_groups(
 
         for item in group_payload.items:
             expected_output_qty = item.expected_output_qty
+
             if expected_output_qty is None:
                 expected_output_qty = group_payload.sheet_qty * item.cuts_per_sheet
 
@@ -546,6 +619,8 @@ def _create_work_groups(
                     remark=item.remark,
                 )
             )
+
+
 @router.get("/bohyun-groups", response_model=BohyunOutsourceGroupListOut)
 def get_bohyun_outsource_groups(
     date_from: date | None = Query(default=None),
@@ -575,12 +650,6 @@ def get_bohyun_outsource_groups(
         )
         .join(Partner, Partner.partner_id == OutsourceWorkInstruction.partner_id)
         .where(OutsourceWorkGroup.process_type.in_(("CUT", "PRINT", "DIECUT")))
-        .where(
-            or_(
-                OutsourceWorkGroup.status.is_(None),
-                OutsourceWorkGroup.status != BOHYUN_DB_STATUS_SHIPPED,
-            )
-        )
         .order_by(
             OutsourceWorkInstruction.instruction_date.desc(),
             OutsourceWorkInstruction.instruction_no.desc(),
@@ -605,6 +674,13 @@ def get_bohyun_outsource_groups(
         stmt = stmt.where(OutsourceWorkGroup.status == BOHYUN_DB_STATUS_WORK_DONE)
     elif status == BOHYUN_UI_STATUS_SHIPPED:
         stmt = stmt.where(OutsourceWorkGroup.status == BOHYUN_DB_STATUS_SHIPPED)
+    else:
+        stmt = stmt.where(
+            or_(
+                OutsourceWorkGroup.status.is_(None),
+                OutsourceWorkGroup.status != BOHYUN_DB_STATUS_SHIPPED,
+            )
+        )
 
     if q:
         like = f"%{q.strip()}%"
@@ -614,7 +690,10 @@ def get_bohyun_outsource_groups(
             .join(Lot, Lot.lot_id == OutsourceWorkGroupItem.lot_id)
             .join(OrderLine, OrderLine.order_line_id == Lot.order_line_id)
             .join(Product, Product.product_id == Lot.product_id)
-            .where(OutsourceWorkGroupItem.outsource_work_group_id == OutsourceWorkGroup.outsource_work_group_id)
+            .where(
+                OutsourceWorkGroupItem.outsource_work_group_id
+                == OutsourceWorkGroup.outsource_work_group_id
+            )
             .where(
                 (Lot.lot_no.like(like))
                 | (OrderLine.order_no.like(like))
@@ -637,10 +716,20 @@ def get_bohyun_outsource_groups(
     for work_group, instruction, partner in rows:
         group_item_rows = (
             db.execute(
-                select(OutsourceWorkGroupItem, Lot, OrderLine, Product)
+                select(
+                    OutsourceWorkGroupItem,
+                    Lot,
+                    OrderLine,
+                    Product,
+                    RoutingTemplate,
+                )
                 .join(Lot, Lot.lot_id == OutsourceWorkGroupItem.lot_id)
                 .join(OrderLine, OrderLine.order_line_id == Lot.order_line_id)
                 .join(Product, Product.product_id == Lot.product_id)
+                .join(
+                    RoutingTemplate,
+                    RoutingTemplate.routing_template_id == Product.routing_template_id,
+                )
                 .where(
                     OutsourceWorkGroupItem.outsource_work_group_id
                     == work_group.outsource_work_group_id
@@ -653,11 +742,26 @@ def get_bohyun_outsource_groups(
             .all()
         )
 
+        if not group_item_rows:
+            continue
+
+        target_group_item_rows = [
+            row
+            for row in group_item_rows
+            if _is_bohyun_target_work_group(
+                work_group.process_type,
+                row[4].template_name,
+            )
+        ]
+
+        if not target_group_item_rows:
+            continue
+
         group_items: list[BohyunOutsourceGroupItemOut] = []
         lot_nos: list[str] = []
         product_names: list[str] = []
 
-        for group_item, lot, order_line, product in group_item_rows:
+        for group_item, lot, order_line, product, routing_template in target_group_item_rows:
             if lot.lot_no:
                 lot_nos.append(lot.lot_no)
 
@@ -690,9 +794,7 @@ def get_bohyun_outsource_groups(
                 process_type=work_group.process_type,
                 partner_id=partner.partner_id,
                 partner_name=partner.name,
-                inbound_source_name=_get_bohyun_inbound_source_name(
-                      work_group.process_type,
-                ),
+                inbound_source_name=_get_bohyun_inbound_source_name(work_group.process_type),
                 is_bundle=work_group.is_bundle,
                 group_seq=work_group.group_seq,
                 sheet_qty=work_group.sheet_qty,
@@ -715,6 +817,52 @@ def get_bohyun_outsource_groups(
         items=result_items,
         total_count=len(result_items),
     )
+
+
+@router.post("/bohyun-groups/ship-batch")
+def ship_bohyun_outsource_groups(
+    payload: BohyunOutsourceGroupShipBatch,
+    db: Session = Depends(get_db),
+):
+    requested_group_ids = list(dict.fromkeys(payload.group_ids))
+
+    work_groups = (
+        db.execute(
+            select(OutsourceWorkGroup)
+            .where(OutsourceWorkGroup.outsource_work_group_id.in_(requested_group_ids))
+        )
+        .scalars()
+        .all()
+    )
+
+    if len(work_groups) != len(requested_group_ids):
+        raise HTTPException(
+            status_code=404,
+            detail="Some outsource work groups were not found",
+        )
+
+    invalid_groups = [
+        work_group
+        for work_group in work_groups
+        if work_group.status != BOHYUN_DB_STATUS_WORK_DONE
+    ]
+
+    if invalid_groups:
+        raise HTTPException(
+            status_code=409,
+            detail="Only work done groups can be shipped",
+        )
+
+    now = datetime.now()
+
+    for work_group in work_groups:
+        work_group.status = BOHYUN_DB_STATUS_SHIPPED
+        work_group.shipped_at = now
+
+    db.commit()
+
+    return {"success": True}
+
 
 @router.post("/bohyun-groups/{group_id}/inbound")
 def inbound_bohyun_outsource_group(
@@ -752,7 +900,8 @@ def inbound_bohyun_outsource_group(
 
     db.commit()
 
-    return {"success": True}            
+    return {"success": True}
+
 
 @router.post("/bohyun-groups/{group_id}/work-done")
 def complete_bohyun_outsource_group_work(
@@ -793,9 +942,7 @@ def complete_bohyun_outsource_group_work(
                 OutsourceWorkGroupItem.outsource_work_group_id
                 == work_group.outsource_work_group_id
             )
-            .order_by(
-                OutsourceWorkGroupItem.outsource_work_group_item_id.asc()
-            )
+            .order_by(OutsourceWorkGroupItem.outsource_work_group_item_id.asc())
         )
         .scalars()
         .all()
@@ -808,9 +955,7 @@ def complete_bohyun_outsource_group_work(
         )
 
     for group_item in group_items:
-        group_item.actual_output_qty = (
-            payload.work_done_sheet_qty * group_item.cuts_per_sheet
-        )
+        group_item.actual_output_qty = payload.work_done_sheet_qty * group_item.cuts_per_sheet
 
     work_group.status = BOHYUN_DB_STATUS_WORK_DONE
     work_group.work_done_at = datetime.now()
@@ -823,64 +968,18 @@ def complete_bohyun_outsource_group_work(
     return {"success": True}
 
 
-@router.post("/bohyun-groups/ship-batch")
-def ship_bohyun_outsource_groups(
-    payload: BohyunOutsourceGroupShipBatch,
-    db: Session = Depends(get_db),
-):
-    requested_group_ids = list(dict.fromkeys(payload.group_ids))
-
-    work_groups = (
-        db.execute(
-            select(OutsourceWorkGroup)
-            .where(
-                OutsourceWorkGroup.outsource_work_group_id.in_(
-                    requested_group_ids
-                )
-            )
-        )
-        .scalars()
-        .all()
-    )
-
-    if len(work_groups) != len(requested_group_ids):
-        raise HTTPException(
-            status_code=404,
-            detail="Some outsource work groups were not found",
-        )
-
-    invalid_groups = [
-        work_group
-        for work_group in work_groups
-        if work_group.status != BOHYUN_DB_STATUS_WORK_DONE
-    ]
-
-    if invalid_groups:
-        raise HTTPException(
-            status_code=409,
-            detail="Only work done groups can be shipped",
-        )
-
-    now = datetime.now()
-
-    for work_group in work_groups:
-        work_group.status = BOHYUN_DB_STATUS_SHIPPED
-        work_group.shipped_at = now
-
-    db.commit()
-
-    return {"success": True}
-
 @router.get("/purchase-orders/{outsource_purchase_order_id}/excel")
 def download_outsource_purchase_order_excel(
     outsource_purchase_order_id: int,
     db: Session = Depends(get_db),
 ):
     purchase_order = db.get(OutsourcePurchaseOrder, outsource_purchase_order_id)
+
     if not purchase_order:
         raise HTTPException(status_code=404, detail="Outsource purchase order not found")
 
     result = _build_purchase_order_out(db, purchase_order)
+
     if purchase_order.process_type == "PRINT":
         file_bytes = _build_print_purchase_order_excel_template_bytes(
             result,
@@ -898,12 +997,9 @@ def download_outsource_purchase_order_excel(
         BytesIO(file_bytes),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={
-            "Content-Disposition": f'attachment; filename="{filename}"'
+            "Content-Disposition": f'attachment; filename="{filename}"',
         },
     )
-
-
-
 
 
 @lru_cache(maxsize=1)
@@ -915,6 +1011,7 @@ def _get_cut_template_bytes() -> bytes:
     )
     return template_path.read_bytes()
 
+
 @lru_cache(maxsize=1)
 def _get_print_template_bytes() -> bytes:
     template_path = (
@@ -923,6 +1020,7 @@ def _get_print_template_bytes() -> bytes:
         / "outsource_purchase_order_print_template.xlsx"
     )
     return template_path.read_bytes()
+
 
 def _build_print_purchase_order_excel_template_bytes(
     purchase_order: OutsourcePurchaseOrderOut,
@@ -935,7 +1033,6 @@ def _build_print_purchase_order_excel_template_bytes(
     snapshot = form_snapshot or {}
     rows = snapshot.get("rows") or []
 
-    # 헤더
     _set_merged_safe(ws, merged_map, "D5", snapshot.get("request_company_name") or "")
     _set_merged_safe(ws, merged_map, "F5", snapshot.get("requester_name") or "")
     _set_merged_safe(
@@ -945,7 +1042,6 @@ def _build_print_purchase_order_excel_template_bytes(
         snapshot.get("purchase_order_date") or str(purchase_order.purchase_order_date),
     )
 
-    # 본문
     start_row = 8
     max_rows = 16
 
@@ -963,7 +1059,6 @@ def _build_print_purchase_order_excel_template_bytes(
         _set_merged_safe(ws, merged_map, f"J{r}", row_data.get("material_type", ""))
         _set_merged_safe(ws, merged_map, f"K{r}", row_data.get("remark", ""))
 
-    # 하단 비고
     _set_merged_safe(ws, merged_map, "D24", snapshot.get("footer_remark") or "")
 
     stream = BytesIO()
@@ -977,6 +1072,7 @@ def _build_merged_cell_map(ws) -> dict[str, str]:
 
     for merged_range in ws.merged_cells.ranges:
         start_ref = merged_range.start_cell.coordinate
+
         for row in ws[merged_range.coord]:
             for cell in row:
                 merged_map[cell.coordinate] = start_ref
@@ -987,6 +1083,7 @@ def _build_merged_cell_map(ws) -> dict[str, str]:
 def _set_merged_safe(ws, merged_map: dict[str, str], cell_ref: str, value) -> None:
     target_ref = merged_map.get(cell_ref, cell_ref)
     ws[target_ref] = value
+
 
 def _build_purchase_order_excel_template_bytes(
     purchase_order: OutsourcePurchaseOrderOut,
@@ -999,8 +1096,6 @@ def _build_purchase_order_excel_template_bytes(
     snapshot = form_snapshot or {}
     rows = snapshot.get("rows") or []
 
-    # 템플릿에 이미 들어있는 라벨/고정문구는 건드리지 않음
-    # 값이 들어가는 공란 셀만 채움
     _set_merged_safe(ws, merged_map, "E5", snapshot.get("request_company_name") or "")
     _set_merged_safe(ws, merged_map, "I5", snapshot.get("requester_name") or "")
     _set_merged_safe(
@@ -1016,7 +1111,6 @@ def _build_purchase_order_excel_template_bytes(
         snapshot.get("raw_material_inbound_text") or "",
     )
 
-    # 본문 16행만 사용, 실제 rows 개수만큼만 채움
     start_row = 10
     max_rows = 16
 
@@ -1030,7 +1124,6 @@ def _build_purchase_order_excel_template_bytes(
         _set_merged_safe(ws, merged_map, f"O{r}", row_data.get("cut_spec_text", ""))
         _set_merged_safe(ws, merged_map, f"P{r}", row_data.get("sheet_qty_text", ""))
 
-    # 하단 재고/비고
     _set_merged_safe(ws, merged_map, "H30", snapshot.get("stock_500_width_text") or "")
     _set_merged_safe(ws, merged_map, "J30", snapshot.get("stock_600_width_text") or "")
     _set_merged_safe(ws, merged_map, "O30", snapshot.get("stock_600_tpt0268_text") or "")
@@ -1040,6 +1133,7 @@ def _build_purchase_order_excel_template_bytes(
     wb.save(stream)
     stream.seek(0)
     return stream.getvalue()
+
 
 @router.post(
     "/upload-plate-data",
@@ -1155,6 +1249,7 @@ def create_outsource_work_instruction(
         raise HTTPException(status_code=409, detail="Invalid process_type")
 
     partner = db.get(Partner, payload.partner_id)
+
     if not partner or not partner.is_active:
         raise HTTPException(status_code=404, detail="Partner not found or inactive")
 
@@ -1227,7 +1322,6 @@ def create_outsource_work_instruction(
             groups=payload.groups,
         )
 
-
     for lot_id in payload.lot_ids:
         db.add(
             OutsourceWorkInstructionItem(
@@ -1250,32 +1344,8 @@ def create_outsource_work_instruction(
     db.commit()
     db.refresh(instruction)
 
-    item_rows = (
-        db.execute(
-            select(OutsourceWorkInstructionItem, Lot, OrderLine, Product)
-            .join(Lot, Lot.lot_id == OutsourceWorkInstructionItem.lot_id)
-            .join(OrderLine, OrderLine.order_line_id == Lot.order_line_id)
-            .join(Product, Product.product_id == Lot.product_id)
-            .where(
-                OutsourceWorkInstructionItem.outsource_work_instruction_id
-                == instruction.outsource_work_instruction_id
-            )
-        )
-        .all()
-    )
-
-    file_rows = (
-        db.execute(
-            select(OutsourceWorkInstructionFile).where(
-                OutsourceWorkInstructionFile.outsource_work_instruction_id
-                == instruction.outsource_work_instruction_id
-            )
-        )
-        .scalars()
-        .all()
-    )
-
     return _build_instruction_out(db, instruction)
+
 
 @router.post(
     "/batch",
@@ -1290,6 +1360,7 @@ def create_outsource_work_instruction_batch(
 
     for group in payload.groups:
         partner = db.get(Partner, group.customer_partner_id)
+
         if not partner or not partner.is_active:
             raise HTTPException(status_code=404, detail="Partner not found or inactive")
 
@@ -1298,6 +1369,7 @@ def create_outsource_work_instruction_batch(
                 status_code=409,
                 detail="Bundle work instruction allows only one plate data file",
             )
+
         if len(group.lot_ids) > 1 and len(group.files) == 0:
             raise HTTPException(
                 status_code=409,
@@ -1322,13 +1394,14 @@ def create_outsource_work_instruction_batch(
         print_lot_ids: list[int] = []
 
         for lot, order_line, product, routing_template in lots:
-            available = _get_available_process_types(routing_template.template_name)
+            primary_process_type = _get_primary_outsource_process_type(
+                routing_template.template_name
+            )
 
-            if "CUT" in available:
-                cut_lot_ids.append(lot.lot_id)
-
-            if "PRINT" in available:
+            if primary_process_type == "PRINT":
                 print_lot_ids.append(lot.lot_id)
+            else:
+                cut_lot_ids.append(lot.lot_id)
 
         if not cut_lot_ids and not print_lot_ids:
             raise HTTPException(status_code=409, detail="No available process for selected lots")
@@ -1347,7 +1420,7 @@ def create_outsource_work_instruction_batch(
                 if exists_registered:
                     raise HTTPException(
                         status_code=409,
-                        detail=f"Some lots are already registered for process CUT",
+                        detail="Some lots are already registered for process CUT",
                     )
 
         if print_lot_ids:
@@ -1366,8 +1439,9 @@ def create_outsource_work_instruction_batch(
                         status_code=409,
                         detail="Some lots are already registered for process PRINT",
                     )
+
         cut_groups = _filter_groups_for_lot_ids(group.groups, cut_lot_ids) if group.groups else []
-        print_groups = _filter_groups_for_lot_ids(group.groups, print_lot_ids) if group.groups else []        
+        print_groups = _filter_groups_for_lot_ids(group.groups, print_lot_ids) if group.groups else []
 
         if cut_lot_ids:
             created_instructions.append(
@@ -1403,7 +1477,10 @@ def create_outsource_work_instruction_batch(
         db.refresh(instruction)
 
     return OutsourceWorkInstructionBatchOut(
-        items=[_build_instruction_out(db, instruction) for instruction in created_instructions]
+        items=[
+            _build_instruction_out(db, instruction)
+            for instruction in created_instructions
+        ]
     )
 
 
@@ -1416,8 +1493,17 @@ def get_purchase_order_targets(
     db: Session = Depends(get_db),
 ):
     normalized_process_type = (process_type or "").strip().upper()
+
     if normalized_process_type not in {"CUT", "PRINT"}:
-        raise HTTPException(status_code=400, detail="process_type must be CUT or PRINT")
+        raise HTTPException(
+            status_code=400,
+            detail="process_type must be CUT or PRINT",
+        )
+
+    outsource_partner = _require_outsource_partner_by_process_type(
+        db=db,
+        process_type=normalized_process_type,
+    )
 
     order_partner = aliased(Partner)
 
@@ -1457,7 +1543,8 @@ def get_purchase_order_targets(
             .join(order_partner, order_partner.partner_id == OrderLine.partner_id)
             .join(Partner, Partner.partner_id == OutsourceWorkInstruction.partner_id)
             .where(
-                OutsourceWorkInstruction.process_type == process_type,
+                OutsourceWorkInstruction.process_type == normalized_process_type,
+                OutsourceWorkGroup.process_type == normalized_process_type,
                 OutsourceWorkGroupItem.lot_id == Lot.lot_id,
                 ~exists(
                     select(1)
@@ -1469,9 +1556,9 @@ def get_purchase_order_targets(
                     )
                     .where(
                         OutsourcePurchaseOrderItem.lot_id == Lot.lot_id,
-                        OutsourcePurchaseOrder.process_type == process_type,
+                        OutsourcePurchaseOrder.process_type == normalized_process_type,
                     )
-                )
+                ),
             )
             .order_by(
                 OutsourceWorkInstruction.instruction_date.desc(),
@@ -1490,6 +1577,7 @@ def get_purchase_order_targets(
     )
 
     file_map: dict[int, list[OutsourceWorkInstructionFileOut]] = {}
+
     if instruction_ids:
         file_rows = (
             db.execute(
@@ -1503,12 +1591,15 @@ def get_purchase_order_targets(
 
         for file_row in file_rows:
             instruction_id = file_row.outsource_work_instruction_id
-            
+
             if instruction_id not in file_map:
                 file_map[instruction_id] = []
 
             file_map[instruction_id].append(
-                OutsourceWorkInstructionFileOut.model_validate(file_row, from_attributes=True)
+                OutsourceWorkInstructionFileOut.model_validate(
+                    file_row,
+                    from_attributes=True,
+                )
             )
 
     items: list[OutsourcePurchaseOrderTargetOut] = []
@@ -1521,12 +1612,14 @@ def get_purchase_order_targets(
         lot,
         order_line,
         product,
-        outsource_partner,
+        instruction_partner,
         routing_template,
         source_partner,
     ) in rows:
-        inbound_partner_name = _get_inbound_partner_name(normalized_process_type, routing_template.template_name)
-        fixed_outsource_partner_name = _get_fixed_outsource_partner_name(normalized_process_type)
+        inbound_partner_name = _get_inbound_partner_name(
+            normalized_process_type,
+            routing_template.template_name,
+        )
         available = _get_available_process_types(routing_template.template_name)
         is_print_product = "PRINT" in available
 
@@ -1549,8 +1642,8 @@ def get_purchase_order_targets(
                 customer_partner_id=source_partner.partner_id,
                 customer_partner_name=source_partner.name,
                 lot_qty=lot.lot_qty,
-                outsource_partner_id=0,
-                outsource_partner_name=fixed_outsource_partner_name,
+                outsource_partner_id=outsource_partner.partner_id,
+                outsource_partner_name=outsource_partner.name,
                 inbound_partner_name=inbound_partner_name,
                 is_bundle=instruction.is_bundle,
                 memo=instruction.memo,
@@ -1567,6 +1660,7 @@ def get_purchase_order_targets(
 
     return OutsourcePurchaseOrderTargetListOut(items=items)
 
+
 @router.post(
     "/purchase-orders",
     response_model=OutsourcePurchaseOrderOut,
@@ -1576,19 +1670,27 @@ def create_outsource_purchase_order(
     payload: OutsourcePurchaseOrderCreate,
     db: Session = Depends(get_db),
 ):
-    if payload.process_type not in ("CUT", "PRINT"):
+    normalized_process_type = (payload.process_type or "").strip().upper()
+
+    if normalized_process_type not in ("CUT", "PRINT"):
         raise HTTPException(status_code=409, detail="Invalid process_type")
 
-    outsource_partner = db.get(Partner, payload.outsource_partner_id)
-    if not outsource_partner or not outsource_partner.is_active:
-        raise HTTPException(status_code=404, detail="Outsource partner not found or inactive")
+    outsource_partner = _require_outsource_partner_by_process_type(
+        db=db,
+        process_type=normalized_process_type,
+    )
 
     if payload.inbound_partner_id:
         inbound_partner = db.get(Partner, payload.inbound_partner_id)
+
         if not inbound_partner or not inbound_partner.is_active:
-            raise HTTPException(status_code=404, detail="Inbound partner not found or inactive")
+            raise HTTPException(
+                status_code=404,
+                detail="Inbound partner not found or inactive",
+            )
 
     lot_ids = [item.lot_id for item in payload.items]
+
     lot_count = (
         db.execute(
             select(func.count())
@@ -1604,11 +1706,11 @@ def create_outsource_purchase_order(
     form_snapshot_json = None
 
     if payload.form_snapshot:
-        if payload.process_type == "CUT":
+        if normalized_process_type == "CUT":
             form_snapshot_json = OutsourcePurchaseOrderCutSnapshot.model_validate(
                 payload.form_snapshot
             ).model_dump()
-        elif payload.process_type == "PRINT":
+        elif normalized_process_type == "PRINT":
             form_snapshot_json = OutsourcePurchaseOrderPrintSnapshot.model_validate(
                 payload.form_snapshot
             ).model_dump()
@@ -1616,13 +1718,13 @@ def create_outsource_purchase_order(
     purchase_order = OutsourcePurchaseOrder(
         purchase_order_no=_generate_purchase_order_no(
             db,
-            payload.process_type,
+            normalized_process_type,
             payload.purchase_order_date,
         ),
         purchase_order_date=payload.purchase_order_date,
         due_date=payload.due_date,
-        process_type=payload.process_type,
-        outsource_partner_id=payload.outsource_partner_id,
+        process_type=normalized_process_type,
+        outsource_partner_id=outsource_partner.partner_id,
         inbound_partner_id=payload.inbound_partner_id,
         work_description=payload.work_description,
         remark=payload.remark,
@@ -1653,6 +1755,7 @@ def create_outsource_purchase_order(
 
     return _build_purchase_order_out(db, purchase_order)
 
+
 @router.get(
     "/purchase-orders/{outsource_purchase_order_id}",
     response_model=OutsourcePurchaseOrderOut,
@@ -1662,10 +1765,12 @@ def get_outsource_purchase_order(
     db: Session = Depends(get_db),
 ):
     purchase_order = db.get(OutsourcePurchaseOrder, outsource_purchase_order_id)
+
     if not purchase_order:
         raise HTTPException(status_code=404, detail="Outsource purchase order not found")
 
     return _build_purchase_order_out(db, purchase_order)
+
 
 @router.post(
     "/purchase-orders/items/{outsource_purchase_order_item_id}/vendor-receive",
@@ -1676,6 +1781,7 @@ def vendor_receive_outsource_purchase_order_item(
     db: Session = Depends(get_db),
 ):
     item = db.get(OutsourcePurchaseOrderItem, outsource_purchase_order_item_id)
+
     if not item:
         raise HTTPException(status_code=404, detail="Outsource purchase order item not found")
 
@@ -1726,6 +1832,7 @@ def work_done_outsource_purchase_order_item(
     db: Session = Depends(get_db),
 ):
     item = db.get(OutsourcePurchaseOrderItem, outsource_purchase_order_item_id)
+
     if not item:
         raise HTTPException(status_code=404, detail="Outsource purchase order item not found")
 
@@ -1781,6 +1888,7 @@ def ship_outsource_purchase_order_item(
     db: Session = Depends(get_db),
 ):
     item = db.get(OutsourcePurchaseOrderItem, outsource_purchase_order_item_id)
+
     if not item:
         raise HTTPException(status_code=404, detail="Outsource purchase order item not found")
 
@@ -1820,6 +1928,7 @@ def ship_outsource_purchase_order_item(
         lot_qty=lot.lot_qty if lot else None,
     )
 
+
 @router.get(
     "/purchase-orders",
     response_model=OutsourcePurchaseOrderListOut,
@@ -1846,6 +1955,7 @@ def get_outsource_purchase_orders(
         stmt = stmt.where(OutsourcePurchaseOrder.purchase_order_date <= date_to)
 
     normalized_process_type = (process_type or "").strip().upper()
+
     if normalized_process_type in {"CUT", "PRINT"}:
         stmt = stmt.where(OutsourcePurchaseOrder.process_type == normalized_process_type)
 
@@ -1856,21 +1966,25 @@ def get_outsource_purchase_orders(
             | (OutsourcePurchaseOrder.remark.like(like))
         )
 
-    rows = db.execute(stmt).scalars().all()
+    purchase_orders = db.execute(stmt).scalars().all()
 
-    return OutsourcePurchaseOrderListOut(
-        items=[
+    items: list[OutsourcePurchaseOrderListItemOut] = []
+
+    for purchase_order in purchase_orders:
+        outsource_partner = db.get(Partner, purchase_order.outsource_partner_id)
+
+        items.append(
             OutsourcePurchaseOrderListItemOut(
                 outsource_purchase_order_id=purchase_order.outsource_purchase_order_id,
                 purchase_order_no=purchase_order.purchase_order_no,
                 purchase_order_date=purchase_order.purchase_order_date,
                 process_type=purchase_order.process_type,
-                outsource_partner_id=0,
-                outsource_partner_name=_get_fixed_outsource_partner_name(purchase_order.process_type),
+                outsource_partner_id=purchase_order.outsource_partner_id,
+                outsource_partner_name=outsource_partner.name if outsource_partner else None,
                 qty=purchase_order.qty,
                 remark=purchase_order.remark,
                 created_at=purchase_order.created_at,
             )
-            for purchase_order in rows
-        ]
-    )
+        )
+
+    return OutsourcePurchaseOrderListOut(items=items)

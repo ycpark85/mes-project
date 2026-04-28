@@ -78,7 +78,12 @@
                     <DataGridTextColumn Header="LOT 번호"
                                         Binding="{Binding LotNo}"
                                         Width="130"
-                                        ElementStyle="{StaticResource CenteredTextBlockStyle}" />       
+                                        ElementStyle="{StaticResource CenteredTextBlockStyle}" />
+                    
+                    <DataGridTextColumn Header="묶음번호"
+                                        Binding="{Binding BundleNo}"
+                                        Width="150"
+                                        IsReadOnly="True"/> 
 
                     <DataGridTextColumn Header="품목코드"
                                         Binding="{Binding ProductCode}"
