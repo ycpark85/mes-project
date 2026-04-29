@@ -225,6 +225,8 @@ def _get_available_process_types(template_name: str | None) -> List[str]:
 
     return ["CUT"]
 
+    
+
 def _get_primary_outsource_process_type(template_name: str | None) -> str:
     available_process_types = _get_available_process_types(template_name)
 
@@ -253,6 +255,12 @@ def _is_bohyun_target_work_group(
 
     return False    
 
+def _is_purchase_order_target_process(
+    process_type: str,
+    template_name: str | None,
+) -> bool:
+    available_process_types = _get_available_process_types(template_name)
+    return process_type in available_process_types
 
 def _get_inbound_partner_name(process_type: str, template_name: str) -> str:
     available = _get_available_process_types(template_name)
@@ -353,6 +361,7 @@ def _create_instruction(
         _create_work_groups(
             db=db,
             instruction_id=instruction.outsource_work_instruction_id,
+            instruction_date=instruction_date,
             process_type=process_type,
             groups=groups,
         )
@@ -451,6 +460,60 @@ def _generate_purchase_order_no(db: Session, process_type: str, order_date) -> s
         seq = 1
 
     return f"{prefix}-{ymd}-{seq:03d}"
+
+def _get_work_group_month_code(value: date) -> str:
+    month_codes = {
+        1: "A",
+        2: "B",
+        3: "C",
+        4: "D",
+        5: "E",
+        6: "F",
+        7: "G",
+        8: "H",
+        9: "I",
+        10: "J",
+        11: "K",
+        12: "L",
+    }
+
+    return month_codes[value.month]
+
+
+def _generate_work_group_seq(
+    db: Session,
+    instruction_date: date,
+) -> str:
+    prefix = f"{_get_work_group_month_code(instruction_date)}{instruction_date.day:02d}"
+
+    existing_codes = (
+        db.execute(
+            select(OutsourceWorkGroup.group_seq)
+            .join(
+                OutsourceWorkInstruction,
+                OutsourceWorkInstruction.outsource_work_instruction_id
+                == OutsourceWorkGroup.outsource_work_instruction_id,
+            )
+            .where(OutsourceWorkInstruction.instruction_date == instruction_date)
+            .where(OutsourceWorkGroup.group_seq.like(f"{prefix}%"))
+            .order_by(OutsourceWorkGroup.group_seq.desc())
+            .with_for_update()
+        )
+        .scalars()
+        .all()
+    )
+
+    max_seq = 0
+
+    for code in existing_codes:
+        suffix = str(code).replace(prefix, "", 1)
+
+        if not suffix.isdigit():
+            continue
+
+        max_seq = max(max_seq, int(suffix))
+
+    return f"{prefix}{max_seq + 1}"
 
 
 def _build_purchase_order_out(
@@ -581,6 +644,7 @@ def _resolve_group_sheet_cut_count(
 def _create_work_groups(
     db: Session,
     instruction_id: int,
+    instruction_date: date,
     process_type: str,
     groups: list[OutsourceWorkInstructionGroupCreate],
 ) -> None:
@@ -593,7 +657,7 @@ def _create_work_groups(
 
         work_group = OutsourceWorkGroup(
             outsource_work_instruction_id=instruction_id,
-            group_seq=group_payload.group_seq,
+            group_seq=_generate_work_group_seq(db, instruction_date),
             process_type=process_type,
             is_bundle=group_payload.is_bundle,
             sheet_qty=group_payload.sheet_qty,
@@ -601,24 +665,6 @@ def _create_work_groups(
             sheet_cut_count=sheet_cut_count,
             remark=group_payload.remark,
         )
-        db.add(work_group)
-        db.flush()
-
-        for item in group_payload.items:
-            expected_output_qty = item.expected_output_qty
-
-            if expected_output_qty is None:
-                expected_output_qty = group_payload.sheet_qty * item.cuts_per_sheet
-
-            db.add(
-                OutsourceWorkGroupItem(
-                    outsource_work_group_id=work_group.outsource_work_group_id,
-                    lot_id=item.lot_id,
-                    cuts_per_sheet=item.cuts_per_sheet,
-                    expected_output_qty=expected_output_qty,
-                    remark=item.remark,
-                )
-            )
 
 
 @router.get("/bohyun-groups", response_model=BohyunOutsourceGroupListOut)
@@ -1318,6 +1364,7 @@ def create_outsource_work_instruction(
         _create_work_groups(
             db=db,
             instruction_id=instruction.outsource_work_instruction_id,
+            instruction_date=payload.instruction_date,
             process_type=payload.process_type,
             groups=payload.groups,
         )
@@ -1543,8 +1590,6 @@ def get_purchase_order_targets(
             .join(order_partner, order_partner.partner_id == OrderLine.partner_id)
             .join(Partner, Partner.partner_id == OutsourceWorkInstruction.partner_id)
             .where(
-                OutsourceWorkInstruction.process_type == normalized_process_type,
-                OutsourceWorkGroup.process_type == normalized_process_type,
                 OutsourceWorkGroupItem.lot_id == Lot.lot_id,
                 ~exists(
                     select(1)
@@ -1616,6 +1661,12 @@ def get_purchase_order_targets(
         routing_template,
         source_partner,
     ) in rows:
+        if not _is_purchase_order_target_process(
+            normalized_process_type,
+            routing_template.template_name,
+        ):
+            continue
+
         inbound_partner_name = _get_inbound_partner_name(
             normalized_process_type,
             routing_template.template_name,
@@ -1629,7 +1680,7 @@ def get_purchase_order_targets(
                 outsource_work_instruction_item_id=item.outsource_work_instruction_item_id,
                 instruction_no=instruction.instruction_no,
                 instruction_date=instruction.instruction_date,
-                process_type=item.process_type,
+                process_type=normalized_process_type,
                 lot_id=lot.lot_id,
                 lot_no=lot.lot_no,
                 is_rework=lot.parent_lot_id is not None,
@@ -1691,6 +1742,12 @@ def create_outsource_purchase_order(
 
     lot_ids = [item.lot_id for item in payload.items]
 
+    if len(lot_ids) != len(set(lot_ids)):
+        raise HTTPException(
+            status_code=409,
+            detail="Duplicate lot exists in purchase order items",
+        )
+
     lot_count = (
         db.execute(
             select(func.count())
@@ -1702,6 +1759,56 @@ def create_outsource_purchase_order(
 
     if int(lot_count) != len(set(lot_ids)):
         raise HTTPException(status_code=409, detail="Some lots do not exist")
+
+    already_ordered_lot_id = (
+        db.execute(
+            select(OutsourcePurchaseOrderItem.lot_id)
+            .join(
+                OutsourcePurchaseOrder,
+                OutsourcePurchaseOrder.outsource_purchase_order_id
+                == OutsourcePurchaseOrderItem.outsource_purchase_order_id,
+            )
+            .where(OutsourcePurchaseOrder.process_type == normalized_process_type)
+            .where(OutsourcePurchaseOrderItem.lot_id.in_(lot_ids))
+            .limit(1)
+        )
+        .scalar_one_or_none()
+    )
+
+    if already_ordered_lot_id is not None:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"LOT is already purchase ordered for process "
+                f"{normalized_process_type}: lot_id={already_ordered_lot_id}"
+            ),
+        )
+
+    lot_rows = (
+        db.execute(
+            select(Lot, Product, RoutingTemplate)
+            .join(Product, Product.product_id == Lot.product_id)
+            .join(
+                RoutingTemplate,
+                RoutingTemplate.routing_template_id == Product.routing_template_id,
+            )
+            .where(Lot.lot_id.in_(lot_ids))
+        )
+        .all()
+    )
+
+    for lot, product, routing_template in lot_rows:
+        if not _is_purchase_order_target_process(
+            normalized_process_type,
+            routing_template.template_name,
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"LOT {lot.lot_no} cannot be purchase ordered for "
+                    f"process {normalized_process_type}"
+                ),
+            )
 
     form_snapshot_json = None
 

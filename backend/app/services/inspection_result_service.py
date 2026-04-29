@@ -14,6 +14,7 @@ from app.models.inspection_defect_attachment import InspectionDefectAttachment
 from app.models.inspection_result import InspectionResult
 from app.models.inspection_schedule import InspectionSchedule
 from app.models.lot import Lot
+from app.models.order_line import OrderLine
 from app.schemas.inspection_result import DefectLineIn
 
 
@@ -21,7 +22,7 @@ def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
-ACTIVE_SCHEDULE_STATUSES = ("WAITING", "RECEIVED", "IN_PROGRESS", "PARTIAL_DONE")
+
 
 
 def upsert_inspection_result(
@@ -120,6 +121,7 @@ def upsert_inspection_result(
     created_next_id: Optional[int] = None
 
     # 8) schedule 상태 전이 + 후속 처리
+    # 8) schedule 상태 전이 + 후속 처리
     if is_partial:
         sch.status = "PARTIAL_DONE"
         sch.finished_at = now
@@ -131,12 +133,18 @@ def upsert_inspection_result(
             inspection_date=next_inspection_date,  # type: ignore[arg-type]
             received_at=base_received_at,
         )
+
+        db.flush()
+        _sync_lot_status_from_inspection_schedules(db, lot_id=sch.lot_id)
     else:
         sch.status = "DONE"
         sch.finished_at = now
-        _maybe_close_lot(db, lot_id=sch.lot_id)
+
+        db.flush()
+        _sync_lot_status_from_inspection_schedules(db, lot_id=sch.lot_id)
 
     db.flush()
+
     return result, sch.status, created_next_id
 
 
@@ -234,18 +242,69 @@ def _create_next_schedule(
     return new_sch.inspection_schedule_id
 
 
-def _maybe_close_lot(db: Session, *, lot_id: int) -> None:
-    exists_active = db.execute(
-        select(InspectionSchedule.inspection_schedule_id)
+def _sync_order_line_status_from_lot(db: Session, *, lot: Lot) -> None:
+    exists_not_done_lot = db.execute(
+        select(Lot.lot_id)
         .where(
-            InspectionSchedule.lot_id == lot_id,
-            InspectionSchedule.status.in_(ACTIVE_SCHEDULE_STATUSES),
+            Lot.order_line_id == lot.order_line_id,
+            Lot.status != "CANCELED",
+            Lot.status != "DONE",
         )
         .limit(1)
     ).scalar_one_or_none()
 
-    if exists_active is None:
-        lot = db.get(Lot, lot_id)
-        if lot:
-            lot.status = "DONE"
-            db.flush()
+    if exists_not_done_lot is not None:
+        return
+
+    order_line = db.get(OrderLine, lot.order_line_id)
+    if order_line and order_line.status != "CANCELED":
+        order_line.status = "DONE"
+
+    db.flush()
+
+
+def _sync_lot_status_from_inspection_schedules(
+    db: Session,
+    *,
+    lot_id: int,
+) -> None:
+    lot = db.get(Lot, lot_id)
+    if not lot:
+        return
+
+    statuses = (
+        db.execute(
+            select(InspectionSchedule.status)
+            .where(
+                InspectionSchedule.lot_id == lot_id,
+                InspectionSchedule.status != "CANCELED",
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    if not statuses:
+        return
+
+    next_status: str | None = None
+
+    if "IN_PROGRESS" in statuses:
+        next_status = "IN_PROGRESS"
+    elif "RECEIVED" in statuses:
+        next_status = "RECEIVED"
+    elif "PARTIAL_DONE" in statuses:
+        next_status = "PARTIAL_DONE"
+    elif "WAITING" in statuses:
+        next_status = "WAITING"
+    elif all(status == "DONE" for status in statuses):
+        next_status = "DONE"
+
+    if next_status is None:
+        return
+
+    lot.status = next_status
+    db.flush()
+
+    if next_status == "DONE":
+        _sync_order_line_status_from_lot(db, lot=lot)

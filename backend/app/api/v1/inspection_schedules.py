@@ -116,6 +116,70 @@ def _to_diecut_status_label(status: str | None) -> str | None:
 
     return status
 
+def _sync_order_line_status_from_lot(db: Session, *, lot: Lot) -> None:
+    exists_not_done_lot = db.execute(
+        select(Lot.lot_id)
+        .where(
+            Lot.order_line_id == lot.order_line_id,
+            Lot.status != "CANCELED",
+            Lot.status != "DONE",
+        )
+        .limit(1)
+    ).scalar_one_or_none()
+
+    if exists_not_done_lot is not None:
+        return
+
+    order_line = db.get(OrderLine, lot.order_line_id)
+    if order_line and order_line.status != "CANCELED":
+        order_line.status = "DONE"
+
+
+def _sync_lot_status_from_inspection_schedules(
+    db: Session,
+    *,
+    lot_id: int,
+) -> None:
+    lot = db.get(Lot, lot_id)
+    if not lot:
+        return
+
+    statuses = (
+        db.execute(
+            select(InspectionSchedule.status)
+            .where(
+                InspectionSchedule.lot_id == lot_id,
+                InspectionSchedule.status != "CANCELED",
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    if not statuses:
+        return
+
+    next_status: str | None = None
+
+    if "IN_PROGRESS" in statuses:
+        next_status = "IN_PROGRESS"
+    elif "RECEIVED" in statuses:
+        next_status = "RECEIVED"
+    elif "PARTIAL_DONE" in statuses:
+        next_status = "PARTIAL_DONE"
+    elif "WAITING" in statuses:
+        next_status = "WAITING"
+    elif all(status == "DONE" for status in statuses):
+        next_status = "DONE"
+
+    if next_status is None:
+        return
+
+    lot.status = next_status
+
+    if next_status == "DONE":
+        _sync_order_line_status_from_lot(db, lot=lot)
+
 
 
 @router.post("", response_model=InspectionScheduleOut, status_code=status.HTTP_201_CREATED)
@@ -414,9 +478,13 @@ def receive_inspection_schedule(
             schedule.status = "RECEIVED"
             schedule.received_at = now
 
+        db.flush()
+
+        for lot_id in {schedule.lot_id for schedule in group_schedules}:
+            _sync_lot_status_from_inspection_schedules(db, lot_id=lot_id)
+
         db.commit()
         db.refresh(obj)
-
         return obj
 
     shipped_count = db.execute(
@@ -437,9 +505,11 @@ def receive_inspection_schedule(
     obj.status = "RECEIVED"
     obj.received_at = _utcnow()
 
+    db.flush()
+    _sync_lot_status_from_inspection_schedules(db, lot_id=obj.lot_id)
+
     db.commit()
     db.refresh(obj)
-
     return obj
 
 
@@ -463,6 +533,9 @@ def start_inspection_schedule(
     obj.status = "IN_PROGRESS"
     obj.started_at = _utcnow()
 
+    db.flush()
+    _sync_lot_status_from_inspection_schedules(db, lot_id=obj.lot_id)
+
     db.commit()
     db.refresh(obj)
     return obj
@@ -480,7 +553,12 @@ def cancel_inspection_schedule(
     if obj.status not in ("WAITING", "RECEIVED"):
         raise HTTPException(status_code=409, detail="Only WAITING/RECEIVED schedule can be canceled")
 
+    lot_id = obj.lot_id
+
     obj.status = "CANCELED"
+
+    db.flush()
+    _sync_lot_status_from_inspection_schedules(db, lot_id=lot_id)
 
     db.commit()
     db.refresh(obj)

@@ -72,7 +72,7 @@ class OutsourceWorkGroup(Base):
         nullable=False,
     )
 
-    group_seq: Mapped[int] = mapped_column(Integer, nullable=False)
+    group_seq: Mapped[str] = mapped_column(String(20), nullable=False)
     process_type: Mapped[str] = mapped_column(String(20), nullable=False)
     is_bundle: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     sheet_qty: Mapped[int] = mapped_column(BigInteger, nullable=False)

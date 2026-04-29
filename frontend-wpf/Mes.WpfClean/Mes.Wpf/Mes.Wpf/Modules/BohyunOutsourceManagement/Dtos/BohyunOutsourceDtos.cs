@@ -45,7 +45,7 @@ namespace Mes.Wpf.Modules.BohyunOutsourceManagement.Dtos
         public bool IsBundle { get; set; }
 
         [JsonPropertyName("group_seq")]
-        public int GroupSeq { get; set; }
+        public string? GroupSeq { get; set; }
 
         [JsonPropertyName("sheet_qty")]
         public int SheetQty { get; set; }
@@ -150,7 +150,7 @@ namespace Mes.Wpf.Modules.BohyunOutsourceManagement.Dtos
         public string InboundSourceName { get; set; } = string.Empty;
 
         public bool IsBundle { get; set; }
-        public int GroupSeq { get; set; }
+        public string? GroupSeq { get; set; }
 
         public int SheetQty { get; set; }
         public int? WorkDoneSheetQty { get; set; }

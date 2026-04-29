@@ -201,7 +201,7 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
     public sealed class OutsourceWorkInstructionGroupCreateRequest
     {
         [JsonPropertyName("group_seq")]
-        public int GroupSeq { get; set; }
+        public string GroupSeq { get; set; } = string.Empty;
 
         [JsonPropertyName("is_bundle")]
         public bool IsBundle { get; set; }

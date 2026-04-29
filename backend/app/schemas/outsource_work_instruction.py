@@ -19,7 +19,7 @@ class OutsourceWorkInstructionGroupItemCreate(BaseModel):
 
 
 class OutsourceWorkInstructionGroupCreate(BaseModel):
-    group_seq: int = Field(..., ge=1)
+    group_seq: Optional[str] = None
     is_bundle: bool = False
     sheet_qty: int = Field(..., gt=0)
     length_m: Optional[Decimal] = Field(default=None, ge=0)
@@ -349,7 +349,7 @@ class BohyunOutsourceGroupListItemOut(BaseModel):
     inbound_source_name: Optional[str] = None
     
     is_bundle: bool
-    group_seq: int
+    group_seq: str
 
     sheet_qty: int
     work_done_sheet_qty: Optional[int] = None

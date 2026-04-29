@@ -21,7 +21,9 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
         private bool _isLoading;
         private OutsourceWorkInstructionDraftEditModel? _selectedDraft;
 
-        public OutsourceWorkInstructionPageViewModel(IApiClient apiClient, IMessageService messageService)
+        public OutsourceWorkInstructionPageViewModel(
+            IApiClient apiClient,
+            IMessageService messageService)
         {
             _apiClient = apiClient;
             _messageService = messageService;
@@ -99,6 +101,7 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
         private void AddDraft()
         {
             var selectedLots = CandidateLots.Where(x => x.IsSelected).ToList();
+
             if (selectedLots.Count == 0)
             {
                 _messageService.ShowWarning("작업지시에 추가할 LOT를 선택하세요.");
@@ -106,9 +109,18 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
             }
 
             var firstPartnerId = selectedLots[0].CustomerPartnerId;
+
             if (selectedLots.Any(x => x.CustomerPartnerId != firstPartnerId))
             {
-                _messageService.ShowWarning("같은 거래처 기준 LOT만 묶을 수 있습니다.");
+                _messageService.ShowWarning("묶음 작업지시는 같은 거래처 LOT만 선택할 수 있습니다.");
+                return;
+            }
+
+            var firstProcessType = GetPrimaryProcessType(selectedLots[0]);
+
+            if (selectedLots.Any(x => GetPrimaryProcessType(x) != firstProcessType))
+            {
+                _messageService.ShowWarning("묶음 작업지시는 같은 프로세스 타입 LOT만 선택할 수 있습니다. 무지는 무지끼리, 인쇄는 인쇄끼리 선택하세요.");
                 return;
             }
 
@@ -211,12 +223,13 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
                     return;
                 }
 
-                SelectedDraft.Files.Add(new OutsourceWorkInstructionFileCreateRequest
-                {
-                    FileName = upload.Data.FileName,
-                    FilePath = upload.Data.FilePath,
-                    ContentType = upload.Data.ContentType
-                });
+                SelectedDraft.Files.Add(
+                    new OutsourceWorkInstructionFileCreateRequest
+                    {
+                        FileName = upload.Data.FileName,
+                        FilePath = upload.Data.FilePath,
+                        ContentType = upload.Data.ContentType
+                    });
             }
 
             OnPropertyChanged(nameof(SelectedDraft));
@@ -243,6 +256,48 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
                     _messageService.ShowWarning("묶음 작업지시는 판데이터 파일 1개만 첨부할 수 있습니다.");
                     return;
                 }
+
+                if (!draft.LengthM.HasValue || draft.LengthM.Value <= 0)
+                {
+                    _messageService.ShowWarning($"원단 m수를 입력하지 않은 작업지시 행이 있습니다.\nLOT: {draft.LotSummary}");
+                    return;
+                }
+
+                if (draft.SheetQty <= 0)
+                {
+                    _messageService.ShowWarning($"원단 m수 또는 판 길이를 확인하세요. 계산된 장수가 없습니다.\nLOT: {draft.LotSummary}");
+                    return;
+                }
+
+                foreach (var lot in draft.Lots)
+                {
+                    if (!TryResolveCutsPerSheet(lot, out _))
+                    {
+                        _messageService.ShowWarning($"절수 정보가 없는 LOT가 있습니다.\nLOT: {lot.LotNo}");
+                        return;
+                    }
+                }
+
+                if (draft.IsBundle)
+                {
+                    if (!draft.SheetCutCount.HasValue || draft.SheetCutCount.Value <= 0)
+                    {
+                        _messageService.ShowWarning($"묶음 작업지시는 총 절수를 입력해야 합니다.\nLOT: {draft.LotSummary}");
+                        return;
+                    }
+
+                    var cutsPerSheetSum = draft.Lots.Sum(x =>
+                    {
+                        TryResolveCutsPerSheet(x, out var cutsPerSheet);
+                        return cutsPerSheet;
+                    });
+
+                    if (cutsPerSheetSum != draft.SheetCutCount.Value)
+                    {
+                        _messageService.ShowWarning($"묶음 작업지시의 LOT별 절수 합계와 총 절수가 일치하지 않습니다.\nLOT: {draft.LotSummary}");
+                        return;
+                    }
+                }
             }
 
             var request = new OutsourceWorkInstructionBatchCreateRequest
@@ -252,21 +307,24 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
 
             foreach (var draft in Drafts)
             {
-                request.Groups.Add(new OutsourceWorkInstructionBatchGroupCreateRequest
-                {
-                    CustomerPartnerId = draft.CustomerPartnerId,
-                    Memo = string.IsNullOrWhiteSpace(draft.Memo) ? null : draft.Memo.Trim(),
-                    LotIds = draft.Lots.Select(x => x.LotId).ToList(),
-                    Files = draft.Files.ToList(),
-                    WorkGroups = BuildWorkGroups(draft)
-                });
+                request.Groups.Add(
+                    new OutsourceWorkInstructionBatchGroupCreateRequest
+                    {
+                        CustomerPartnerId = draft.CustomerPartnerId,
+                        Memo = string.IsNullOrWhiteSpace(draft.Memo) ? null : draft.Memo.Trim(),
+                        LotIds = draft.Lots.Select(x => x.LotId).ToList(),
+                        Files = draft.Files.ToList(),
+                        WorkGroups = BuildWorkGroups(draft)
+                    });
             }
 
             IsLoading = true;
 
             try
             {
-                var result = await _apiClient.PostAsync<OutsourceWorkInstructionBatchCreateRequest, OutsourceWorkInstructionBatchResponseDto>(
+                var result = await _apiClient.PostAsync<
+                    OutsourceWorkInstructionBatchCreateRequest,
+                    OutsourceWorkInstructionBatchResponseDto>(
                     ApiRoutes.OutsourceWorkInstructionBatch,
                     request);
 
@@ -280,6 +338,7 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
                 SelectedDraft = null;
 
                 _messageService.ShowInfo("외주 작업지시가 일괄 저장되었습니다.");
+
                 await LoadCandidatesAsync();
             }
             finally
@@ -288,7 +347,19 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
             }
         }
 
-        private List<OutsourceWorkInstructionGroupCreateRequest> BuildWorkGroups(OutsourceWorkInstructionDraftEditModel draft)
+        private static string GetPrimaryProcessType(OutsourceWorkInstructionCandidateLotRowModel lot)
+        {
+            if (lot.AvailableProcessTypes.Any(x =>
+                    string.Equals(x, "PRINT", StringComparison.OrdinalIgnoreCase)))
+            {
+                return "PRINT";
+            }
+
+            return "CUT";
+        }
+
+        private static List<OutsourceWorkInstructionGroupCreateRequest> BuildWorkGroups(
+            OutsourceWorkInstructionDraftEditModel draft)
         {
             var groups = new List<OutsourceWorkInstructionGroupCreateRequest>();
 
@@ -299,7 +370,7 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
 
             var group = new OutsourceWorkInstructionGroupCreateRequest
             {
-                GroupSeq = 1,
+               
                 IsBundle = draft.IsBundle,
                 SheetQty = ResolveSheetQty(draft),
                 LengthM = draft.LengthM,
@@ -311,25 +382,27 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
             {
                 var cutsPerSheet = ResolveCutsPerSheet(draft, lot);
 
-                group.Items.Add(new OutsourceWorkInstructionGroupItemCreateRequest
-                {
-                    LotId = lot.LotId,
-                    CutsPerSheet = cutsPerSheet,
-                    ExpectedOutputQty = ResolveExpectedOutputQty(draft, cutsPerSheet),
-                    Remark = null
-                });
+                group.Items.Add(
+                    new OutsourceWorkInstructionGroupItemCreateRequest
+                    {
+                        LotId = lot.LotId,
+                        CutsPerSheet = cutsPerSheet,
+                        ExpectedOutputQty = ResolveExpectedOutputQty(draft, cutsPerSheet),
+                        Remark = null
+                    });
             }
 
             groups.Add(group);
+
             return groups;
         }
 
-        private int ResolveSheetQty(OutsourceWorkInstructionDraftEditModel draft)
+        private static int ResolveSheetQty(OutsourceWorkInstructionDraftEditModel draft)
         {
             return draft.SheetQty > 0 ? draft.SheetQty : 1;
         }
 
-        private int? ResolveSheetCutCount(OutsourceWorkInstructionDraftEditModel draft)
+        private static int? ResolveSheetCutCount(OutsourceWorkInstructionDraftEditModel draft)
         {
             if (!draft.IsBundle)
             {
@@ -349,10 +422,11 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
             }
 
             var manualSum = draft.Lots.Sum(x => x.ManualCutsPerSheet ?? 0);
+
             return manualSum > 0 ? manualSum : null;
         }
 
-        private int ResolveCutsPerSheet(
+        private static int ResolveCutsPerSheet(
             OutsourceWorkInstructionDraftEditModel draft,
             OutsourceWorkInstructionCandidateLotRowModel lot)
         {
@@ -379,9 +453,32 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
             return 1;
         }
 
-        private int? ResolveExpectedOutputQty(OutsourceWorkInstructionDraftEditModel draft, int cutsPerSheet)
+        private static bool TryResolveCutsPerSheet(
+            OutsourceWorkInstructionCandidateLotRowModel lot,
+            out int cutsPerSheet)
+        {
+            if (lot.ManualCutsPerSheet.HasValue && lot.ManualCutsPerSheet.Value > 0)
+            {
+                cutsPerSheet = lot.ManualCutsPerSheet.Value;
+                return true;
+            }
+
+            if (lot.CutQtyPerPanel.HasValue && lot.CutQtyPerPanel.Value > 0)
+            {
+                cutsPerSheet = lot.CutQtyPerPanel.Value;
+                return true;
+            }
+
+            cutsPerSheet = 0;
+            return false;
+        }
+
+        private static int? ResolveExpectedOutputQty(
+            OutsourceWorkInstructionDraftEditModel draft,
+            int cutsPerSheet)
         {
             var sheetQty = ResolveSheetQty(draft);
+
             if (sheetQty <= 0 || cutsPerSheet <= 0)
             {
                 return null;
@@ -394,6 +491,7 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
         {
             Drafts.Clear();
             SelectedDraft = null;
+
             await LoadCandidatesAsync();
         }
     }
