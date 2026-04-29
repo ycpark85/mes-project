@@ -665,6 +665,26 @@ def _create_work_groups(
             sheet_cut_count=sheet_cut_count,
             remark=group_payload.remark,
         )
+        db.add(work_group)
+        db.flush()
+
+        for item in group_payload.items:
+            expected_output_qty = item.expected_output_qty
+
+            if expected_output_qty is None:
+                expected_output_qty = group_payload.sheet_qty * item.cuts_per_sheet
+
+            db.add(
+                OutsourceWorkGroupItem(
+                    outsource_work_group_id=work_group.outsource_work_group_id,
+                    lot_id=item.lot_id,
+                    cuts_per_sheet=item.cuts_per_sheet,
+                    expected_output_qty=expected_output_qty,
+                    remark=item.remark,
+                )
+            )
+
+    db.flush()
 
 
 @router.get("/bohyun-groups", response_model=BohyunOutsourceGroupListOut)
