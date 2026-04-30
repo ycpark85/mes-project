@@ -663,6 +663,11 @@ def _create_work_groups(
             sheet_qty=group_payload.sheet_qty,
             length_m=group_payload.length_m,
             sheet_cut_count=sheet_cut_count,
+            fabric_lot_no=(
+                group_payload.fabric_lot_no.strip()
+                if group_payload.fabric_lot_no and group_payload.fabric_lot_no.strip()
+                else None
+            ),
             remark=group_payload.remark,
         )
         db.add(work_group)
@@ -1725,6 +1730,7 @@ def get_purchase_order_targets(
                 cut_qty_per_panel=product.cut_qty_per_panel,
                 length_m=work_group.length_m,
                 sheet_qty=work_group.sheet_qty,
+                
                 is_print_product=is_print_product,
             )
         )

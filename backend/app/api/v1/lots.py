@@ -17,7 +17,29 @@ from app.models.partner import Partner
 from app.models.process import Process
 from app.models.product import Product
 from app.models.routing_template_step import RoutingTemplateStep
-from app.schemas.lot import LotCreate, LotOut, LotDetailOut, LotListOut, PageMeta
+from app.models.defect_type import DefectType
+from app.models.inspection_defect import InspectionDefect
+from app.models.inspection_result import InspectionResult
+from app.models.inspection_schedule import InspectionSchedule
+from app.models.outsource_work_group import OutsourceWorkGroup
+from app.models.outsource_work_group_item import OutsourceWorkGroupItem
+from app.models.outsource_work_instruction import OutsourceWorkInstruction
+
+from app.schemas.lot import (
+    LotCreate,
+    LotOut,
+    LotDetailOut,
+    LotListOut,
+    LotTraceDetailOut,
+    LotTraceProgressOut,
+    LotTraceBasicOut,
+    LotTraceProductOrderOut,
+    LotTraceOutsourceWorkOut,
+    LotTraceInspectionOut,
+    LotTraceInspectionDefectOut,
+    PageMeta,
+
+)
 
 router = APIRouter(prefix="/lots", tags=["Lot"])
 
@@ -259,6 +281,269 @@ def list_lots(
         meta=PageMeta(page=page, size=size, total=total),
     )
 
+def _build_lot_trace_progress(
+    outsource_works: list[LotTraceOutsourceWorkOut],
+    inspection: LotTraceInspectionOut | None,
+) -> LotTraceProgressOut:
+    outsource_instruction_created = len(outsource_works) > 0
+
+    outsource_work_done = any(
+        x.work_done_sheet_qty is not None
+        or x.status in ("WORK_DONE", "SHIPPED")
+        for x in outsource_works
+    )
+
+    inspection_done = (
+        inspection is not None
+        and inspection.inspection_result_id is not None
+        and inspection.schedule_status in ("DONE", "PARTIAL_DONE")
+    )
+
+    return LotTraceProgressOut(
+        lot_created=True,
+        outsource_instruction_created=outsource_instruction_created,
+        outsource_work_done=outsource_work_done,
+        inspection_done=inspection_done,
+    )
+
+@router.get("/{lot_id}/detail", response_model=LotTraceDetailOut)
+def get_lot_trace_detail(
+    lot_id: int,
+    db: Session = Depends(get_db),
+):
+    row = (
+        db.execute(
+            select(Lot, OrderLine, Product, Partner)
+            .join(OrderLine, OrderLine.order_line_id == Lot.order_line_id)
+            .join(Product, Product.product_id == Lot.product_id)
+            .join(Partner, Partner.partner_id == OrderLine.partner_id)
+            .where(Lot.lot_id == lot_id)
+        )
+        .one_or_none()
+    )
+
+    if row is None:
+        raise HTTPException(status_code=404, detail="LOT not found")
+
+    lot, order_line, product, partner = row
+
+    parent_lot_no = None
+
+    if lot.parent_lot_id:
+        parent_lot = db.get(Lot, lot.parent_lot_id)
+        parent_lot_no = parent_lot.lot_no if parent_lot else None
+
+    outsource_rows = (
+        db.execute(
+            select(
+                OutsourceWorkGroup,
+                OutsourceWorkGroupItem,
+                OutsourceWorkInstruction,
+            )
+            .join(
+                OutsourceWorkGroupItem,
+                OutsourceWorkGroupItem.outsource_work_group_id
+                == OutsourceWorkGroup.outsource_work_group_id,
+            )
+            .join(
+                OutsourceWorkInstruction,
+                OutsourceWorkInstruction.outsource_work_instruction_id
+                == OutsourceWorkGroup.outsource_work_instruction_id,
+            )
+            .where(OutsourceWorkGroupItem.lot_id == lot_id)
+            .order_by(
+                OutsourceWorkInstruction.instruction_date.desc(),
+                OutsourceWorkInstruction.instruction_no.desc(),
+                OutsourceWorkGroup.group_seq.asc(),
+                OutsourceWorkGroupItem.outsource_work_group_item_id.asc(),
+            )
+        )
+        .all()
+    )
+
+    outsource_works: list[LotTraceOutsourceWorkOut] = []
+
+    for work_group, work_group_item, instruction in outsource_rows:
+        group_expected_output_qty = (
+            int(work_group.sheet_qty) * int(work_group.sheet_cut_count)
+        )
+
+        confirmed_outsource_qty = None
+
+        if work_group.work_done_sheet_qty is not None:
+            confirmed_outsource_qty = (
+                int(work_group.work_done_sheet_qty)
+                * int(work_group.sheet_cut_count)
+            )
+
+        outsource_works.append(
+            LotTraceOutsourceWorkOut(
+                outsource_work_group_id=work_group.outsource_work_group_id,
+                outsource_work_group_item_id=work_group_item.outsource_work_group_item_id,
+                outsource_work_instruction_id=instruction.outsource_work_instruction_id,
+                instruction_no=instruction.instruction_no,
+                instruction_date=instruction.instruction_date,
+                process_type=work_group.process_type,
+                group_seq=work_group.group_seq,
+                is_bundle=work_group.is_bundle,
+                fabric_lot_no=work_group.fabric_lot_no,
+                length_m=work_group.length_m,
+                sheet_qty=work_group.sheet_qty,
+                sheet_cut_count=work_group.sheet_cut_count,
+                cuts_per_sheet=work_group_item.cuts_per_sheet,
+                expected_output_qty=work_group_item.expected_output_qty,
+                group_expected_output_qty=group_expected_output_qty,
+                work_done_sheet_qty=work_group.work_done_sheet_qty,
+                confirmed_outsource_qty=confirmed_outsource_qty,
+                status=work_group.status,
+                vendor_received_at=work_group.vendor_received_at,
+                work_done_at=work_group.work_done_at,
+                shipped_at=work_group.shipped_at,
+                remark=work_group.remark,
+                work_done_remark=work_group.work_done_remark,
+            )
+        )
+
+    inspection_row = (
+        db.execute(
+            select(InspectionSchedule, InspectionResult)
+            .join(
+                InspectionResult,
+                InspectionResult.inspection_schedule_id
+                == InspectionSchedule.inspection_schedule_id,
+                isouter=True,
+            )
+            .where(InspectionSchedule.lot_id == lot_id)
+            .order_by(
+                InspectionSchedule.inspection_date.desc(),
+                InspectionSchedule.inspection_schedule_id.desc(),
+            )
+            .limit(1)
+        )
+        .one_or_none()
+    )
+
+    inspection: LotTraceInspectionOut | None = None
+
+    if inspection_row is not None:
+        inspection_schedule, inspection_result = inspection_row
+        defects: list[LotTraceInspectionDefectOut] = []
+
+        if inspection_result is not None:
+            defect_rows = (
+                db.execute(
+                    select(InspectionDefect, DefectType)
+                    .join(
+                        DefectType,
+                        DefectType.defect_type_id
+                        == InspectionDefect.defect_type_id,
+                    )
+                    .where(
+                        InspectionDefect.inspection_result_id
+                        == inspection_result.inspection_result_id
+                    )
+                    .order_by(
+                        InspectionDefect.inspection_defect_id.asc(),
+                    )
+                )
+                .all()
+            )
+
+            defects = [
+                LotTraceInspectionDefectOut(
+                    inspection_defect_id=inspection_defect.inspection_defect_id,
+                    defect_type_id=inspection_defect.defect_type_id,
+                    defect_type_code=defect_type.code,
+                    defect_type_name=defect_type.name,
+                    defect_qty=inspection_defect.defect_qty,
+                    disposition=inspection_defect.disposition,
+                    memo=inspection_defect.memo,
+                )
+                for inspection_defect, defect_type in defect_rows
+            ]
+
+        inspection = LotTraceInspectionOut(
+            inspection_schedule_id=inspection_schedule.inspection_schedule_id,
+            inspection_date=inspection_schedule.inspection_date,
+            schedule_status=inspection_schedule.status,
+            received_at=inspection_schedule.received_at,
+            started_at=inspection_schedule.started_at,
+            finished_at=inspection_schedule.finished_at,
+            inspection_result_id=(
+                inspection_result.inspection_result_id
+                if inspection_result
+                else None
+            ),
+            inspected_qty=inspection_result.inspected_qty if inspection_result else None,
+            good_qty=inspection_result.good_qty if inspection_result else None,
+            defect_qty=inspection_result.defect_qty if inspection_result else None,
+            defect_ship_qty=(
+                inspection_result.defect_ship_qty
+                if inspection_result
+                else None
+            ),
+            is_partial=inspection_result.is_partial if inspection_result else None,
+            next_inspection_date=(
+                inspection_result.next_inspection_date
+                if inspection_result
+                else None
+            ),
+            partial_reason=(
+                inspection_result.partial_reason
+                if inspection_result
+                else None
+            ),
+            created_by=inspection_result.created_by if inspection_result else None,
+            result_created_at=(
+                inspection_result.created_at
+                if inspection_result
+                else None
+            ),
+            defects=defects,
+        )
+
+    progress = _build_lot_trace_progress(
+        outsource_works=outsource_works,
+        inspection=inspection,
+    )
+
+    return LotTraceDetailOut(
+        progress=progress,
+        lot_basic=LotTraceBasicOut(
+            lot_id=lot.lot_id,
+            lot_no=lot.lot_no,
+            status=lot.status,
+            is_rework=lot.parent_lot_id is not None,
+            parent_lot_id=lot.parent_lot_id,
+            parent_lot_no=parent_lot_no,
+            lot_qty=lot.lot_qty,
+            uom=lot.uom,
+            created_date=lot.created_date,
+            due_date=lot.due_date,
+            memo=lot.memo,
+        ),
+        product_order=LotTraceProductOrderOut(
+            order_line_id=order_line.order_line_id,
+            order_no=order_line.order_no,
+            line_no=order_line.line_no,
+            partner_id=partner.partner_id,
+            partner_name=partner.name,
+            product_id=product.product_id,
+            product_code=product.product_code,
+            product_name=product.product_name,
+            product_spec=product.product_spec,
+            panel_width_mm=product.panel_width_mm,
+            panel_length_mm=product.panel_length_mm,
+            cut_qty_per_panel=product.cut_qty_per_panel,
+            order_qty=order_line.order_qty,
+            order_date=order_line.order_date,
+            due_date=order_line.due_date,
+        ),
+        outsource_works=outsource_works,
+        inspection=inspection,
+    )
+
+
 
 @router.get("/{lot_id}", response_model=LotDetailOut)
 def get_lot(lot_id: int, db: Session = Depends(get_db)):
@@ -284,3 +569,4 @@ def get_lot(lot_id: int, db: Session = Depends(get_db)):
 
     out.steps = [s for s in lot.steps]
     return out
+

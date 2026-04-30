@@ -79,6 +79,7 @@ class OutsourceWorkGroup(Base):
     length_m: Mapped[Optional[float]] = mapped_column(Numeric(18, 2), nullable=True)
     sheet_cut_count: Mapped[int] = mapped_column(Integer, nullable=False)
     status: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    fabric_lot_no: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     remark: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     vendor_received_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True),

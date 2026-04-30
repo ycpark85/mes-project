@@ -10,12 +10,15 @@ using Mes.Wpf.Core.Constants;
 using Mes.Wpf.Core.Interfaces;
 using Mes.Wpf.Modules.InspectionSchedules.Dtos;
 using Mes.Wpf.Modules.InspectionSchedules.Views;
+using Mes.Wpf.Modules.LotDetails.ViewModels;
+using Mes.Wpf.Modules.LotDetails.Views;
 namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
 {
     public class InspectionScheduleManagementPageViewModel : ViewModelBase
     {
         private readonly IApiClient _apiClient;
         private readonly IMessageService _messageService;
+        private readonly IDrawingViewer _drawingViewer;
 
         private bool _isLoading;
         private DateTime? _searchDate = DateTime.Today;
@@ -28,10 +31,12 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
 
         public InspectionScheduleManagementPageViewModel(
             IApiClient apiClient,
-            IMessageService messageService)
+            IMessageService messageService,
+            IDrawingViewer drawingViewer)
         {
             _apiClient = apiClient;
             _messageService = messageService;
+            _drawingViewer = drawingViewer;
 
             Items = new ObservableCollection<InspectionScheduleListItemDto>();
             EditModel = new InspectionScheduleManagementEditModel();
@@ -39,6 +44,14 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
             RefreshCommand = new AsyncRelayCommand(LoadAsync, () => !IsLoading);
             ResetCommand = new AsyncRelayCommand(ResetAsync, () => !IsLoading);
             ClearSelectionCommand = new AsyncRelayCommand(ClearSelectionAsync, () => !IsLoading);
+
+            OpenLotDetailCommand = new AsyncRelayCommand(
+                OpenLotDetailAsync,
+                () => !IsLoading && SelectedItem != null);
+
+            OpenDrawingCommand = new AsyncRelayCommand(
+                OpenDrawingAsync,
+                () => !IsLoading && SelectedItem != null);
 
             SelectItemCommand = new AsyncRelayCommand<InspectionScheduleListItemDto>(
                 SelectItemAsync,
@@ -64,6 +77,8 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                 MoveDownAsync,
                 () => !IsLoading && CanMoveDown());
 
+
+
             EditModel.Clear();
         }
 
@@ -75,6 +90,8 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
         public ICommand ResetCommand { get; }
         public ICommand ClearSelectionCommand { get; }
         public ICommand SelectItemCommand { get; }
+        public ICommand OpenDrawingCommand { get; }
+        public ICommand OpenLotDetailCommand { get; }
         public ICommand ReceiveCommand { get; }
         public ICommand StartCommand { get; }
         public ICommand CancelCommand { get; }
@@ -142,6 +159,31 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                     RaiseCommandCanExecuteChanged();
                 }
             }
+        }
+
+        private async Task OpenLotDetailAsync()
+        {
+            if (SelectedItem == null)
+            {
+                _messageService.ShowWarning("LOT를 선택해주세요.");
+                return;
+            }
+
+            if (SelectedItem.LotId <= 0)
+            {
+                _messageService.ShowWarning("LOT 정보가 없습니다.");
+                return;
+            }
+
+            var windowVm = new LotDetailWindowViewModel(_apiClient, _messageService);
+            await windowVm.InitializeAsync(SelectedItem.LotId);
+
+            var window = new LotDetailWindow(windowVm)
+            {
+                Owner = Application.Current?.MainWindow
+            };
+
+            window.ShowDialog();
         }
 
         public async Task InitializeAsync()
@@ -501,6 +543,23 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
             }
         }
 
+        private async Task OpenDrawingAsync()
+        {
+            if (SelectedItem == null)
+            {
+                _messageService.ShowWarning("대상을 선택해주세요.");
+                return;
+            }
+
+            if (SelectedItem.DrawingId <= 0)
+            {
+                _messageService.ShowWarning("도면 정보가 없습니다.");
+                return;
+            }
+
+            await _drawingViewer.OpenCurrentDrawingAsync(SelectedItem.DrawingId);
+        }
+
         public Task MoveUpAsync()
         {
             return ReorderBySwapAsync(true);
@@ -724,6 +783,16 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
             if (MoveDownCommand is AsyncRelayCommand moveDownCommand)
             {
                 moveDownCommand.RaiseCanExecuteChanged();
+            }
+
+            if (OpenLotDetailCommand is AsyncRelayCommand openLotDetailCommand)
+            {
+                openLotDetailCommand.RaiseCanExecuteChanged();
+            }
+
+            if (OpenDrawingCommand is AsyncRelayCommand openDrawingCommand)
+            {
+                openDrawingCommand.RaiseCanExecuteChanged();
             }
         }
     }

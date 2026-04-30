@@ -24,6 +24,7 @@ class OutsourceWorkInstructionGroupCreate(BaseModel):
     sheet_qty: int = Field(..., gt=0)
     length_m: Optional[Decimal] = Field(default=None, ge=0)
     sheet_cut_count: Optional[int] = Field(default=None, gt=0)
+    fabric_lot_no: Optional[str] = None
     remark: Optional[str] = None
     items: List[OutsourceWorkInstructionGroupItemCreate] = Field(..., min_length=1)
 
@@ -152,6 +153,7 @@ class OutsourcePurchaseOrderTargetOut(BaseModel):
     cut_qty_per_panel: int | None = None
     length_m: Decimal | None = None
     sheet_qty: int | None = None
+    fabric_lot_no: str | None = None
     is_print_product: bool = False
 
     

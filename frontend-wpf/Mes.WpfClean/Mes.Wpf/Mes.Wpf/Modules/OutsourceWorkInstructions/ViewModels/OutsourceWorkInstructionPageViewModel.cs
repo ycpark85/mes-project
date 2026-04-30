@@ -375,7 +375,12 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
                 SheetQty = ResolveSheetQty(draft),
                 LengthM = draft.LengthM,
                 SheetCutCount = ResolveSheetCutCount(draft),
-                Remark = string.IsNullOrWhiteSpace(draft.Memo) ? null : draft.Memo.Trim()
+                FabricLotNo = string.IsNullOrWhiteSpace(draft.FabricLotNo)
+                    ? null
+                    : draft.FabricLotNo.Trim(),
+                Remark = string.IsNullOrWhiteSpace(draft.Memo)
+                    ? null
+                    : draft.Memo.Trim()
             };
 
             foreach (var lot in draft.Lots)

@@ -20,6 +20,7 @@ from app.models.outsource_work_group import OutsourceWorkGroup
 from app.models.outsource_work_group_item import OutsourceWorkGroupItem
 from app.models.outsource_work_instruction import OutsourceWorkInstruction
 from app.models.outsource_purchase_order_item import OutsourcePurchaseOrderItem
+from app.models.drawing import Drawing
 from app.schemas.inspection_schedule import (
     InspectionScheduleCreate,
     InspectionScheduleListItemOut,
@@ -764,6 +765,8 @@ def list_inspection_schedules(
             Partner.name.label("partner_name"),
             Product.product_code,
             Product.product_name,
+            Product.drawing_id,
+            Drawing.drawing_no,
             Lot.lot_qty,
             OrderLine.order_qty,
             InspectionSchedule.outsource_work_group_id,
@@ -779,6 +782,7 @@ def list_inspection_schedules(
         .join(OrderLine, OrderLine.order_line_id == Lot.order_line_id)
         .join(Partner, Partner.partner_id == OrderLine.partner_id)
         .join(Product, Product.product_id == OrderLine.product_id)
+        .join(Drawing, Drawing.drawing_id == Product.drawing_id)
         .outerjoin(
             OutsourceWorkGroup,
             OutsourceWorkGroup.outsource_work_group_id

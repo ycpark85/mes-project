@@ -90,6 +90,8 @@
                             <RowDefinition Height="8" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="8" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="8" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
 
@@ -117,7 +119,7 @@
                                     Command="{Binding UploadFileCommand}" />
                         </Grid>
 
-                        <!-- 작업 조건 1줄 추가 -->
+                        <!-- 작업 조건 -->
                         <Grid Grid.Row="2">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="55" />
@@ -167,26 +169,45 @@
                                        Text="개별은 DB 컷수 사용 / 묶음은 직접 입력" />
                         </Grid>
 
+                        <!-- 원단 LOT -->
+                        <Grid Grid.Row="4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="55" />
+                                <ColumnDefinition Width="180" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Column="0"
+                                       VerticalAlignment="Center"
+                                       FontWeight="SemiBold"
+                                       Text="원단LOT" />
+
+                            <TextBox Grid.Column="1"
+                                     Height="30"
+                                     VerticalContentAlignment="Center"
+                                     Text="{Binding SelectedDraft.FabricLotNo, UpdateSourceTrigger=PropertyChanged}" />
+                        </Grid>
+
                         <!-- 메모 -->
-                        <TextBlock Grid.Row="4"
+                        <TextBlock Grid.Row="6"
                                    Text="메모"
                                    FontWeight="SemiBold"
                                    Margin="0,0,0,4" />
 
-                        <TextBox Grid.Row="6"
-                                 Height="70"
+                        <TextBox Grid.Row="8"
+                                 Height="50"
                                  AcceptsReturn="True"
                                  VerticalScrollBarVisibility="Auto"
                                  Text="{Binding SelectedDraft.Memo, UpdateSourceTrigger=PropertyChanged}" />
 
                         <!-- 선택 LOT -->
-                        <TextBlock Grid.Row="8"
+                        <TextBlock Grid.Row="10"
                                    Text="선택 LOT"
                                    FontWeight="SemiBold"
                                    Margin="0,0,0,4"
                                    VerticalAlignment="Top" />
 
-                        <DataGrid Grid.Row="8"
+                        <DataGrid Grid.Row="10"
                                   Margin="0,24,0,0"
                                   ItemsSource="{Binding SelectedDraft.Lots}"
                                   AutoGenerateColumns="False"

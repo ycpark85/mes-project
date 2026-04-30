@@ -42,8 +42,10 @@ namespace Mes.Wpf.Views.Shell
     {
         private readonly ApiClient _apiClient;
         private readonly MessageService _messageService;
+
         private readonly DefectTypePageViewModel _defectTypePageViewModel;
         private readonly RoutingTemplatePageViewModel _routingTemplatePageViewModel;
+        private readonly DrawingViewer _drawingViewer;
 
         public MainWindow()
         {
@@ -52,6 +54,9 @@ namespace Mes.Wpf.Views.Shell
             var appSettings = AppSettings.Load();
             _apiClient = new ApiClient(appSettings.Api.BaseUrl);
             _messageService = new MessageService();
+
+            var drawingFileOpener = new DrawingFileOpener(_messageService);
+            _drawingViewer = new DrawingViewer(_apiClient, _messageService, drawingFileOpener);
 
             _defectTypePageViewModel = new DefectTypePageViewModel(_apiClient, _messageService);
             _routingTemplatePageViewModel = new RoutingTemplatePageViewModel(_apiClient, _messageService);
@@ -315,7 +320,7 @@ namespace Mes.Wpf.Views.Shell
         private async void InspectionScheduleManagement_Click(object sender, RoutedEventArgs e)
         {
             var view = new InspectionScheduleManagementView();
-            var viewModel = new InspectionScheduleManagementPageViewModel(_apiClient, _messageService);
+            var viewModel = new InspectionScheduleManagementPageViewModel(_apiClient, _messageService, _drawingViewer);
 
             view.DataContext = viewModel;
             MainContent.Content = view;

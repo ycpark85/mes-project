@@ -56,7 +56,15 @@ namespace Mes.Wpf.Modules.InspectionSchedules.Dtos
         [JsonPropertyName("ship_qty")]
         public int ShipQty { get; set; }
 
+        [JsonPropertyName("drawing_id")]
+        public long DrawingId { get; set; }
+
+        [JsonPropertyName("drawing_no")]
+        public string? DrawingNo { get; set; }
+
         [JsonPropertyName("memo")]
         public string? Memo { get; set; }
+
+
     }
 }

@@ -55,6 +55,10 @@ class InspectionScheduleListItemOut(BaseModel):
     outsource_work_group_item_id: Optional[int] = None
     bundle_no: Optional[str] = None
     diecut_status: Optional[str] = None
+    
+    drawing_id: Optional[int] = None
+    drawing_no: Optional[str] = None
+
     inspection_date: date
     status: str
     day_seq: Optional[int] = None

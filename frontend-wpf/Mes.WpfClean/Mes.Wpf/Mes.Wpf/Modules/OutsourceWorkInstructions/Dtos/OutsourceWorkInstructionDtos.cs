@@ -215,6 +215,9 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
         [JsonPropertyName("sheet_cut_count")]
         public int? SheetCutCount { get; set; }
 
+        [JsonPropertyName("fabric_lot_no")]
+        public string? FabricLotNo { get; set; }
+
         [JsonPropertyName("remark")]
         public string? Remark { get; set; }
 
@@ -315,6 +318,7 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
         private decimal? _lengthM;
         private int _sheetQty;
         private int? _sheetCutCount;
+        private string? _fabricLotNo;
 
         public Guid DraftId { get; set; } = Guid.NewGuid();
 
@@ -358,6 +362,13 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
         {
             get => _sheetQty;
             set => SetProperty(ref _sheetQty, value);
+        }
+
+
+        public string? FabricLotNo
+        {
+            get => _fabricLotNo;
+            set => SetProperty(ref _fabricLotNo, value);
         }
 
         public int? SheetCutCount
@@ -409,6 +420,7 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
             LengthM = null;
             SheetQty = 0;
             SheetCutCount = null;
+            FabricLotNo = null;
             Lots.Clear();
             Files.Clear();
         }
