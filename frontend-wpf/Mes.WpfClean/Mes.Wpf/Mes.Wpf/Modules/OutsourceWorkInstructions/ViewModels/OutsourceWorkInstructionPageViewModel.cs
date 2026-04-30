@@ -317,7 +317,15 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
                         WorkGroups = BuildWorkGroups(draft)
                     });
             }
-
+            //임시파일------------------------------------------------
+            foreach (var group in request.Groups)
+            {
+                foreach (var workGroup in group.WorkGroups)
+                {
+                    _messageService.ShowInfo($"원단LOT 확인: {workGroup.FabricLotNo ?? "NULL"}");
+                }
+            }
+            //------------------------------------------------------
             IsLoading = true;
 
             try

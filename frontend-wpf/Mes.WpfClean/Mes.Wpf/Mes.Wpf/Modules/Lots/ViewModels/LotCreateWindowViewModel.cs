@@ -129,9 +129,6 @@ namespace Mes.Wpf.Modules.Lots.ViewModels
             EditModel.IsRework = true;
             SelectedPrimaryLot = null;
             EditModel.ApplyParentLot(null);
-            EditModel.MaterialLotNo = string.Empty;
-            EditModel.MaterialUsedQty = null;
-            EditModel.MaterialSheetCount = null;
             EditModel.PlanQty = EditModel.OrderQty;
             EditModel.Memo = null;
         }
@@ -142,7 +139,6 @@ namespace Mes.Wpf.Modules.Lots.ViewModels
             EditModel.ParentLotStatus = EditModel.ParentLotStatus?.Trim().ToUpperInvariant() ?? string.Empty;
             EditModel.ProductCode = EditModel.ProductCode?.Trim().ToUpperInvariant() ?? string.Empty;
             EditModel.Uom = EditModel.Uom?.Trim().ToUpperInvariant() ?? string.Empty;
-            EditModel.MaterialLotNo = EditModel.MaterialLotNo?.Trim().ToUpperInvariant() ?? string.Empty;
             EditModel.Memo = EditModel.Memo?.Trim();
         }
 
@@ -178,34 +174,7 @@ namespace Mes.Wpf.Modules.Lots.ViewModels
                 return false;
             }
 
-            var hasMaterialLotNo = !string.IsNullOrWhiteSpace(EditModel.MaterialLotNo);
-            var hasMaterialUsedQty = EditModel.MaterialUsedQty.HasValue;
-            var hasMaterialSheetCount = EditModel.MaterialSheetCount.HasValue;
-
-            if (hasMaterialLotNo && (!hasMaterialUsedQty || EditModel.MaterialUsedQty!.Value <= 0))
-            {
-                _messageService.ShowWarning("원단 LOT를 입력한 경우 원단 사용량은 0보다 커야 합니다.");
-                return false;
-            }
-
-            if (hasMaterialUsedQty && !hasMaterialLotNo)
-            {
-                _messageService.ShowWarning("원단 사용량을 입력한 경우 원단 LOT가 필요합니다.");
-                return false;
-            }
-
-            if (hasMaterialSheetCount && EditModel.MaterialSheetCount.Value <= 0)
-            {
-                _messageService.ShowWarning("시트수는 1 이상이어야 합니다.");
-                return false;
-            }
-
-            if (hasMaterialSheetCount && !hasMaterialLotNo)
-            {
-                _messageService.ShowWarning("시트수를 입력한 경우 원단 LOT가 필요합니다.");
-                return false;
-            }
-
+            
             return true;
         }
 
@@ -261,11 +230,7 @@ namespace Mes.Wpf.Modules.Lots.ViewModels
                 return;
             }
 
-            var confirmMessage = EditModel.IsRework
-                ? "재작업 LOT를 생성하시겠습니까?"
-                : "추가 LOT를 생성하시겠습니까?";
-
-            var confirmed = _messageService.Confirm("재작업 LOT가 생성되었습니다. [{result.Data.LotNo}]");
+            var confirmed = _messageService.Confirm("재작업 LOT를 생성하시겠습니까?");
 
             if (!confirmed)
             {
@@ -275,13 +240,10 @@ namespace Mes.Wpf.Modules.Lots.ViewModels
             var request = new LotCreateRequest
             {
                 OrderLineId = EditModel.OrderLineId,
-                ParentLotId = EditModel.IsRework ? EditModel.ParentLotId : null,
+                ParentLotId = EditModel.ParentLotId,
                 LotQty = EditModel.PlanQty ?? 0,
                 CreatedDate = DateTime.Today,
                 Memo = string.IsNullOrWhiteSpace(EditModel.Memo) ? null : EditModel.Memo,
-                MaterialLotNo = string.IsNullOrWhiteSpace(EditModel.MaterialLotNo) ? null : EditModel.MaterialLotNo,
-                MaterialUsedQty = EditModel.MaterialUsedQty,
-                MaterialSheetCount = EditModel.MaterialSheetCount
             };
 
             IsLoading = true;
@@ -293,15 +255,11 @@ namespace Mes.Wpf.Modules.Lots.ViewModels
 
                 if (!result.Success || result.Data == null)
                 {
-                    _messageService.ShowError(result.Message ?? "추가/재작업 LOT 정보 조회 중 오류가 발생했습니다.");
+                    _messageService.ShowError(result.Message ?? "재작업 LOT 생성 중 오류가 발생했습니다.");
                     return;
                 }
 
-                var successMessage = EditModel.IsRework
-                    ? $"재작업 LOT가 생성되었습니다. [{result.Data.LotNo}]"
-                    : $"추가 LOT가 생성되었습니다. [{result.Data.LotNo}]";
-
-                _messageService.ShowInfo(successMessage);
+                _messageService.ShowInfo($"재작업 LOT가 생성되었습니다. [{result.Data.LotNo}]");
 
                 await LoadContextAsync();
                 ResetInputFields();

@@ -423,6 +423,7 @@ def _filter_groups_for_lot_ids(
                 sheet_qty=group.sheet_qty,
                 length_m=group.length_m,
                 sheet_cut_count=sheet_cut_count,
+                fabric_lot_no=group.fabric_lot_no,
                 remark=group.remark,
                 items=filtered_items,
             )

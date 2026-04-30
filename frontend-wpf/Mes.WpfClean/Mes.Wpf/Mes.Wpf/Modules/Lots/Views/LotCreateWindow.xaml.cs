@@ -1,5 +1,6 @@
-﻿using Mes.Wpf.Modules.Lots.ViewModels;
+﻿using System;
 using System.Windows;
+using Mes.Wpf.Modules.Lots.ViewModels;
 
 namespace Mes.Wpf.Modules.Lots.Views
 {
@@ -11,52 +12,22 @@ namespace Mes.Wpf.Modules.Lots.Views
             DataContext = viewModel;
         }
 
-        private void ReworkCheckBox_Click(object sender, RoutedEventArgs e)
+        private LotCreateWindowViewModel? ViewModel =>
+            DataContext as LotCreateWindowViewModel;
+
+        private async void SaveButton_Click(object sender, RoutedEventArgs e)
         {
-            if (DataContext is LotCreateWindowViewModel vm)
+            if (ViewModel == null)
             {
-                vm.ToggleReworkCommand.Execute(null);
+                return;
             }
+
+            await ViewModel.SaveAsync();
         }
 
         private void ResetButton_Click(object sender, RoutedEventArgs e)
         {
-            if (DataContext is LotCreateWindowViewModel vm)
-            {
-                vm.ResetCommand.Execute(null);
-            }
-        }
-
-        private async void SaveButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (DataContext is LotCreateWindowViewModel vm)
-            {
-                await vm.SaveAsync();
-            }
-        }
-
-        private async void OpenDrawingFileButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (DataContext is LotCreateWindowViewModel vm)
-            {
-                await vm.OpenDrawingFileAsync();
-            }
-        }
-
-        private async void OpenOriginalFileButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (DataContext is LotCreateWindowViewModel vm)
-            {
-                await vm.OpenOriginalFileAsync();
-            }
-        }
-
-        private async void OpenPlateWorkButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (DataContext is LotCreateWindowViewModel vm)
-            {
-                await vm.OpenPlateWorkAsync();
-            }
+            ViewModel?.ResetCommand.Execute(null);
         }
 
         private void CloseButton_Click(object sender, RoutedEventArgs e)
