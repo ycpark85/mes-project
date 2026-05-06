@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Optional, Tuple, List, Dict
 
-from sqlalchemy import select, func, or_, exists
+from sqlalchemy import select, func, or_, exists, and_
 from sqlalchemy.orm import Session
 
 from app.models.inspection_schedule import InspectionSchedule
@@ -14,6 +14,28 @@ from app.models.order_line import OrderLine
 from app.models.partner import Partner
 from app.models.product import Product
 
+
+
+def _build_lot_list_status(
+    lot_status: str,
+    inspection_status: Optional[str],
+) -> tuple[str, str]:
+    if lot_status == "CANCELED" or inspection_status == "CANCELED":
+        return "CANCELED", "취소"
+
+    if lot_status == "DONE" or inspection_status == "DONE":
+        return "INSPECTION_DONE", "검수완료"
+
+    if inspection_status in ("RECEIVED", "IN_PROGRESS", "PARTIAL_DONE"):
+        return "INSPECTION_WAITING", "검수대기"
+
+    if lot_status == "IN_PROGRESS":
+        return "IN_PROGRESS", "진행중"
+
+    if lot_status == "WAITING":
+        return "CREATED", "생성"
+
+    return lot_status, lot_status
 
 class LotCRUD:
     def get(self, db: Session, lot_id: int) -> Optional[Lot]:
@@ -42,6 +64,24 @@ class LotCRUD:
         created_date_to: Optional[date] = None,
         inspection_schedule_registered: Optional[bool] = None,
     ) -> Tuple[List[Dict], int]:
+        latest_inspection_subq = (
+            select(
+                InspectionSchedule.inspection_schedule_id.label("inspection_schedule_id"),
+                InspectionSchedule.lot_id.label("lot_id"),
+                InspectionSchedule.status.label("inspection_status"),
+                func.row_number()
+                .over(
+                    partition_by=InspectionSchedule.lot_id,
+                    order_by=(
+                        InspectionSchedule.inspection_date.desc(),
+                        InspectionSchedule.inspection_schedule_id.desc(),
+                    ),
+                )
+                .label("rn"),
+            )
+            .subquery()
+        )
+
         stmt = (
             select(
                 Lot,
@@ -51,10 +91,21 @@ class LotCRUD:
                 Partner.name.label("partner_name"),
                 Product.product_code.label("product_code"),
                 Product.product_name.label("product_name"),
+                OrderLine.order_date.label("order_date"),
+                OrderLine.order_qty.label("order_qty"),
+                latest_inspection_subq.c.inspection_schedule_id.label("inspection_schedule_id"),
+                latest_inspection_subq.c.inspection_status.label("inspection_status"),
             )
             .join(OrderLine, OrderLine.order_line_id == Lot.order_line_id)
             .join(Partner, Partner.partner_id == OrderLine.partner_id)
             .join(Product, Product.product_id == Lot.product_id)
+            .outerjoin(
+                latest_inspection_subq,
+                and_(
+                    latest_inspection_subq.c.lot_id == Lot.lot_id,
+                    latest_inspection_subq.c.rn == 1,
+                ),
+            )
         )
 
         conds = []
@@ -66,7 +117,45 @@ class LotCRUD:
             conds.append(OrderLine.partner_id == partner_id)
 
         if status:
-            conds.append(Lot.status == status)    
+            if status == "CREATED":
+                conds.append(Lot.status == "WAITING")
+
+            elif status == "IN_PROGRESS":
+                conds.append(
+                    and_(
+                        Lot.status == "IN_PROGRESS",
+                        or_(
+                            latest_inspection_subq.c.inspection_status.is_(None),
+                            latest_inspection_subq.c.inspection_status == "WAITING",
+                        ),
+                    )
+                )
+
+            elif status == "INSPECTION_WAITING":
+                conds.append(
+                    latest_inspection_subq.c.inspection_status.in_(
+                        ("RECEIVED", "IN_PROGRESS", "PARTIAL_DONE")
+                    )
+                )
+
+            elif status == "INSPECTION_DONE":
+                conds.append(
+                    or_(
+                        Lot.status == "DONE",
+                        latest_inspection_subq.c.inspection_status == "DONE",
+                    )
+                )
+
+            elif status == "CANCELED":
+                conds.append(
+                    or_(
+                        Lot.status == "CANCELED",
+                        latest_inspection_subq.c.inspection_status == "CANCELED",
+                    )
+                )
+
+            else:
+                conds.append(Lot.status == status)    
 
         if due_date_from:
             conds.append(Lot.due_date >= due_date_from)
@@ -108,6 +197,13 @@ class LotCRUD:
             .join(OrderLine, OrderLine.order_line_id == Lot.order_line_id)
             .join(Partner, Partner.partner_id == OrderLine.partner_id)
             .join(Product, Product.product_id == Lot.product_id)
+            .outerjoin(
+                latest_inspection_subq,
+                and_(
+                    latest_inspection_subq.c.lot_id == Lot.lot_id,
+                    latest_inspection_subq.c.rn == 1,
+                ),
+            )
         )
         if conds:
             count_stmt = count_stmt.where(*conds)
@@ -120,7 +216,26 @@ class LotCRUD:
         rows = db.execute(stmt).all()
 
         items: List[Dict] = []
-        for lot, order_no, line_no, ol_partner_id, partner_name, product_code, product_name in rows:
+        for  (lot, 
+              order_no, 
+              line_no, 
+              ol_partner_id, 
+              partner_name, 
+              product_code, 
+              product_name,
+              order_date,
+              order_qty,
+              inspection_schedule_id,
+              inspection_status,
+        ) in rows:
+            list_status, list_status_display = _build_lot_list_status(
+                lot.status,
+                inspection_status,
+            )
+
+            lot_type = "REWORK" if lot.parent_lot_id is not None else "PRIMARY"
+            lot_type_display = "재작업 LOT" if lot.parent_lot_id is not None else "기본 LOT"
+
             items.append(
                 {
                     "lot_id": lot.lot_id,
@@ -142,9 +257,16 @@ class LotCRUD:
                     "partner_name": partner_name,
                     "product_code": product_code,
                     "product_name": product_name,
+                    "order_date": order_date,
+                    "order_qty": order_qty,
+                    "inspection_schedule_id": inspection_schedule_id,
+                    "inspection_status": inspection_status,
+                    "list_status": list_status,
+                    "list_status_display": list_status_display,
+                    "lot_type": lot_type,
+                    "lot_type_display": lot_type_display,
                 }
             )
-
         return items, total
 
 

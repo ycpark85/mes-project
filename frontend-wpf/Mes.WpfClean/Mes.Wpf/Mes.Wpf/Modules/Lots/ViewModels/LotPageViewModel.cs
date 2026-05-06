@@ -3,10 +3,13 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Windows;
 using System.Windows.Input;
 using Mes.Wpf.Core.Common;
 using Mes.Wpf.Core.Constants;
 using Mes.Wpf.Core.Interfaces;
+using Mes.Wpf.Modules.LotDetails.ViewModels;
+using Mes.Wpf.Modules.LotDetails.Views;
 using Mes.Wpf.Modules.Lots.Dtos;
 
 namespace Mes.Wpf.Modules.Lots.ViewModels
@@ -18,48 +21,40 @@ namespace Mes.Wpf.Modules.Lots.ViewModels
 
         private bool _isLoading;
         private LotListItemDto? _selectedItem;
-        private LotDetailDto? _selectedDetail;
         private int _currentPage = 1;
-        private int _pageSize = 10;
+        private int _pageSize = 20;
         private int _totalCount;
 
-        public LotPageViewModel(IApiClient apiClient, IMessageService messageService)
+        public LotPageViewModel(
+            IApiClient apiClient,
+            IMessageService messageService)
         {
             _apiClient = apiClient;
             _messageService = messageService;
 
             SearchModel = new LotProcessSearchModel();
-
             Items = new ObservableCollection<LotListItemDto>();
-            Steps = new ObservableCollection<LotStepDto>();
 
             StatusOptions = new ObservableCollection<string>
             {
                 "전체",
-                "WAITING",
-                "IN_PROGRESS",
-                "DONE"
+                "생성",
+                "진행중",
+                "검수대기",
+                "검수완료"
             };
 
             SearchCommand = new AsyncRelayCommand(SearchAsync, () => !IsLoading);
             ResetCommand = new AsyncRelayCommand(ResetAsync, () => !IsLoading);
             PrevPageCommand = new AsyncRelayCommand(GoPreviousPageAsync, () => !IsLoading && HasPreviousPage);
             NextPageCommand = new AsyncRelayCommand(GoNextPageAsync, () => !IsLoading && HasNextPage);
-
-            StartStepCommand = new AsyncRelayCommand<LotStepDto>(
-                StartStepAsync,
-                step => !IsLoading && step != null && step.CanStart);
-
-            CompleteStepCommand = new AsyncRelayCommand<LotStepDto>(
-                CompleteStepAsync,
-                step => !IsLoading && step != null && step.CanComplete);
+            OpenLotDetailCommand = new AsyncRelayCommand(OpenLotDetailAsync, () => !IsLoading && HasSelectedLot);
+            OpenLotCertificateCommand = new AsyncRelayCommand(OpenLotCertificateAsync, () => !IsLoading && HasSelectedLot);
         }
 
         public LotProcessSearchModel SearchModel { get; }
 
         public ObservableCollection<LotListItemDto> Items { get; }
-
-        public ObservableCollection<LotStepDto> Steps { get; }
 
         public ObservableCollection<string> StatusOptions { get; }
 
@@ -71,9 +66,9 @@ namespace Mes.Wpf.Modules.Lots.ViewModels
 
         public ICommand NextPageCommand { get; }
 
-        public ICommand StartStepCommand { get; }
+        public ICommand OpenLotDetailCommand { get; }
 
-        public ICommand CompleteStepCommand { get; }
+        public ICommand OpenLotCertificateCommand { get; }
 
         public bool IsLoading
         {
@@ -94,16 +89,13 @@ namespace Mes.Wpf.Modules.Lots.ViewModels
             {
                 if (SetProperty(ref _selectedItem, value))
                 {
-                    _ = OnSelectedItemChangedAsync(value);
+                    OnPropertyChanged(nameof(HasSelectedLot));
+                    RaiseCommandCanExecuteChanged();
                 }
             }
         }
 
-        public LotDetailDto? SelectedDetail
-        {
-            get => _selectedDetail;
-            set => SetProperty(ref _selectedDetail, value);
-        }
+        public bool HasSelectedLot => SelectedItem != null;
 
         public int CurrentPage
         {
@@ -170,7 +162,7 @@ namespace Mes.Wpf.Modules.Lots.ViewModels
 
         public bool HasNextPage => CurrentPage < TotalPages;
 
-        public string PageDisplayText => $"{CurrentPage} / {TotalPages}  (총 {TotalCount:N0}건)";
+        public string PageDisplayText => $"{CurrentPage} / {TotalPages} (총 {TotalCount:N0}건)";
 
         public async Task InitializeAsync()
         {
@@ -188,111 +180,6 @@ namespace Mes.Wpf.Modules.Lots.ViewModels
             SearchModel.Clear();
             CurrentPage = 1;
             await SearchInternalAsync(keepSelection: false);
-        }
-
-        public async Task LoadLotDetailAsync(long lotId)
-        {
-            try
-            {
-                IsLoading = true;
-
-                var result = await _apiClient.GetAsync<LotDetailDto>($"{ApiRoutes.Lots}/{lotId}");
-                if (!result.Success || result.Data == null)
-                {
-                    SelectedDetail = null;
-                    Steps.Clear();
-                    _messageService.ShowError(result.Message ?? "LOT 상세 조회에 실패했습니다.");
-                    return;
-                }
-
-                SelectedDetail = result.Data;
-
-                Steps.Clear();
-                foreach (var step in result.Data.Steps.OrderBy(x => x.StepSeq))
-                {
-                    Steps.Add(step);
-                }
-            }
-            finally
-            {
-                IsLoading = false;
-            }
-        }
-
-        public async Task StartStepAsync(LotStepDto? step)
-        {
-            if (step == null || SelectedItem == null)
-            {
-                return;
-            }
-
-            var confirm = _messageService.Confirm($"[{step.ProcessName}] 공정을 시작하시겠습니까?");
-            if (!confirm)
-            {
-                return;
-            }
-
-            try
-            {
-                IsLoading = true;
-
-                var result = await _apiClient.PostAsync<object, object>(
-                    $"{ApiRoutes.LotSteps}/{step.LotStepId}/start",
-                    new { });
-
-                if (!result.Success)
-                {
-                    _messageService.ShowError(result.Message ?? "공정 시작 처리에 실패했습니다.");
-                    return;
-                }
-
-                _messageService.ShowInfo("공정 시작 처리되었습니다.");
-            }
-            finally
-            {
-                IsLoading = false;
-            }
-
-            await RefreshCurrentSelectionAsync();
-            await SearchAsyncKeepSelectionAsync();
-        }
-
-        public async Task CompleteStepAsync(LotStepDto? step)
-        {
-            if (step == null || SelectedItem == null)
-            {
-                return;
-            }
-
-            var confirm = _messageService.Confirm($"[{step.ProcessName}] 공정을 완료하시겠습니까?");
-            if (!confirm)
-            {
-                return;
-            }
-
-            try
-            {
-                IsLoading = true;
-
-                var result = await _apiClient.PostAsync<object, object>(
-                    $"{ApiRoutes.LotSteps}/{step.LotStepId}/complete",
-                    new { });
-
-                if (!result.Success)
-                {
-                    _messageService.ShowError(result.Message ?? "공정 완료 처리에 실패했습니다.");
-                    return;
-                }
-
-                _messageService.ShowInfo("공정 완료 처리되었습니다.");
-            }
-            finally
-            {
-                IsLoading = false;
-            }
-
-            await RefreshCurrentSelectionAsync();
-            await SearchAsyncKeepSelectionAsync();
         }
 
         public async Task GoPreviousPageAsync()
@@ -317,31 +204,68 @@ namespace Mes.Wpf.Modules.Lots.ViewModels
             await SearchInternalAsync(keepSelection: false);
         }
 
-        private async Task OnSelectedItemChangedAsync(LotListItemDto? item)
-        {
-            if (item == null)
-            {
-                SelectedDetail = null;
-                Steps.Clear();
-                return;
-            }
-
-            await LoadLotDetailAsync(item.LotId);
-        }
-
-        private async Task RefreshCurrentSelectionAsync()
+        private async Task OpenLotDetailAsync()
         {
             if (SelectedItem == null)
             {
+                _messageService.ShowWarning("LOT를 먼저 선택하세요.");
                 return;
             }
 
-            await LoadLotDetailAsync(SelectedItem.LotId);
+            if (SelectedItem.LotId <= 0)
+            {
+                _messageService.ShowWarning("LOT 정보가 없습니다.");
+                return;
+            }
+
+            var windowVm = new LotDetailWindowViewModel(_apiClient, _messageService);
+
+            await windowVm.InitializeAsync(SelectedItem.LotId);
+
+            var window = new LotDetailWindow(windowVm)
+            {
+                Owner = Application.Current?.MainWindow
+            };
+
+            window.ShowDialog();
         }
 
-        private async Task SearchAsyncKeepSelectionAsync()
+        private async Task OpenLotCertificateAsync()
         {
-            await SearchInternalAsync(keepSelection: true);
+            if (SelectedItem == null)
+            {
+                _messageService.ShowWarning("LOT를 먼저 선택하세요.");
+                return;
+            }
+
+            if (SelectedItem.LotId <= 0)
+            {
+                _messageService.ShowWarning("LOT 정보가 없습니다.");
+                return;
+            }
+
+            if (!CanOpenCertificate(SelectedItem))
+            {
+                _messageService.ShowWarning("아직 완료되지 않은 LOT입니다.\n성적서가 작성되지 않았습니다.");
+                return;
+            }
+
+            var windowVm = new LotCertificateWindowViewModel(_apiClient, _messageService);
+
+            await windowVm.InitializeAsync(SelectedItem.LotId);
+
+            var window = new LotCertificateWindow(windowVm)
+            {
+                Owner = Application.Current?.MainWindow
+            };
+
+            window.ShowDialog();
+        }
+        private static bool CanOpenCertificate(LotListItemDto item)
+        {
+            return string.Equals(item.Status?.Trim(), "DONE", StringComparison.OrdinalIgnoreCase)
+                   || string.Equals(item.ListStatus?.Trim(), "INSPECTION_DONE", StringComparison.OrdinalIgnoreCase)
+                   || string.Equals(item.ListStatusDisplay?.Trim(), "검수완료", StringComparison.OrdinalIgnoreCase);
         }
 
         private async Task SearchInternalAsync(bool keepSelection)
@@ -352,13 +276,14 @@ namespace Mes.Wpf.Modules.Lots.ViewModels
             {
                 IsLoading = true;
 
+                NormalizeSearchInputs();
+
                 var result = await _apiClient.GetAsync<LotListResponseDto>(BuildSearchUrl());
+
                 if (!result.Success || result.Data == null)
                 {
                     Items.Clear();
-                    Steps.Clear();
                     SelectedItem = null;
-                    SelectedDetail = null;
                     TotalCount = 0;
 
                     _messageService.ShowError(result.Message ?? "LOT 목록 조회에 실패했습니다.");
@@ -366,6 +291,7 @@ namespace Mes.Wpf.Modules.Lots.ViewModels
                 }
 
                 Items.Clear();
+
                 foreach (var item in result.Data.Items)
                 {
                     Items.Add(item);
@@ -378,8 +304,6 @@ namespace Mes.Wpf.Modules.Lots.ViewModels
                 if (Items.Count == 0)
                 {
                     SelectedItem = null;
-                    SelectedDetail = null;
-                    Steps.Clear();
                     return;
                 }
 
@@ -390,8 +314,6 @@ namespace Mes.Wpf.Modules.Lots.ViewModels
                 else
                 {
                     SelectedItem = null;
-                    SelectedDetail = null;
-                    Steps.Clear();
                 }
             }
             finally
@@ -408,19 +330,51 @@ namespace Mes.Wpf.Modules.Lots.ViewModels
                 $"size={PageSize}"
             };
 
+            if (SearchModel.CreatedDateFrom.HasValue)
+            {
+                queryParts.Add($"created_date_from={SearchModel.CreatedDateFrom.Value:yyyy-MM-dd}");
+            }
+
+            if (SearchModel.CreatedDateTo.HasValue)
+            {
+                queryParts.Add($"created_date_to={SearchModel.CreatedDateTo.Value:yyyy-MM-dd}");
+            }
+
             var keyword = SearchModel.Keyword?.Trim();
+
             if (!string.IsNullOrWhiteSpace(keyword))
             {
                 queryParts.Add($"q={Uri.EscapeDataString(keyword)}");
             }
 
-            if (!string.IsNullOrWhiteSpace(SearchModel.SelectedStatus) &&
-                SearchModel.SelectedStatus != "전체")
+            var status = ConvertStatusToApiValue(SearchModel.SelectedStatus);
+
+            if (!string.IsNullOrWhiteSpace(status))
             {
-                queryParts.Add($"status={Uri.EscapeDataString(SearchModel.SelectedStatus)}");
+                queryParts.Add($"status={Uri.EscapeDataString(status)}");
             }
 
             return $"{ApiRoutes.Lots}?{string.Join("&", queryParts)}";
+        }
+
+        private static string ConvertStatusToApiValue(string? statusText)
+        {
+            var value = statusText?.Trim();
+
+            return value switch
+            {
+                null or "" or "전체" => string.Empty,
+                "생성" => "CREATED",
+                "진행중" => "IN_PROGRESS",
+                "검수대기" => "INSPECTION_WAITING",
+                "검수완료" => "INSPECTION_DONE",
+                _ => value
+            };
+        }
+
+        private void NormalizeSearchInputs()
+        {
+            SearchModel.Keyword = SearchModel.Keyword?.Trim() ?? string.Empty;
         }
 
         private void RaiseCommandCanExecuteChanged()
@@ -445,14 +399,14 @@ namespace Mes.Wpf.Modules.Lots.ViewModels
                 nextPageCommand.RaiseCanExecuteChanged();
             }
 
-            if (StartStepCommand is AsyncRelayCommand<LotStepDto> startStepCommand)
+            if (OpenLotDetailCommand is AsyncRelayCommand openLotDetailCommand)
             {
-                startStepCommand.RaiseCanExecuteChanged();
+                openLotDetailCommand.RaiseCanExecuteChanged();
             }
 
-            if (CompleteStepCommand is AsyncRelayCommand<LotStepDto> completeStepCommand)
+            if (OpenLotCertificateCommand is AsyncRelayCommand openLotCertificateCommand)
             {
-                completeStepCommand.RaiseCanExecuteChanged();
+                openLotCertificateCommand.RaiseCanExecuteChanged();
             }
         }
     }
@@ -462,7 +416,9 @@ namespace Mes.Wpf.Modules.Lots.ViewModels
         private readonly Func<Task> _execute;
         private readonly Func<bool>? _canExecute;
 
-        public AsyncRelayCommand(Func<Task> execute, Func<bool>? canExecute = null)
+        public AsyncRelayCommand(
+            Func<Task> execute,
+            Func<bool>? canExecute = null)
         {
             _execute = execute;
             _canExecute = canExecute;
@@ -478,54 +434,6 @@ namespace Mes.Wpf.Modules.Lots.ViewModels
         public async void Execute(object? parameter)
         {
             await _execute();
-        }
-
-        public void RaiseCanExecuteChanged()
-        {
-            CanExecuteChanged?.Invoke(this, EventArgs.Empty);
-        }
-    }
-
-    public class AsyncRelayCommand<T> : ICommand
-    {
-        private readonly Func<T?, Task> _execute;
-        private readonly Predicate<T?>? _canExecute;
-
-        public AsyncRelayCommand(Func<T?, Task> execute, Predicate<T?>? canExecute = null)
-        {
-            _execute = execute;
-            _canExecute = canExecute;
-        }
-
-        public event EventHandler? CanExecuteChanged;
-
-        public bool CanExecute(object? parameter)
-        {
-            if (parameter == null)
-            {
-                return _canExecute == null || _canExecute(default);
-            }
-
-            if (parameter is T typedParameter)
-            {
-                return _canExecute?.Invoke(typedParameter) ?? true;
-            }
-
-            return false;
-        }
-
-        public async void Execute(object? parameter)
-        {
-            if (parameter == null)
-            {
-                await _execute(default);
-                return;
-            }
-
-            if (parameter is T typedParameter)
-            {
-                await _execute(typedParameter);
-            }
         }
 
         public void RaiseCanExecuteChanged()

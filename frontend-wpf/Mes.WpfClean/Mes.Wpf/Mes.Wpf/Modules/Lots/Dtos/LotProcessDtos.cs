@@ -7,8 +7,22 @@ namespace Mes.Wpf.Modules.Lots.Dtos
 {
     public class LotProcessSearchModel : ViewModelBase
     {
+        private DateTime? _createdDateFrom;
+        private DateTime? _createdDateTo;
         private string _keyword = string.Empty;
         private string _selectedStatus = "전체";
+
+        public DateTime? CreatedDateFrom
+        {
+            get => _createdDateFrom;
+            set => SetProperty(ref _createdDateFrom, value);
+        }
+
+        public DateTime? CreatedDateTo
+        {
+            get => _createdDateTo;
+            set => SetProperty(ref _createdDateTo, value);
+        }
 
         public string Keyword
         {
@@ -24,6 +38,8 @@ namespace Mes.Wpf.Modules.Lots.Dtos
 
         public void Clear()
         {
+            CreatedDateFrom = null;
+            CreatedDateTo = null;
             Keyword = string.Empty;
             SelectedStatus = "전체";
         }
@@ -88,6 +104,30 @@ public class LotListItemDto
 
         [JsonPropertyName("created_at")]
         public DateTime? CreatedAt { get; set; }
+
+        [JsonPropertyName("order_date")]
+        public DateTime? OrderDate { get; set; }
+
+        [JsonPropertyName("order_qty")]
+        public int? OrderQty { get; set; }
+
+        [JsonPropertyName("inspection_schedule_id")]
+        public long? InspectionScheduleId { get; set; }
+
+        [JsonPropertyName("inspection_status")]
+        public string InspectionStatus { get; set; } = string.Empty;
+
+        [JsonPropertyName("list_status")]
+        public string ListStatus { get; set; } = string.Empty;
+
+        [JsonPropertyName("list_status_display")]
+        public string ListStatusDisplay { get; set; } = string.Empty;
+
+        [JsonPropertyName("lot_type")]
+        public string LotType { get; set; } = string.Empty;
+
+        [JsonPropertyName("lot_type_display")]
+        public string LotTypeDisplay { get; set; } = string.Empty;
     }
 
     public class LotDetailDto

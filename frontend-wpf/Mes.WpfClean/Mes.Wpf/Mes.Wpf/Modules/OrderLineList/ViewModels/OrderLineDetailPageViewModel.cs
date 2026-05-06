@@ -3,6 +3,9 @@ using Mes.Wpf.Core.Common.ViewModels;
 using Mes.Wpf.Core.Constants;
 using Mes.Wpf.Core.Interfaces;
 using Mes.Wpf.Modules.OrderLineList.Dtos;
+using Mes.Wpf.Modules.LotDetails.ViewModels;
+using Mes.Wpf.Modules.LotDetails.Views;
+
 using System;
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
@@ -14,6 +17,7 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
         private readonly IApiClient _apiClient;
         private readonly IMessageService _messageService;
         private readonly Func<Task>? _goBackAsync;
+        private readonly Func<long, Task>? _openLotDetailAsync;
 
         private long _orderLineId;
         private bool _isEditMode;
@@ -48,11 +52,13 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
         public OrderLineDetailPageViewModel(
             IApiClient apiClient,
             IMessageService messageService,
-            Func<Task>? goBackAsync = null)
+            Func<Task>? goBackAsync = null,
+            Func<long, Task>? openLotDetailAsync = null)
         {
             _apiClient = apiClient;
             _messageService = messageService;
             _goBackAsync = goBackAsync;
+            _openLotDetailAsync = openLotDetailAsync;
 
             Lots = new ObservableCollection<OrderLineDetailLotDto>();
             Timeline = new ObservableCollection<OrderLineTimelineItemDto>();
@@ -64,6 +70,7 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
             OpenLotDetailCommand = new AsyncRelayCommand(OpenLotDetailAsync);
             EditCommand = new RelayCommand(EnterEditMode);
             BackCommand = new AsyncRelayCommand(BackAsync);
+            
         }
 
         public ObservableCollection<OrderLineDetailLotDto> Lots { get; }
@@ -459,8 +466,18 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
                 return;
             }
 
-            await Task.CompletedTask;
-            _messageService.ShowInfo($"LOT 상세 연결 예정: LotId={SelectedItem.LotId}");
+            if (SelectedItem.LotId <= 0)
+            {
+                _messageService.ShowWarning("LOT 정보가 없습니다.");
+                return;
+            }
+
+            var windowVm = new LotDetailWindowViewModel(_apiClient, _messageService);
+
+            await windowVm.InitializeAsync(SelectedItem.LotId);
+
+            var window = new LotDetailWindow(windowVm);
+            window.ShowDialog();
         }
     }
 }

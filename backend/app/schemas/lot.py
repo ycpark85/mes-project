@@ -69,6 +69,16 @@ class LotOut(BaseModel):
     product_code: Optional[str] = None
     product_name: Optional[str] = None
 
+     # LOT 리스트 화면용
+    order_date: Optional[date] = None
+    order_qty: Optional[int] = None
+    inspection_schedule_id: Optional[int] = None
+    inspection_status: Optional[str] = None
+    list_status: Optional[str] = None
+    list_status_display: Optional[str] = None
+    lot_type: Optional[str] = None
+    lot_type_display: Optional[str] = None
+    
     class Config:
         from_attributes = True
 
