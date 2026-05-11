@@ -14,6 +14,9 @@ namespace Mes.Wpf.Modules.Drawings.Dtos
         [JsonPropertyName("current_revision_id")]
         public long? CurrentRevisionId { get; set; }
 
+        [JsonPropertyName("current_revision_no")]
+        public string CurrentRevisionNo { get; set; } = string.Empty;
+
         [JsonPropertyName("is_active")]
         public bool IsActive { get; set; }
 

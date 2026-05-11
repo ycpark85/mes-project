@@ -49,6 +49,9 @@ class Drawing(Base):
         foreign_keys=[current_revision_id],
         post_update=True,  # 순환참조 업데이트 안전
     )
+    @property
+    def current_revision_no(self) -> str | None:
+        return self.current_revision.rev_no if self.current_revision else None
 
     product: Mapped[Optional["Product"]] = relationship(
         "Product",

@@ -411,6 +411,26 @@ namespace Mes.Wpf.Views.Shell
 
             await viewModel.InitializeAsync();
         }
+        private async void ProductMonitoring_Click(object sender, RoutedEventArgs e)
+        {
+            var page = new ProductMonitoringPage();
+
+            var viewModel = new ProductMonitoringPageViewModel(
+                _apiClient,
+                _messageService,
+                _drawingViewer);
+
+            page.DataContext = viewModel;
+
+            MainContent.Content = page;
+            MainContent.Visibility = Visibility.Visible;
+
+            HeaderTitle.Text = "품목 모니터링";
+            HeaderSubtitle.Text = "품목 기준 LOT 이력 조회 / 최근 진행 현황 확인";
+
+            await viewModel.InitializeAsync();
+        }
+
 
 
     }

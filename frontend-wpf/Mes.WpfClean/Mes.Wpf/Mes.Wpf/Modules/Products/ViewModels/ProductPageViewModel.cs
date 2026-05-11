@@ -47,6 +47,7 @@ namespace Mes.Wpf.Modules.Products.ViewModels
             DrawingOptions = new ObservableCollection<DrawingDto>();
             RoutingTemplateOptions = new ObservableCollection<RoutingTemplateDto>();
             EditModel = new ProductEditModel();
+            EditModel.Uom = "EA";
             BulkRows = new ObservableCollection<ProductBulkUploadRowModel>();
 
             SaveCommand = new AsyncRelayCommand(SaveAsync);
@@ -77,6 +78,10 @@ namespace Mes.Wpf.Modules.Products.ViewModels
         public RelayCommand EditCommand { get; }
 
         public RelayCommand ViewDrawingCommand { get; }
+
+        public IApiClient ApiClient => _apiClient;
+
+        public IMessageService MessageService => _messageService;
 
         public string SearchKeyword
         {
@@ -185,24 +190,34 @@ namespace Mes.Wpf.Modules.Products.ViewModels
             SelectedUseYn = "사용";
             SelectedItem = null;
             EditModel.Clear();
+            EditModel.Uom = "EA";
+
             DrawingSearchKeyword = string.Empty;
             SelectedDrawingNo = string.Empty;
             SelectedDrawingCurrentRevisionId = null;
             DrawingOptions.Clear();
+
             IsCodeEditable = true;
             IsEditMode = true;
+
+            _ = SearchDrawingsAsync(string.Empty);
         }
 
         protected override void New()
         {
             SelectedItem = null;
             EditModel.Clear();
+            EditModel.Uom = "EA";
+
             DrawingSearchKeyword = string.Empty;
             SelectedDrawingNo = string.Empty;
             SelectedDrawingCurrentRevisionId = null;
             DrawingOptions.Clear();
+
             IsCodeEditable = true;
             IsEditMode = true;
+
+            _ = SearchDrawingsAsync(string.Empty);
         }
 
         protected override void OnSelectedItemChanged(ProductDto? item)
@@ -219,6 +234,8 @@ namespace Mes.Wpf.Modules.Products.ViewModels
 
             IsEditMode = true;
             IsCodeEditable = false;
+
+            _ = SearchDrawingsAsync(string.Empty);
         }
 
         private async Task LoadRoutingTemplateLookupAsync()
@@ -307,12 +324,18 @@ namespace Mes.Wpf.Modules.Products.ViewModels
                 await SearchAsync();
                 SelectedItem = null;
                 EditModel.Clear();
+                EditModel.Uom = "EA";
+
                 DrawingSearchKeyword = string.Empty;
                 SelectedDrawingNo = string.Empty;
                 SelectedDrawingCurrentRevisionId = null;
                 DrawingOptions.Clear();
+
                 IsCodeEditable = true;
                 IsEditMode = true;
+
+                _ = SearchDrawingsAsync(string.Empty);
+
                 _messageService.ShowInfo("삭제되었습니다.");
             }
             finally
@@ -359,11 +382,17 @@ namespace Mes.Wpf.Modules.Products.ViewModels
             {
                 SelectedItem = null;
                 EditModel.Clear();
+                EditModel.Uom = "EA";
+
                 DrawingSearchKeyword = string.Empty;
                 SelectedDrawingNo = string.Empty;
+                SelectedDrawingCurrentRevisionId = null;
                 DrawingOptions.Clear();
+
                 IsCodeEditable = true;
                 IsEditMode = true;
+
+                _ = SearchDrawingsAsync(string.Empty);
             }
 
             _messageService.ShowInfo("저장되었습니다.");
@@ -418,12 +447,17 @@ namespace Mes.Wpf.Modules.Products.ViewModels
             if (item == null)
             {
                 EditModel.Clear();
+                EditModel.Uom = "EA";
+
                 DrawingSearchKeyword = string.Empty;
                 SelectedDrawingNo = string.Empty;
                 SelectedDrawingCurrentRevisionId = null;
                 DrawingOptions.Clear();
+
                 IsCodeEditable = true;
                 IsEditMode = true;
+
+                _ = SearchDrawingsAsync(string.Empty);
                 return;
             }
 
@@ -480,6 +514,7 @@ namespace Mes.Wpf.Modules.Products.ViewModels
             SelectedDrawingCurrentRevisionId = drawing.CurrentRevisionId;
             DrawingSearchKeyword = drawing.DrawingNo ?? string.Empty;
         }
+
         private async Task ViewDrawingAsync()
         {
             if (!EditModel.DrawingId.HasValue || EditModel.DrawingId.Value <= 0)

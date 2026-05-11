@@ -16,6 +16,7 @@ class DrawingOut(BaseModel):
     drawing_id: int
     drawing_no: str
     current_revision_id: int | None
+    current_revision_no: str | None = None
     is_active: bool
     created_at: datetime
     updated_at: datetime

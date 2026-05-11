@@ -1,0 +1,492 @@
+﻿<UserControl x:Class="Mes.Wpf.Modules.Products.Views.ProductMonitoringPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+
+        <Style x:Key="CardBorderStyle" TargetType="Border">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#D9DEE7"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="14"/>
+        </Style>
+
+        <Style x:Key="SectionTitleStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#1F2937"/>
+        </Style>
+
+        <Style x:Key="SearchLabelStyle" TargetType="TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#374151"/>
+        </Style>
+
+        <Style x:Key="InputTextBoxStyle" TargetType="TextBox">
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Padding" Value="8,0"/>
+            <Setter Property="BorderBrush" Value="#C9D2E3"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+
+        <Style x:Key="InputComboBoxStyle" TargetType="ComboBox">
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="BorderBrush" Value="#C9D2E3"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+
+        <Style x:Key="PrimaryButtonStyle" TargetType="Button">
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="MinWidth" Value="110"/>
+            <Setter Property="Padding" Value="16,0"/>
+            <Setter Property="Background" Value="#2563EB"/>
+            <Setter Property="BorderBrush" Value="#2563EB"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+
+        <Style x:Key="SecondaryButtonStyle" TargetType="Button">
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="MinWidth" Value="110"/>
+            <Setter Property="Padding" Value="16,0"/>
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#C9D2E3"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Foreground" Value="#1F2937"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+
+        <Style x:Key="CenterTextBlockStyle" TargetType="TextBlock">
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="TextAlignment" Value="Center"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        </Style>
+
+        <Style x:Key="LeftTextBlockStyle" TargetType="TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="TextAlignment" Value="Left"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+            <Setter Property="Padding" Value="8,0,8,0"/>
+        </Style>
+
+        <Style x:Key="StatusBadgeBorderStyle" TargetType="Border">
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="10,3"/>
+            <Setter Property="MinWidth" Value="72"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Background" Value="#EEF2F7"/>
+            <Setter Property="BorderBrush" Value="#CBD5E1"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding ListStatus}" Value="CREATED">
+                    <Setter Property="Background" Value="#F1F5F9"/>
+                    <Setter Property="BorderBrush" Value="#CBD5E1"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding ListStatus}" Value="IN_PROGRESS">
+                    <Setter Property="Background" Value="#DBEAFE"/>
+                    <Setter Property="BorderBrush" Value="#93C5FD"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding ListStatus}" Value="INSPECTION_WAITING">
+                    <Setter Property="Background" Value="#FFEDD5"/>
+                    <Setter Property="BorderBrush" Value="#FDBA74"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding ListStatus}" Value="INSPECTION_DONE">
+                    <Setter Property="Background" Value="#DCFCE7"/>
+                    <Setter Property="BorderBrush" Value="#86EFAC"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding ListStatus}" Value="CANCELED">
+                    <Setter Property="Background" Value="#FEE2E2"/>
+                    <Setter Property="BorderBrush" Value="#FCA5A5"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="StatusBadgeTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="TextAlignment" Value="Center"/>
+            <Setter Property="Foreground" Value="#475569"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding ListStatus}" Value="IN_PROGRESS">
+                    <Setter Property="Foreground" Value="#1D4ED8"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding ListStatus}" Value="INSPECTION_WAITING">
+                    <Setter Property="Foreground" Value="#C2410C"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding ListStatus}" Value="INSPECTION_DONE">
+                    <Setter Property="Foreground" Value="#15803D"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding ListStatus}" Value="CANCELED">
+                    <Setter Property="Foreground" Value="#DC2626"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style TargetType="DataGridColumnHeader">
+            <Setter Property="Background" Value="#EEF2F7"/>
+            <Setter Property="Foreground" Value="#1F2937"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="BorderBrush" Value="#D9DEE7"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+        </Style>
+
+        <Style TargetType="DataGridRow">
+            <Setter Property="Height" Value="34"/>
+        </Style>
+
+        <Style TargetType="DataGridCell">
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Padding" Value="4,0,4,0"/>
+            <Setter Property="BorderBrush" Value="#E5E7EB"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Margin="16" Background="#F5F7FB">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="12"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="12"/>
+            <RowDefinition Height="1.05*"/>
+            <RowDefinition Height="12"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="12"/>
+            <RowDefinition Height="1.15*"/>
+        </Grid.RowDefinitions>
+
+        <!-- 헤더 -->
+        <StackPanel Grid.Row="0">
+            <TextBlock FontSize="26"
+                       FontWeight="Bold"
+                       Foreground="#0F172A"
+                       Text="품목 모니터링"/>
+            <TextBlock Margin="0,6,0,0"
+                       FontSize="13"
+                       Foreground="#64748B"
+                       Text="품목 기준 LOT 이력 조회 / 최근 진행 현황 확인"/>
+        </StackPanel>
+
+        <!-- 검색 -->
+        <Border Grid.Row="2" Style="{StaticResource CardBorderStyle}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="70"/>
+                    <ColumnDefinition Width="300"/>
+                    <ColumnDefinition Width="30"/>
+                    <ColumnDefinition Width="80"/>
+                    <ColumnDefinition Width="150"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="110"/>
+                    <ColumnDefinition Width="8"/>
+                    <ColumnDefinition Width="110"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0"
+                           Style="{StaticResource SearchLabelStyle}"
+                           Text="검색어"/>
+
+                <TextBox Grid.Column="1"
+                         Style="{StaticResource InputTextBoxStyle}"
+                         Text="{Binding SearchKeyword, UpdateSourceTrigger=PropertyChanged}"/>
+
+                <TextBlock Grid.Column="3"
+                           Style="{StaticResource SearchLabelStyle}"
+                           Text="사용여부"/>
+
+                <ComboBox Grid.Column="4"
+                          Style="{StaticResource InputComboBoxStyle}"
+                          ItemsSource="{Binding UseYnOptions}"
+                          SelectedItem="{Binding SelectedUseYn}"/>
+
+                <Button Grid.Column="6"
+                        Style="{StaticResource PrimaryButtonStyle}"
+                        Content="조회"
+                        Command="{Binding SearchCommand}"/>
+
+                <Button Grid.Column="8"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        Content="초기화"
+                        Command="{Binding ResetCommand}"/>
+            </Grid>
+        </Border>
+
+        <!-- 품목 목록 -->
+        <Border Grid.Row="4" Style="{StaticResource CardBorderStyle}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="10"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0"
+                           Style="{StaticResource SectionTitleStyle}"
+                           Text="품목 목록"/>
+
+                <DataGrid Grid.Row="2"
+                          ItemsSource="{Binding ProductItems}"
+                          SelectedItem="{Binding SelectedProduct, Mode=TwoWay}"
+                          AutoGenerateColumns="False"
+                          CanUserAddRows="False"
+                          CanUserDeleteRows="False"
+                          IsReadOnly="True"
+                          SelectionMode="Single"
+                          SelectionUnit="FullRow"
+                          RowHeaderWidth="0"
+                          HeadersVisibility="Column"
+                          GridLinesVisibility="Horizontal"
+                          AlternatingRowBackground="#F8FAFC"
+                          ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                          ScrollViewer.VerticalScrollBarVisibility="Auto">
+
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="품목코드"
+                        Binding="{Binding ProductCode}"
+                        Width="150"
+                        ElementStyle="{StaticResource CenterTextBlockStyle}"/>
+
+                        <DataGridTextColumn Header="품목명"
+                        Binding="{Binding ProductName}"
+                        Width="260"
+                        ElementStyle="{StaticResource LeftTextBlockStyle}"/>
+
+                        <DataGridTextColumn Header="단위"
+                        Binding="{Binding Uom}"
+                        Width="80"
+                        ElementStyle="{StaticResource CenterTextBlockStyle}"/>
+
+                        <DataGridTextColumn Header="라우팅명"
+                        Binding="{Binding RoutingTemplateName}"
+                        Width="140"
+                        ElementStyle="{StaticResource CenterTextBlockStyle}"/>
+
+                        <DataGridTextColumn Header="규격"
+                        Binding="{Binding ProductSpec}"
+                        Width="160"
+                        ElementStyle="{StaticResource CenterTextBlockStyle}"/>
+
+                        <DataGridTemplateColumn Header="판사이즈" Width="140">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Style="{StaticResource CenterTextBlockStyle}">
+                    <Run Text="{Binding PanelWidthMm}"/>
+                    <Run Text=" x "/>
+                    <Run Text="{Binding PanelLengthMm}"/>
+                                    </TextBlock>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+
+                        <DataGridTextColumn Header="컷수"
+                        Binding="{Binding CutQtyPerPanel}"
+                        Width="90"
+                        ElementStyle="{StaticResource CenterTextBlockStyle}"/>
+
+                        <DataGridTemplateColumn Header="도면번호" Width="130">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button Height="26"
+                                            Padding="10,0"
+                                            HorizontalAlignment="Center"
+                                            Content="{Binding DrawingNo}"
+                                            Click="DrawingButton_Click"/>   
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
+        </Border>
+
+        <!-- 중간 액션 -->
+        <Border Grid.Row="6" Style="{StaticResource CardBorderStyle}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="10"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="420"/>
+                </Grid.ColumnDefinitions>
+
+                <Button Grid.Column="0"
+                        Style="{StaticResource PrimaryButtonStyle}"
+                        Content="이력조회"
+                        Command="{Binding LoadHistoryCommand}"/>
+
+                <Button Grid.Column="2"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        Content="LOT 상세보기"
+                        Command="{Binding OpenLotDetailCommand}"/>
+
+                <Border Grid.Column="4"
+                        Background="#F8FAFC"
+                        BorderBrush="#D9DEE7"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="14,10">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="1"/>
+                            <ColumnDefinition Width="110"/>
+                            <ColumnDefinition Width="1"/>
+                            <ColumnDefinition Width="150"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0">
+                            <TextBlock FontSize="12"
+                                       Foreground="#64748B"
+                                       Text="선택 품목"/>
+                            <TextBlock Margin="0,4,0,0"
+                                       FontSize="18"
+                                       FontWeight="Bold"
+                                       Foreground="#2563EB"
+                                       Text="{Binding SelectedProductName}"/>
+                        </StackPanel>
+
+                        <Border Grid.Column="1" Background="#CBD5E1"/>
+
+                        <StackPanel Grid.Column="2" HorizontalAlignment="Center">
+                            <TextBlock FontSize="12"
+                                       Foreground="#64748B"
+                                       HorizontalAlignment="Center"
+                                       Text="최근 LOT"/>
+                            <TextBlock Margin="0,4,0,0"
+                                       FontSize="18"
+                                       FontWeight="Bold"
+                                       Foreground="#2563EB"
+                                       HorizontalAlignment="Center"
+                                       Text="{Binding LotCountText}"/>
+                        </StackPanel>
+
+                        <Border Grid.Column="3" Background="#CBD5E1"/>
+
+                        <TextBlock Grid.Column="4"
+                                   VerticalAlignment="Center"
+                                   TextWrapping="Wrap"
+                                   Foreground="#475569"
+                                   Text="상세 확인은 LOT 리스트 메뉴에서 추가 조회 가능"/>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Border>
+
+        <!-- 최근 LOT 이력 -->
+        <Border Grid.Row="8" Style="{StaticResource CardBorderStyle}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="10"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0"
+                           Style="{StaticResource SectionTitleStyle}"
+                           Text="최근 LOT 이력 (최신 10건)"/>
+
+                <DataGrid Grid.Row="2"
+                          ItemsSource="{Binding LotItems}"
+                          SelectedItem="{Binding SelectedLot, Mode=TwoWay}"
+                          AutoGenerateColumns="False"
+                          CanUserAddRows="False"
+                          CanUserDeleteRows="False"
+                          IsReadOnly="True"
+                          SelectionMode="Single"
+                          SelectionUnit="FullRow"
+                          RowHeaderWidth="0"
+                          HeadersVisibility="Column"
+                          GridLinesVisibility="Horizontal"
+                          AlternatingRowBackground="#F8FAFC"
+                          ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                          ScrollViewer.VerticalScrollBarVisibility="Auto">
+
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="LOT No"
+                                            Binding="{Binding LotNo}"
+                                            Width="150"
+                                            ElementStyle="{StaticResource CenterTextBlockStyle}"/>
+
+                        <DataGridTextColumn Header="수주일"
+                                            Binding="{Binding OrderDate, StringFormat=yyyy-MM-dd}"
+                                            Width="110"
+                                            ElementStyle="{StaticResource CenterTextBlockStyle}"/>
+
+                        <DataGridTextColumn Header="거래처명"
+                                            Binding="{Binding PartnerName}"
+                                            Width="170"
+                                            ElementStyle="{StaticResource LeftTextBlockStyle}"/>
+
+                        <DataGridTextColumn Header="납기일"
+                                            Binding="{Binding DueDate, StringFormat=yyyy-MM-dd}"
+                                            Width="110"
+                                            ElementStyle="{StaticResource CenterTextBlockStyle}"/>
+
+                        <DataGridTextColumn Header="발주수량"
+                                            Binding="{Binding OrderQty, StringFormat={}{0:N0}}"
+                                            Width="110"
+                                            ElementStyle="{StaticResource CenterTextBlockStyle}"/>
+
+                        <DataGridTextColumn Header="LOT수량"
+                                            Binding="{Binding LotQty, StringFormat={}{0:N0}}"
+                                            Width="110"
+                                            ElementStyle="{StaticResource CenterTextBlockStyle}"/>
+
+                        <DataGridTemplateColumn Header="상태" Width="120">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Border Style="{StaticResource StatusBadgeBorderStyle}">
+                                        <TextBlock Text="{Binding ListStatusDisplay}"
+                                                   Style="{StaticResource StatusBadgeTextStyle}"/>
+                                    </Border>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+
+                        <DataGridTextColumn Header="LOT 구분"
+                                            Binding="{Binding LotTypeDisplay}"
+                                            Width="130"
+                                            ElementStyle="{StaticResource CenterTextBlockStyle}"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
+        </Border>
+
+        <!-- 로딩 -->
+        <Border Grid.RowSpan="9"
+                Background="#66000000"
+                Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}"
+                d:Visibility="Collapsed">
+            <Border Width="280"
+                    Padding="24"
+                    Background="White"
+                    CornerRadius="12"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center">
+                <StackPanel>
+                    <ProgressBar Height="16"
+                                 IsIndeterminate="True"/>
+                    <TextBlock Margin="0,12,0,0"
+                               HorizontalAlignment="Center"
+                               Text="{Binding LoadingMessage}"/>
+                </StackPanel>
+            </Border>
+        </Border>
+    </Grid>
+</UserControl>

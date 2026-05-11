@@ -2,6 +2,9 @@
 using Mes.Wpf.Modules.Products.ViewModels;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
+using Mes.Wpf.Modules.Drawings.ViewModels;
+using Mes.Wpf.Modules.Drawings.Views;
 
 namespace Mes.Wpf.Modules.Products.Views
 {
@@ -34,5 +37,38 @@ namespace Mes.Wpf.Modules.Products.Views
                 listBox.SelectedItem = null;
             }
         }
+
+        private void DrawingSearchTextBox_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key != Key.Enter)
+            {
+                return;
+            }
+
+            if (DataContext is not ProductPageViewModel vm)
+            {
+                return;
+            }
+
+            var keyword = vm.DrawingSearchKeyword?.Trim();
+
+            var lookupVm = new DrawingLookupWindowViewModel(
+                vm.ApiClient,
+                vm.MessageService,
+                keyword);
+
+            var window = new DrawingLookupWindow(lookupVm)
+            {
+                Owner = Window.GetWindow(this)
+            };
+
+            if (window.ShowDialog() == true && window.SelectedDrawing != null)
+            {
+                vm.SelectDrawing(window.SelectedDrawing);
+            }
+
+            e.Handled = true;
+        }
+
     }
 }

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Query, Path, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.db.session import get_db
 from app.models.drawing import Drawing
@@ -34,8 +34,33 @@ def list_drawings(
     is_active: bool | None = Query(True),
     db: Session = Depends(get_db),
 ):
-    items, total = drawing_crud.list_paged(db, page=page, size=size, q=q, is_active=is_active)
-    return {"items": items, "total": total, "page": page, "size": size}
+    base = (
+        db.query(Drawing)
+        .options(selectinload(Drawing.current_revision))
+    )
+
+    if is_active is not None:
+        base = base.filter(Drawing.is_active == is_active)
+
+    if q:
+        like = f"%{q}%"
+        base = base.filter(Drawing.drawing_no.ilike(like))
+
+    total = base.count()
+
+    items = (
+        base.order_by(Drawing.drawing_id.desc())
+        .offset((page - 1) * size)
+        .limit(size)
+        .all()
+    )
+
+    return {
+        "items": items,
+        "total": total,
+        "page": page,
+        "size": size,
+    }
 
 
 @router.patch("/{drawing_id}", response_model=DrawingOut)

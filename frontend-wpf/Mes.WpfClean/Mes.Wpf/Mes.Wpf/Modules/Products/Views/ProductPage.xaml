@@ -3,105 +3,165 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-            
              mc:Ignorable="d">
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+
+        <Style x:Key="SectionBorderStyle" TargetType="Border">
+            <Setter Property="Padding" Value="14"/>
+            <Setter Property="BorderBrush" Value="#D9DEE7"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Background" Value="White"/>
+        </Style>
+
+        <Style x:Key="SectionTitleTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#1F2937"/>
+        </Style>
+
+        <Style x:Key="FieldLabelStyle" TargetType="TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#374151"/>
+        </Style>
+
+        <Style x:Key="InputTextBoxStyle" TargetType="TextBox">
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Padding" Value="8,0"/>
+            <Setter Property="BorderBrush" Value="#C9D2E3"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Background" Value="White"/>
+        </Style>
+
+        <Style x:Key="InputComboBoxStyle" TargetType="ComboBox">
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="Padding" Value="4,0"/>
+            <Setter Property="BorderBrush" Value="#C9D2E3"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+
+        <Style x:Key="PrimaryButtonStyle" TargetType="Button">
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="Padding" Value="14,0"/>
+            <Setter Property="Background" Value="#2563EB"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="#2563EB"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+
+        <Style x:Key="SecondaryButtonStyle" TargetType="Button">
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="Padding" Value="14,0"/>
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Foreground" Value="#1F2937"/>
+            <Setter Property="BorderBrush" Value="#C9D2E3"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+
+        <Style x:Key="CenterTextBlockStyle" TargetType="TextBlock">
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="TextAlignment" Value="Center"/>
+        </Style>
+
+        <Style x:Key="LeftTextBlockStyle" TargetType="TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
     </UserControl.Resources>
 
-    <Grid Margin="16">
+    <Grid Margin="16" Background="#F5F7FB">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="12" />
-            <RowDefinition Height="1.0*" />
-            <RowDefinition Height="12" />
-            <RowDefinition Height="1.35*" />
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="12"/>
+            <RowDefinition Height="1.0*"/>
+            <RowDefinition Height="12"/>
+            <RowDefinition Height="1.35*"/>
         </Grid.RowDefinitions>
 
         <!-- 검색 영역 -->
-        <Border Grid.Row="0"
-                Padding="12"
-                BorderBrush="#DDDDDD"
-                BorderThickness="1"
-                CornerRadius="6"
-                Background="White">
+        <Border Grid.Row="0" Style="{StaticResource SectionBorderStyle}">
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="90" />
-                    <ColumnDefinition Width="220" />
-                    <ColumnDefinition Width="90" />
-                    <ColumnDefinition Width="120" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="72" />
-                    <ColumnDefinition Width="72" />
-                    <ColumnDefinition Width="72" />
-                    <ColumnDefinition Width="100" />
+                    <ColumnDefinition Width="70"/>
+                    <ColumnDefinition Width="240"/>
+                    <ColumnDefinition Width="80"/>
+                    <ColumnDefinition Width="130"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="80"/>
+                    <ColumnDefinition Width="80"/>
+                    <ColumnDefinition Width="80"/>
+                    <ColumnDefinition Width="120"/>
                 </Grid.ColumnDefinitions>
 
                 <TextBlock Grid.Column="0"
-                           VerticalAlignment="Center"
-                           Text="검색어" />
+                           Style="{StaticResource FieldLabelStyle}"
+                           Text="검색어"/>
 
                 <TextBox Grid.Column="1"
-                         Margin="4,0"
-                         VerticalContentAlignment="Center"
+                         Margin="6,0,10,0"
+                         Style="{StaticResource InputTextBoxStyle}"
                          Text="{Binding SearchKeyword, UpdateSourceTrigger=PropertyChanged}" />
 
                 <TextBlock Grid.Column="2"
-                           VerticalAlignment="Center"
-                           Text="사용여부" />
+                           Style="{StaticResource FieldLabelStyle}"
+                           Text="사용여부"/>
 
                 <ComboBox Grid.Column="3"
-                          Margin="4,0"
+                          Margin="6,0,0,0"
+                          Style="{StaticResource InputComboBoxStyle}"
                           ItemsSource="{Binding UseYnOptions}"
                           SelectedItem="{Binding SelectedUseYn}" />
 
                 <Button Grid.Column="5"
                         Margin="8,0,0,0"
+                        Style="{StaticResource PrimaryButtonStyle}"
                         Content="조회"
                         Command="{Binding SearchCommand}" />
 
                 <Button Grid.Column="6"
                         Margin="8,0,0,0"
+                        Style="{StaticResource SecondaryButtonStyle}"
                         Content="초기화"
                         Command="{Binding ResetCommand}" />
 
                 <Button Grid.Column="7"
                         Margin="8,0,0,0"
+                        Style="{StaticResource SecondaryButtonStyle}"
                         Content="신규"
                         Command="{Binding NewCommand}" />
 
                 <Button Grid.Column="8"
                         Margin="8,0,0,0"
+                        Style="{StaticResource SecondaryButtonStyle}"
                         Content="벌크 업로드"
                         Click="BulkUpload_Click" />
             </Grid>
         </Border>
 
         <!-- 품목 목록 -->
-        <Border Grid.Row="2"
-                Padding="12"
-                MinHeight="240"
-                BorderBrush="#DDDDDD"
-                BorderThickness="1"
-                CornerRadius="6"
-                Background="White"> 
+        <Border Grid.Row="2" Style="{StaticResource SectionBorderStyle}" MinHeight="240">
             <Grid>
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="8" />
-                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="10"/>
+                    <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
 
                 <TextBlock Grid.Row="0"
-                           FontSize="14"
-                           FontWeight="SemiBold"
-                           Text="품목 목록" />
+                           Style="{StaticResource SectionTitleTextStyle}"
+                           Text="품목 목록"/>
 
                 <DataGrid Grid.Row="2"
                           MinHeight="200"
-                          Margin="0,0,0,10"
                           AutoGenerateColumns="False"
                           CanUserAddRows="False"
                           CanUserDeleteRows="False"
@@ -111,200 +171,290 @@
                           SelectionMode="Single"
                           RowHeaderWidth="0"
                           HeadersVisibility="Column"
+                          AlternatingRowBackground="#F8FAFC"
+                          GridLinesVisibility="Horizontal"
+                          BorderBrush="#D7DEEA"
+                          BorderThickness="1"
                           ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                          ScrollViewer.VerticalScrollBarVisibility="Auto">    
+                          ScrollViewer.VerticalScrollBarVisibility="Auto">
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="품목코드" Binding="{Binding ProductCode}" Width="100" />
-                        <DataGridTextColumn Header="품목명" Binding="{Binding ProductName}" Width="180" />
-                        <DataGridTextColumn Header="단위" Binding="{Binding Uom}" Width="70" />
-                        <DataGridTextColumn Header="도면번호" Binding="{Binding DrawingNo}" Width="90" />
-                        <DataGridTextColumn Header="라우팅ID" Binding="{Binding RoutingTemplateName}" Width="100" />
-                        <DataGridTextColumn Header="Panel폭(mm)" Binding="{Binding PanelWidthMm}" Width="100" />
-                        <DataGridTextColumn Header="Panel길이(mm)" Binding="{Binding PanelLengthMm}" Width="110" />
-                        <DataGridTextColumn Header="제품사양" Binding="{Binding ProductSpec}" Width="150" />
-                        <DataGridTextColumn Header="컷수" Binding="{Binding CutQtyPerPanel}" Width="80" />
-                        <DataGridTextColumn Header="비고" Binding="{Binding Memo}" Width="200" />
+                        <DataGridTextColumn Header="품목코드" Binding="{Binding ProductCode}" Width="110">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource CenterTextBlockStyle}"/>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+
+                        <DataGridTextColumn Header="품목명" Binding="{Binding ProductName}" Width="220">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource LeftTextBlockStyle}"/>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+
+                        <DataGridTextColumn Header="단위" Binding="{Binding Uom}" Width="80">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource CenterTextBlockStyle}"/>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+
+                        <DataGridTextColumn Header="도면번호" Binding="{Binding DrawingNo}" Width="110">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource CenterTextBlockStyle}"/>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+
+                        <DataGridTextColumn Header="라우팅명" Binding="{Binding RoutingTemplateName}" Width="150">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource LeftTextBlockStyle}"/>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+
+                        <DataGridTextColumn Header="Panel폭(mm)" Binding="{Binding PanelWidthMm}" Width="110">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource CenterTextBlockStyle}"/>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+
+                        <DataGridTextColumn Header="Panel길이(mm)" Binding="{Binding PanelLengthMm}" Width="120">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource CenterTextBlockStyle}"/>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+
+                        <DataGridTextColumn Header="제품사양" Binding="{Binding ProductSpec}" Width="180">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource LeftTextBlockStyle}"/>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+
+                        <DataGridTextColumn Header="컷수" Binding="{Binding CutQtyPerPanel}" Width="80">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource CenterTextBlockStyle}"/>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+
+                        <DataGridTextColumn Header="비고" Binding="{Binding Memo}" Width="220">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource LeftTextBlockStyle}"/>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
                     </DataGrid.Columns>
                 </DataGrid>
             </Grid>
         </Border>
 
         <!-- 품목 편집 -->
-        <Border Grid.Row="4"
-                Padding="12"
-                BorderBrush="#DDDDDD"
-                BorderThickness="1"
-                CornerRadius="6"
-                Background="White">
+        <Border Grid.Row="4" Style="{StaticResource SectionBorderStyle}">
             <Grid>
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="12" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="12" />
-                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="12"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="12"/>
+                    <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
                 <TextBlock Grid.Row="0"
-                           FontSize="14"
-                           FontWeight="SemiBold"
-                           Text="품목 편집" />
+                           Style="{StaticResource SectionTitleTextStyle}"
+                           Text="품목 편집"/>
 
                 <Grid Grid.Row="2">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="100" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="40" />
-                        <ColumnDefinition Width="100" />
-                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="100"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="40"/>
+                        <ColumnDefinition Width="100"/>
+                        <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
 
                     <!-- 좌측 영역 -->
                     <Grid Grid.Column="0" Grid.ColumnSpan="2">
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="8" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="8" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="8" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="4" />
-                            <RowDefinition Height="72" />
-                            <RowDefinition Height="4" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="8" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="8" />
-                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
 
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="110" />
-                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="110"/>
+                            <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
 
-                        <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="품목코드" />
-                        <TextBox Grid.Row="0" Grid.Column="1"
+                        <TextBlock Grid.Row="0"
+                                   Grid.Column="0"
+                                   Style="{StaticResource FieldLabelStyle}"
+                                   Text="품목코드"/>            
+
+                        <TextBox Grid.Row="0"
+                                 Grid.Column="1"
+                                 Style="{StaticResource InputTextBoxStyle}"
                                  Text="{Binding EditModel.ProductCode, UpdateSourceTrigger=PropertyChanged}"
-                                 IsEnabled="{Binding IsCodeEditable}" />
+                                 IsEnabled="{Binding IsCodeEditable}"/>         
 
-                        <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Text="품목명" />
-                        <TextBox Grid.Row="2" Grid.Column="1"
-                                 Text="{Binding EditModel.ProductName, UpdateSourceTrigger=PropertyChanged}" IsReadOnly="{Binding IsReadOnlyMode}" />
+                        <TextBlock Grid.Row="2"
+                                   Grid.Column="0"
+                                   Style="{StaticResource FieldLabelStyle}"
+                                   Text="품목명"/>         
 
-                        <TextBlock Grid.Row="4" Grid.Column="0" VerticalAlignment="Center" Text="단위" />
-                        <ComboBox Grid.Row="4" Grid.Column="1"
+                        <TextBox Grid.Row="2"
+                                 Grid.Column="1"
+                                 Style="{StaticResource InputTextBoxStyle}"
+                                 Text="{Binding EditModel.ProductName, UpdateSourceTrigger=PropertyChanged}"
+                                 IsReadOnly="{Binding IsReadOnlyMode}"/>            
+
+                        <TextBlock Grid.Row="4"
+                                   Grid.Column="0"
+                                   Style="{StaticResource FieldLabelStyle}"
+                                   Text="단위"/>      
+
+                        <ComboBox Grid.Row="4"
+                                  Grid.Column="1"
+                                  Style="{StaticResource InputComboBoxStyle}"
                                   ItemsSource="{Binding UomOptions}"
-                                  SelectedItem="{Binding EditModel.Uom, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" IsReadOnly="{Binding IsReadOnlyMode}" />
+                                  SelectedItem="{Binding EditModel.Uom, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                  IsEnabled="{Binding IsEditMode}"/>            
 
-                        <TextBlock Grid.Row="6" Grid.Column="0" VerticalAlignment="Top" Margin="0,4,0,0" Text="도면검색" />
-                        <TextBox Grid.Row="6" Grid.Column="1"
-                                 Text="{Binding DrawingSearchKeyword, UpdateSourceTrigger=PropertyChanged}" IsReadOnly="{Binding IsReadOnlyMode}" />
+                        <TextBlock Grid.Row="6"
+                                   Grid.Column="0"
+                                   Style="{StaticResource FieldLabelStyle}"
+                                   Text="도면검색"/>
 
-                        <Border Grid.Row="8" Grid.Column="1"
-                                BorderBrush="#CCCCCC"
-                                BorderThickness="1"
-                                Background="White">
-                            <ListBox ItemsSource="{Binding DrawingOptions}"
-                                     DisplayMemberPath="DrawingNo"
-                                     SelectionChanged="DrawingSearchResult_SelectionChanged"
-                                     IsEnabled="{Binding IsEditMode}"/>
-                        </Border>
+                        <TextBox Grid.Row="6"
+                                 Grid.Column="1"
+                                 Style="{StaticResource InputTextBoxStyle}"
+                                 Text="{Binding DrawingSearchKeyword, UpdateSourceTrigger=PropertyChanged}"
+                                 IsReadOnly="{Binding IsReadOnlyMode}"
+                                 KeyDown="DrawingSearchTextBox_KeyDown"/>       
 
-                        <TextBlock Grid.Row="10" Grid.Column="0" VerticalAlignment="Center" Text="도면번호" />
+                        <TextBlock Grid.Row="8"
+                                   Grid.Column="0"
+                                   Style="{StaticResource FieldLabelStyle}"
+                                   Text="도면번호"/>            
 
-                        <Grid Grid.Row="10" Grid.Column="1">
+                        <Grid Grid.Row="8"
+                              Grid.Column="1">      
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="8" />
-                                <ColumnDefinition Width="90" />
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="8"/>
+                                <ColumnDefinition Width="100"/>
                             </Grid.ColumnDefinitions>
 
                             <TextBox Grid.Column="0"
-             IsReadOnly="True"
-             Text="{Binding SelectedDrawingNo}" />
+                                     Style="{StaticResource InputTextBoxStyle}"
+                                     IsReadOnly="True"
+                                     Text="{Binding SelectedDrawingNo}"/>       
 
                             <Button Grid.Column="2"
-            Content="도면 보기"
-            Command="{Binding ViewDrawingCommand}" />
+                                    Style="{StaticResource SecondaryButtonStyle}"
+                                    Content="도면 보기"
+                                    Command="{Binding ViewDrawingCommand}"/>            
                         </Grid>
 
-                        <TextBlock Grid.Row="12" Grid.Column="0" VerticalAlignment="Center" Text="라우팅명" />
-                        <ComboBox Grid.Row="12" Grid.Column="1"
+                        <TextBlock Grid.Row="10"
+                                   Grid.Column="0"
+                                   Style="{StaticResource FieldLabelStyle}"
+                                   Text="라우팅명"/>            
+
+                        <ComboBox Grid.Row="10"
+                                  Grid.Column="1"
+                                  Style="{StaticResource InputComboBoxStyle}"
                                   ItemsSource="{Binding RoutingTemplateOptions}"
                                   SelectedValuePath="RoutingTemplateId"
                                   SelectedValue="{Binding EditModel.RoutingTemplateId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                  IsEnabled="{Binding IsEditMode}">
+                                  IsEnabled="{Binding IsEditMode}">     
                             <ComboBox.ItemTemplate>
                                 <DataTemplate>
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="{Binding TemplateName}" />
+                                        <TextBlock Text="{Binding TemplateName}"/>
                                         <TextBlock Margin="6,0,0,0"
                                                    Foreground="Gray"
-                                                   Text="{Binding TemplateCode}" />
+                                                   Text="{Binding TemplateCode}"/>      
                                     </StackPanel>
                                 </DataTemplate>
                             </ComboBox.ItemTemplate>
                         </ComboBox>
 
-                        <TextBlock Grid.Row="14" Grid.Column="0" VerticalAlignment="Center" Text="사용여부" />
-                        <ComboBox Grid.Row="14" Grid.Column="1"
+                        <TextBlock Grid.Row="12"
+                                   Grid.Column="0"
+                                   Style="{StaticResource FieldLabelStyle}"
+                                   Text="사용여부"/>        
+
+                        <ComboBox Grid.Row="12"
+                                  Grid.Column="1"
+                                  Style="{StaticResource InputComboBoxStyle}"
                                   ItemsSource="{Binding UseYnOptions}"
-                                  SelectedItem="{Binding EditModel.UseYn}" />
+                                  SelectedItem="{Binding EditModel.UseYn}"
+                                  IsEnabled="{Binding IsEditMode}"/>        
                     </Grid>
 
                     <!-- 우측 영역 -->
                     <Grid Grid.Column="3" Grid.ColumnSpan="2">
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="8" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="8" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="8" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="8" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="8" />
-                            <RowDefinition Height="72" />
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="80"/>
                         </Grid.RowDefinitions>
 
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="110" />
-                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="110"/>
+                            <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
 
-                        <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="Panel 폭(mm)" />
+                        <TextBlock Grid.Row="0" Grid.Column="0" Style="{StaticResource FieldLabelStyle}" Text="Panel 폭(mm)" />
                         <TextBox Grid.Row="0" Grid.Column="1"
+                                 Style="{StaticResource InputTextBoxStyle}"
                                  Text="{Binding EditModel.PanelWidthMm, UpdateSourceTrigger=PropertyChanged}"
                                  IsReadOnly="{Binding IsReadOnlyMode}"/>
 
-                        <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Text="Panel 길이(mm)" />
+                        <TextBlock Grid.Row="2" Grid.Column="0" Style="{StaticResource FieldLabelStyle}" Text="Panel 길이(mm)" />
                         <TextBox Grid.Row="2" Grid.Column="1"
-                                 Text="{Binding EditModel.PanelLengthMm, UpdateSourceTrigger=PropertyChanged}" 
+                                 Style="{StaticResource InputTextBoxStyle}"
+                                 Text="{Binding EditModel.PanelLengthMm, UpdateSourceTrigger=PropertyChanged}"
                                  IsReadOnly="{Binding IsReadOnlyMode}"/>
 
-                        <TextBlock Grid.Row="4" Grid.Column="0" VerticalAlignment="Center" Text="제품사이즈" />
+                        <TextBlock Grid.Row="4" Grid.Column="0" Style="{StaticResource FieldLabelStyle}" Text="제품사양" />
                         <TextBox Grid.Row="4" Grid.Column="1"
-                                 Text="{Binding EditModel.ProductSpec, UpdateSourceTrigger=PropertyChanged}" 
+                                 Style="{StaticResource InputTextBoxStyle}"
+                                 Text="{Binding EditModel.ProductSpec, UpdateSourceTrigger=PropertyChanged}"
                                  IsReadOnly="{Binding IsReadOnlyMode}"/>
 
-                        <TextBlock Grid.Row="6" Grid.Column="0" VerticalAlignment="Center" Text="컷수" 
-/>
+                        <TextBlock Grid.Row="6" Grid.Column="0" Style="{StaticResource FieldLabelStyle}" Text="컷수" />
                         <TextBox Grid.Row="6" Grid.Column="1"
-                                 Width="80"
+                                 Width="90"
                                  HorizontalAlignment="Left"
-                                 Text="{Binding EditModel.CutQtyPerPanel, UpdateSourceTrigger=PropertyChanged}" 
+                                 Style="{StaticResource InputTextBoxStyle}"
+                                 Text="{Binding EditModel.CutQtyPerPanel, UpdateSourceTrigger=PropertyChanged}"
                                  IsReadOnly="{Binding IsReadOnlyMode}"/>
 
-                        <TextBlock Grid.Row="8" Grid.Column="0" VerticalAlignment="Top" Margin="0,4,0,0" Text="비고" />
+                        <TextBlock Grid.Row="8" Grid.Column="0"
+                                   Style="{StaticResource FieldLabelStyle}"
+                                   VerticalAlignment="Top"
+                                   Margin="0,6,0,0"
+                                   Text="비고" />
                         <TextBox Grid.Row="8" Grid.Column="1"
-                                 Height="72"
+                                 Height="80"
+                                 Padding="8"
                                  AcceptsReturn="True"
                                  TextWrapping="Wrap"
                                  VerticalScrollBarVisibility="Auto"
-                                 Text="{Binding EditModel.Memo, UpdateSourceTrigger=PropertyChanged}" 
+                                 Text="{Binding EditModel.Memo, UpdateSourceTrigger=PropertyChanged}"
                                  IsReadOnly="{Binding IsReadOnlyMode}"/>
                     </Grid>
                 </Grid>
@@ -314,17 +464,22 @@
                             HorizontalAlignment="Right">
                     <Button Width="90"
                             Margin="0,0,8,0"
+                            Style="{StaticResource SecondaryButtonStyle}"
                             Content="수정"
                             Command="{Binding EditCommand}"
-                            IsEnabled="{Binding CanEdit}" />    
+                            IsEnabled="{Binding CanEdit}" />
+
                     <Button Width="90"
                             Margin="0,0,8,0"
+                            Style="{StaticResource PrimaryButtonStyle}"
                             Content="저장"
                             Command="{Binding SaveCommand}"
                             IsEnabled="{Binding CanSave}" />
+
                     <Button Width="90"
+                            Style="{StaticResource SecondaryButtonStyle}"
                             Content="삭제"
-                            Command="{Binding DeleteCommand}" />          
+                            Command="{Binding DeleteCommand}" />
                 </StackPanel>
             </Grid>
         </Border>

@@ -10,35 +10,91 @@
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
 
+        <Style x:Key="CardBorderStyle" TargetType="Border">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#D9DEE7"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="14"/>
+        </Style>
+        <Style x:Key="CenterCheckBoxStyle" TargetType="CheckBox">
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="IsHitTestVisible" Value="False"/>
+            <Setter Property="Focusable" Value="False"/>
+        </Style>
+
+        <Style x:Key="SectionTitleStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#1F2937"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <Style x:Key="LabelTextStyle" TargetType="TextBlock">
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#374151"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
         <Style x:Key="ActionButtonStyle" TargetType="Button">
-            <Setter Property="Width" Value="76"/>
-            <Setter Property="Height" Value="30"/>
+            <Setter Property="Width" Value="78"/>
+            <Setter Property="Height" Value="32"/>
             <Setter Property="Margin" Value="0,0,8,0"/>
+            <Setter Property="Padding" Value="10,0"/>
         </Style>
 
         <Style x:Key="WideActionButtonStyle" TargetType="Button" BasedOn="{StaticResource ActionButtonStyle}">
-            <Setter Property="Width" Value="88"/>
+            <Setter Property="Width" Value="118"/>
         </Style>
 
         <Style x:Key="FileButtonStyle" TargetType="Button">
-            <Setter Property="Width" Value="64"/>
-            <Setter Property="Height" Value="28"/>
-            <Setter Property="Margin" Value="0,0,8,0"/>
+            <Setter Property="Width" Value="66"/>
+            <Setter Property="Height" Value="30"/>
+            <Setter Property="Margin" Value="6,0,0,0"/>
         </Style>
 
         <Style x:Key="CenterTextBlockStyle" TargetType="TextBlock">
             <Setter Property="HorizontalAlignment" Value="Center"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
             <Setter Property="TextAlignment" Value="Center"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
         </Style>
 
-        <Style x:Key="CenterCheckBoxStyle" TargetType="CheckBox">
-            <Setter Property="HorizontalAlignment" Value="Center"/>
+        <Style x:Key="LeftTextBlockStyle" TargetType="TextBlock">
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="TextAlignment" Value="Left"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+            <Setter Property="Padding" Value="8,0,8,0"/>
+        </Style>
+
+        <Style TargetType="DataGridColumnHeader">
+            <Setter Property="Background" Value="#EEF2F7"/>
+            <Setter Property="Foreground" Value="#1F2937"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="BorderBrush" Value="#D9DEE7"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+        </Style>
+
+        <Style TargetType="DataGridRow">
+            <Setter Property="Height" Value="34"/>
+        </Style>
+
+        <Style TargetType="DataGridCell">
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Padding" Value="4,0,4,0"/>
+            <Setter Property="BorderBrush" Value="#E5E7EB"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
         </Style>
     </UserControl.Resources>
 
-    <Grid Margin="16">
+    <Grid Margin="16" Background="#F5F7FB">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="12"/>
@@ -47,14 +103,11 @@
 
         <!-- 검색 영역 -->
         <Border Grid.Row="0"
-                Padding="16,12"
-                BorderBrush="#DDD" 
-                BorderThickness="1"
-                CornerRadius="8">
+                Style="{StaticResource CardBorderStyle}">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="70"/>
-                    <ColumnDefinition Width="220"/>
+                    <ColumnDefinition Width="260"/>
                     <ColumnDefinition Width="20"/>
                     <ColumnDefinition Width="70"/>
                     <ColumnDefinition Width="140"/>
@@ -62,127 +115,108 @@
                     <ColumnDefinition Width="90"/>
                     <ColumnDefinition Width="8"/>
                     <ColumnDefinition Width="90"/>
-                    <ColumnDefinition Width="8"/>
-                    <ColumnDefinition Width="90"/>
                 </Grid.ColumnDefinitions>
 
                 <TextBlock Grid.Column="0"
-                           VerticalAlignment="Center"
-                           Text="검색어"
-                           FontWeight="SemiBold"/>
+                           Style="{StaticResource LabelTextStyle}"
+                           Text="검색어"/>
 
                 <TextBox Grid.Column="1"
-                         Height="30"
+                         Height="32"
                          VerticalContentAlignment="Center"
                          Text="{Binding SearchKeyword, UpdateSourceTrigger=PropertyChanged}" />
 
                 <TextBlock Grid.Column="3"
-                           VerticalAlignment="Center"
-                           Text="사용여부"
-                           FontWeight="SemiBold"/>
+                           Style="{StaticResource LabelTextStyle}"
+                           Text="사용여부"/>
 
                 <ComboBox Grid.Column="4"
-                          Height="30"
+                          Height="32"
                           ItemsSource="{Binding UseYnOptions}"
                           SelectedItem="{Binding SelectedUseYn}" />
 
                 <Button Grid.Column="6"
-                        Width="90"
-                        Height="30"
+                        Height="32"
                         Content="조회"
                         Command="{Binding SearchCommand}" />
 
                 <Button Grid.Column="8"
-                        Width="90"
-                        Height="30"
+                        Height="32"
                         Content="초기화"
                         Command="{Binding ResetCommand}" />
-
-                <Button Grid.Column="10"
-                        Width="90"
-                        Height="30"
-                        Content="신규"
-                        Command="{Binding NewCommand}" />
             </Grid>
         </Border>
 
         <!-- 본문 -->
         <Grid Grid.Row="2">
             <Grid.ColumnDefinitions>
-                <!-- 기존보다 약 20% 확장 -->
-                <ColumnDefinition Width="492"/>
+                <ColumnDefinition Width="520"/>
                 <ColumnDefinition Width="12"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <!-- 좌측 목록 -->
+            <!-- 좌측 도면 목록 -->
             <Border Grid.Column="0"
-                    Padding="12"
-                    BorderBrush="#DDD" 
-                    BorderThickness="1"
-                    CornerRadius="8" Margin="-6,0,6,0">
+                    Style="{StaticResource CardBorderStyle}">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="8"/>
+                        <RowDefinition Height="10"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
-                    <TextBlock Text="도면 목록"
-                               FontSize="16"
-                               FontWeight="SemiBold"/>
+                    <TextBlock Grid.Row="0"
+                               Style="{StaticResource SectionTitleStyle}"
+                               Text="도면 목록"/>
 
                     <DataGrid Grid.Row="2"
                               AutoGenerateColumns="False"
                               CanUserAddRows="False"
+                              CanUserDeleteRows="False"
                               IsReadOnly="True"
                               ItemsSource="{Binding Items}"
                               SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
+                              SelectionMode="Single"
+                              SelectionUnit="FullRow"
                               HeadersVisibility="Column"
                               RowHeaderWidth="0"
                               GridLinesVisibility="Horizontal"
                               ScrollViewer.VerticalScrollBarVisibility="Auto"
                               ScrollViewer.HorizontalScrollBarVisibility="Auto">
+
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="도면번호"
-                                                Width="106"
+                                                Width="130"
                                                 Binding="{Binding DrawingNo}">
                                 <DataGridTextColumn.ElementStyle>
                                     <Style TargetType="TextBlock" BasedOn="{StaticResource CenterTextBlockStyle}"/>
                                 </DataGridTextColumn.ElementStyle>
                             </DataGridTextColumn>
 
-                            <DataGridTemplateColumn Header="사용" Width="50">
-                                <DataGridTemplateColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <CheckBox IsChecked="{Binding IsActive}"
-                                                  IsHitTestVisible="False"
-                                                  Focusable="False"
-                                                  HorizontalAlignment="Center"
-                                                  VerticalAlignment="Center"/>  
-                                    </DataTemplate>
-                                </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
+                            <DataGridTextColumn Header="현재 Rev No"
+                                                Width="70"
+                                                Binding="{Binding CurrentRevisionNo}">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource CenterTextBlockStyle}"/>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
 
-                            <DataGridTextColumn Header="등록일시"
-                                                Width="105"
+                            <DataGridCheckBoxColumn Header="사용"
+                                                    Width="70"
+                                                    Binding="{Binding IsActive}" 
+                                                    ElementStyle="{StaticResource CenterCheckBoxStyle}"/>
+
+                            <DataGridTextColumn Header="등록일"
+                                                Width="110"
                                                 Binding="{Binding CreatedAt, StringFormat=yyyy-MM-dd}">
                                 <DataGridTextColumn.ElementStyle>
                                     <Style TargetType="TextBlock" BasedOn="{StaticResource CenterTextBlockStyle}"/>
                                 </DataGridTextColumn.ElementStyle>
                             </DataGridTextColumn>
 
-                            <DataGridTextColumn Header="수정일시"
-                                                Width="105"
+                            <DataGridTextColumn Header="수정일"
+                                                Width="110"
                                                 Binding="{Binding UpdatedAt, StringFormat=yyyy-MM-dd}">
-                                <DataGridTextColumn.ElementStyle>
-                                    <Style TargetType="TextBlock" BasedOn="{StaticResource CenterTextBlockStyle}"/>
-                                </DataGridTextColumn.ElementStyle>
-                            </DataGridTextColumn>
-
-                            <DataGridTextColumn Header="현재 Rev ID"
-                                                Width="85"
-                                                Binding="{Binding CurrentRevisionId}">
                                 <DataGridTextColumn.ElementStyle>
                                     <Style TargetType="TextBlock" BasedOn="{StaticResource CenterTextBlockStyle}"/>
                                 </DataGridTextColumn.ElementStyle>
@@ -197,17 +231,14 @@
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="12"/>
-                    <RowDefinition Height="1.2*"/>
+                    <RowDefinition Height="1.15*"/>
                     <RowDefinition Height="12"/>
-                    <RowDefinition Height="0.95*"/>
+                    <RowDefinition Height="0.9*"/>
                 </Grid.RowDefinitions>
 
-                <!-- 도면 정보 -->
+                <!-- 도면 기본정보 -->
                 <Border Grid.Row="0"
-                        Padding="16"
-                        BorderBrush="#DDD" 
-                        BorderThickness="1"
-                        CornerRadius="8">
+                        Style="{StaticResource CardBorderStyle}">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
@@ -218,27 +249,25 @@
                         </Grid.RowDefinitions>
 
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="80"/>
-                            <ColumnDefinition Width="220"/>
                             <ColumnDefinition Width="90"/>
+                            <ColumnDefinition Width="260"/>
+                            <ColumnDefinition Width="100"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
 
                         <TextBlock Grid.Row="0"
                                    Grid.ColumnSpan="4"
-                                   Text="도면 정보"
-                                   FontSize="16"
-                                   FontWeight="SemiBold"/>
+                                   Style="{StaticResource SectionTitleStyle}"
+                                   Text="도면 기본정보"/>
 
                         <TextBlock Grid.Row="2"
                                    Grid.Column="0"
-                                   VerticalAlignment="Center"
-                                   Text="도면번호"
-                                   FontWeight="SemiBold"/>
+                                   Style="{StaticResource LabelTextStyle}"
+                                   Text="도면번호"/>
 
                         <TextBox Grid.Row="2"
                                  Grid.Column="1"
-                                 Height="30"
+                                 Height="32"
                                  VerticalContentAlignment="Center"
                                  IsEnabled="{Binding IsCodeEditable}"
                                  Text="{Binding EditModel.DrawingNo, UpdateSourceTrigger=PropertyChanged}" />
@@ -248,8 +277,8 @@
                                   VerticalAlignment="Center"
                                   Content="사용"
                                   IsEnabled="{Binding IsCodeEditable}"
-                                  IsChecked="{Binding EditModel.IsActive}" 
-                                  Margin="4,0,10,0" />
+                                  IsChecked="{Binding EditModel.IsActive}"
+                                  Margin="12,0,0,0" />
 
                         <StackPanel Grid.Row="4"
                                     Grid.Column="1"
@@ -257,111 +286,99 @@
                                     Orientation="Horizontal"
                                     HorizontalAlignment="Left">
                             <Button Style="{StaticResource ActionButtonStyle}"
+                                    Content="신규"
+                                    Command="{Binding NewCommand}" />
+
+                            <Button Style="{StaticResource ActionButtonStyle}"
                                     Content="수정"
                                     Command="{Binding EditCommand}" />
+
                             <Button Style="{StaticResource ActionButtonStyle}"
                                     Content="저장"
                                     Command="{Binding SaveCommand}" />
-                            <Button Style="{StaticResource ActionButtonStyle}"
-                                    Content="삭제"
-                                    Command="{Binding DeleteCommand}" />
+
                             <Button Style="{StaticResource ActionButtonStyle}"
                                     Margin="0"
-                                    Content="취소"
-                                    Command="{Binding CancelEditCommand}" />
+                                    Content="삭제"
+                                    Command="{Binding DeleteCommand}" />
                         </StackPanel>
                     </Grid>
                 </Border>
 
-                <!-- 리비전 관리 -->
+                <!-- 리비전 등록/선택 -->
                 <Border Grid.Row="2"
-                        Padding="12"
-                        BorderBrush="#DDD" 
-                        BorderThickness="1"
-                        CornerRadius="8"
+                        Style="{StaticResource CardBorderStyle}"
                         IsEnabled="{Binding IsRevisionSectionEnabled}">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="12"/>
                             <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="10"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
 
-                        <TextBlock Text="리비전 관리"
-                                   FontSize="16"
-                                   FontWeight="SemiBold"/>
+                        <TextBlock Grid.Row="0"
+                                   Style="{StaticResource SectionTitleStyle}"
+                                   Text="리비전 등록/선택"/>
 
                         <Grid Grid.Row="2">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="80"/>
-                                <ColumnDefinition Width="130"/>
-                                <ColumnDefinition Width="85"/>
+                                <ColumnDefinition Width="90"/>
+                                <ColumnDefinition Width="150"/>
                                 <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="76"/>
+                                <ColumnDefinition Width="130"/>
                                 <ColumnDefinition Width="8"/>
-                                <ColumnDefinition Width="88"/>
+                                <ColumnDefinition Width="130"/>
                                 <ColumnDefinition Width="8"/>
-                                <ColumnDefinition Width="88"/>
+                                <ColumnDefinition Width="132"/>
                             </Grid.ColumnDefinitions>
 
                             <TextBlock Grid.Column="0"
-                                       VerticalAlignment="Center"
-                                       Text="리비전번호"
-                                       FontWeight="SemiBold"/>
+                                       Style="{StaticResource LabelTextStyle}"
+                                       Text="Rev No"/>
 
                             <TextBox Grid.Column="1"
-                                     Height="30"
+                                     Height="32"
                                      VerticalContentAlignment="Center"
                                      Text="{Binding RevisionEditModel.RevNo, UpdateSourceTrigger=PropertyChanged}" />
 
-                            <CheckBox Grid.Column="2"
-                                      VerticalAlignment="Center"
-                                      Content="현재지정"
-                                      IsChecked="{Binding RevisionEditModel.SetAsCurrent}" Grid.ColumnSpan="2" Margin="22,0,253,0" />
-
-                            <Button Grid.Column="4"
-                                    Style="{StaticResource ActionButtonStyle}"
-                                    Margin="0"
-                                    Content="신규"
+                            <Button Grid.Column="3"
+                                    Style="{StaticResource WideActionButtonStyle}"
+                                    Content="신규 리비전"
                                     Command="{Binding NewRevisionCommand}" />
 
-                            <Button Grid.Column="6"
+                            <Button Grid.Column="5"
                                     Style="{StaticResource WideActionButtonStyle}"
-                                    Margin="0"
-                                    Content="리비전저장"
+                                    Content="리비전 저장"
                                     Command="{Binding SaveRevisionBundleCommand}" />
 
-                            <Button Grid.Column="8"
-                                    Style="{StaticResource WideActionButtonStyle}"
+                            <Button Grid.Column="7"
+                                    Width="132"
+                                    Height="32"
                                     Margin="0"
-                                    Content="현재지정"
+                                    Content="현재 리비전 지정"
                                     Command="{Binding SetCurrentRevisionCommand}" />
                         </Grid>
 
                         <DataGrid Grid.Row="4"
                                   AutoGenerateColumns="False"
                                   CanUserAddRows="False"
+                                  CanUserDeleteRows="False"
                                   IsReadOnly="True"
                                   ItemsSource="{Binding RevisionItems}"
                                   SelectedItem="{Binding SelectedRevision, Mode=TwoWay}"
+                                  SelectionMode="Single"
+                                  SelectionUnit="FullRow"
                                   HeadersVisibility="Column"
                                   RowHeaderWidth="0"
                                   GridLinesVisibility="Horizontal"
                                   ScrollViewer.VerticalScrollBarVisibility="Auto"
                                   ScrollViewer.HorizontalScrollBarVisibility="Auto">
-                            <DataGrid.Columns>
-                                <DataGridTextColumn Header="Rev ID"
-                                                    Width="70"
-                                                    Binding="{Binding RevisionId}">
-                                    <DataGridTextColumn.ElementStyle>
-                                        <Style TargetType="TextBlock" BasedOn="{StaticResource CenterTextBlockStyle}"/>
-                                    </DataGridTextColumn.ElementStyle>
-                                </DataGridTextColumn>
 
+                            <DataGrid.Columns>
                                 <DataGridTextColumn Header="Rev No"
-                                                    Width="90"
+                                                    Width="120"
                                                     Binding="{Binding RevNo}">
                                     <DataGridTextColumn.ElementStyle>
                                         <Style TargetType="TextBlock" BasedOn="{StaticResource CenterTextBlockStyle}"/>
@@ -369,7 +386,7 @@
                                 </DataGridTextColumn>
 
                                 <DataGridTextColumn Header="파일수"
-                                                    Width="60"
+                                                    Width="90"
                                                     Binding="{Binding Files.Count}">
                                     <DataGridTextColumn.ElementStyle>
                                         <Style TargetType="TextBlock" BasedOn="{StaticResource CenterTextBlockStyle}"/>
@@ -377,8 +394,16 @@
                                 </DataGridTextColumn>
 
                                 <DataGridTextColumn Header="등록일시"
-                                                    Width="100"
-                                                    Binding="{Binding CreatedAt, StringFormat=yyyy-MM-dd}">
+                                                    Width="150"
+                                                    Binding="{Binding CreatedAt, StringFormat=yyyy-MM-dd HH:mm}">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource CenterTextBlockStyle}"/>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+
+                                <DataGridTextColumn Header="등록자"
+                                                    Width="120"
+                                                    Binding="{Binding CreatedBy}">
                                     <DataGridTextColumn.ElementStyle>
                                         <Style TargetType="TextBlock" BasedOn="{StaticResource CenterTextBlockStyle}"/>
                                     </DataGridTextColumn.ElementStyle>
@@ -388,88 +413,118 @@
                     </Grid>
                 </Border>
 
-                <!-- 파일 관리 -->
+                <!-- 리비전 파일 -->
                 <Border Grid.Row="4"
-                        Padding="12"
-                        BorderBrush="#DDD" 
-                        BorderThickness="1"
-                        CornerRadius="8"
+                        Style="{StaticResource CardBorderStyle}"
                         IsEnabled="{Binding CanCreateRevision}">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="8"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="8"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="8"/>
-                            <RowDefinition Height="Auto"/>
                             <RowDefinition Height="12"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="14"/>
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
 
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="80"/>
-                            <!-- 텍스트박스 폭 축소 -->
-                            <ColumnDefinition Width="210"/>
-                            <ColumnDefinition Width="2"/>
-                            <ColumnDefinition Width="79"/>
-                            <ColumnDefinition Width="6"/>
-                            <ColumnDefinition Width="104"/>
-                            <ColumnDefinition/>
+                            <ColumnDefinition Width="90"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="72"/>
+                            <ColumnDefinition Width="72"/>
+                            <ColumnDefinition Width="180"/>
                         </Grid.ColumnDefinitions>
 
                         <TextBlock Grid.Row="0"
-                                   Grid.ColumnSpan="7"
-                                   Text="파일 관리"
-                                   FontSize="16"
-                                   FontWeight="SemiBold"/>
+                                   Grid.ColumnSpan="5"
+                                   Style="{StaticResource SectionTitleStyle}"
+                                   Text="리비전 파일"/>
 
-                        <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Text="도면파일" FontWeight="SemiBold" Height="16"/>
-                        <TextBox Grid.Row="1" Grid.Column="1" IsReadOnly="True" VerticalContentAlignment="Center"
-                                 Text="{Binding DrawingDisplayFileName, Mode=OneWay}" Margin="0,8,0,0" Grid.RowSpan="2" />
-                        <Button Grid.Row="1" Grid.Column="3" Style="{StaticResource FileButtonStyle}"
-                                Content="선택" Command="{Binding BrowseDrawingFileCommand}" Margin="12,8,3,0" Grid.RowSpan="2" />
-                        <Button Grid.Row="1" Grid.Column="5" Style="{StaticResource FileButtonStyle}"
-                                Margin="17,8,23,0"
-                                Content="열기" Command="{Binding OpenDrawingFileCommand}" Grid.RowSpan="2" />
+                        <!-- 도면파일 -->
+                        <TextBlock Grid.Row="2"
+                                   Grid.Column="0"
+                                   Style="{StaticResource LabelTextStyle}"
+                                   Text="도면파일"/>
 
-                        <TextBlock Grid.Row="4" Grid.Column="0" VerticalAlignment="Center" Text="원본파일" FontWeight="SemiBold" Height="16"/>
-                        <TextBox Grid.Row="3" Grid.Column="1" IsReadOnly="True" VerticalContentAlignment="Center"
-                                 Text="{Binding OriginalDisplayFileName, Mode=OneWay}" Margin="0,8,0,0" Grid.RowSpan="2" />
-                        <Button Grid.Row="3" Grid.Column="3" Style="{StaticResource FileButtonStyle}"
-                                Content="선택" Command="{Binding BrowseOriginalFileCommand}" Margin="12,8,3,0" Grid.RowSpan="2" />
-                        <Button Grid.Row="3" Grid.Column="5" Style="{StaticResource FileButtonStyle}"
-                                Margin="17,8,23,0"
-                                Content="열기" Command="{Binding OpenOriginalFileCommand}" Grid.RowSpan="2" />
+                        <TextBox Grid.Row="2"
+                                 Grid.Column="1"
+                                 Height="32"
+                                 IsReadOnly="True"
+                                 VerticalContentAlignment="Center"
+                                 Text="{Binding DrawingDisplayFileName, Mode=OneWay}" />
 
-                        <TextBlock Grid.Row="6" Grid.Column="0" VerticalAlignment="Center" Text="판작업" FontWeight="SemiBold" Height="16"/>
-                        <TextBox Grid.Row="5" Grid.Column="1" IsReadOnly="True" VerticalContentAlignment="Center"
-                                 Text="{Binding PlateDisplayFileName, Mode=OneWay}" Margin="0,8,0,0" Grid.RowSpan="2" />
-                        <Button Grid.Row="5" Grid.Column="3" Style="{StaticResource FileButtonStyle}"
-                                Content="선택" Command="{Binding BrowsePlateFileCommand}" Margin="12,8,3,0" Grid.RowSpan="2" />
-                        <Button Grid.Row="5" Grid.Column="5" Style="{StaticResource FileButtonStyle}"
-                                Margin="17,8,23,0"
-                                Content="열기" Command="{Binding OpenPlateFileCommand}" Grid.RowSpan="2" />
+                        <Button Grid.Row="2"
+                                Grid.Column="2"
+                                Style="{StaticResource FileButtonStyle}"
+                                Content="선택"
+                                Command="{Binding BrowseDrawingFileCommand}" />
 
-                        <StackPanel Grid.Row="4"
-                                    Grid.Column="5"
-                                    Orientation="Horizontal"
-                                    HorizontalAlignment="Left" Margin="95,16,0,6" Width="243" Grid.RowSpan="4" Grid.ColumnSpan="2">
-                            <Button Width="96"
-                                    Height="30"
-                                    Content="리비전저장"
-                                    Command="{Binding SaveRevisionBundleCommand}" />
-                        </StackPanel>
-                        <StackPanel Grid.Row="3"
-                                    Grid.Column="5"
-                                    Orientation="Horizontal"
-                                    HorizontalAlignment="Left" Margin="95,2,0,3" Width="243" Grid.RowSpan="2" Grid.ColumnSpan="2">
-                            <Button Width="116"
-                                    Height="30"
-                                    Content="변경 파일만 저장"
-                                    Command="{Binding SaveChangedFilesCommand}" />
-                        </StackPanel>
+                        <Button Grid.Row="2"
+                                Grid.Column="3"
+                                Style="{StaticResource FileButtonStyle}"
+                                Content="열기"
+                                Command="{Binding OpenDrawingFileCommand}" />
+
+                        <!-- 원본파일 -->
+                        <TextBlock Grid.Row="4"
+                                   Grid.Column="0"
+                                   Style="{StaticResource LabelTextStyle}"
+                                   Text="원본파일"/>
+
+                        <TextBox Grid.Row="4"
+                                 Grid.Column="1"
+                                 Height="32"
+                                 IsReadOnly="True"
+                                 VerticalContentAlignment="Center"
+                                 Text="{Binding OriginalDisplayFileName, Mode=OneWay}" />
+
+                        <Button Grid.Row="4"
+                                Grid.Column="2"
+                                Style="{StaticResource FileButtonStyle}"
+                                Content="선택"
+                                Command="{Binding BrowseOriginalFileCommand}" />
+
+                        <Button Grid.Row="4"
+                                Grid.Column="3"
+                                Style="{StaticResource FileButtonStyle}"
+                                Content="열기"
+                                Command="{Binding OpenOriginalFileCommand}" />
+
+                        <!-- 판작업파일 -->
+                        <TextBlock Grid.Row="6"
+                                   Grid.Column="0"
+                                   Style="{StaticResource LabelTextStyle}"
+                                   Text="판작업파일"/>
+
+                        <TextBox Grid.Row="6"
+                                 Grid.Column="1"
+                                 Height="32"
+                                 IsReadOnly="True"
+                                 VerticalContentAlignment="Center"
+                                 Text="{Binding PlateDisplayFileName, Mode=OneWay}" />
+
+                        <Button Grid.Row="6"
+                                Grid.Column="2"
+                                Style="{StaticResource FileButtonStyle}"
+                                Content="선택"
+                                Command="{Binding BrowsePlateFileCommand}" />
+
+                        <Button Grid.Row="6"
+                                Grid.Column="3"
+                                Style="{StaticResource FileButtonStyle}"
+                                Content="열기"
+                                Command="{Binding OpenPlateFileCommand}" />
+
+                        <Button Grid.Row="8"
+                                Grid.Column="1"
+                                Width="130"
+                                Height="32"
+                                HorizontalAlignment="Left"
+                                Content="파일 변경 저장"
+                                Command="{Binding SaveChangedFilesCommand}" />
                     </Grid>
                 </Border>
             </Grid>
@@ -477,21 +532,21 @@
 
         <!-- 로딩 -->
         <Border Grid.RowSpan="3"
-        Background="#66000000"
-        Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibilityConverter}}"
-        d:Visibility="Collapsed">
+                Background="#66000000"
+                Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibilityConverter}}"
+                d:Visibility="Collapsed">
             <Border Width="280"
-            Padding="24"
-            Background="White"
-            CornerRadius="12"
-            HorizontalAlignment="Center"
-            VerticalAlignment="Center">
+                    Padding="24"
+                    Background="White"
+                    CornerRadius="12"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center">
                 <StackPanel>
                     <ProgressBar Height="16"
-                         IsIndeterminate="True"/>
+                                 IsIndeterminate="True"/>
                     <TextBlock Margin="0,12,0,0"
-                       HorizontalAlignment="Center"
-                       Text="{Binding LoadingMessage}" />
+                               HorizontalAlignment="Center"
+                               Text="{Binding LoadingMessage}" />
                 </StackPanel>
             </Border>
         </Border>
