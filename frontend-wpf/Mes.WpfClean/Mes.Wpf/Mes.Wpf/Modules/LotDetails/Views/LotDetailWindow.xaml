@@ -246,7 +246,9 @@
                                   AutoGenerateColumns="False"
                                   IsReadOnly="True"
                                   CanUserAddRows="False"
-                                  MinHeight="120">
+                                  MinHeight="120"
+                                  HeadersVisibility="Column"
+                                  RowHeaderWidth="0">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="작업지시번호" Binding="{Binding InstructionNo}" Width="120" />
                                 <DataGridTextColumn Header="작업일" Binding="{Binding InstructionDate, StringFormat=yyyy-MM-dd}" Width="90" />
@@ -309,13 +311,58 @@
                                   AutoGenerateColumns="False"
                                   IsReadOnly="True"
                                   CanUserAddRows="False"
-                                  Height="120">
+                                  Height="120"
+                                  HeadersVisibility="Column"
+                                  RowHeaderWidth="0">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="불량코드" Binding="{Binding DefectTypeCode}" Width="90" />
                                 <DataGridTextColumn Header="불량명" Binding="{Binding DefectTypeName}" Width="150" />
                                 <DataGridTextColumn Header="수량" Binding="{Binding DefectQty, StringFormat=N0}" Width="80" />
                                 <DataGridTextColumn Header="처리" Binding="{Binding Disposition}" Width="90" />
                                 <DataGridTextColumn Header="메모" Binding="{Binding Memo}" Width="*" />
+                                <DataGridTemplateColumn Header="첨부 이미지" Width="90">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Grid HorizontalAlignment="Center">
+
+                                                <!-- 이미지 있음: 클릭 가능 -->
+                                                <TextBlock>
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding HasAttachment}" Value="True">
+                                                                    <Setter Property="Visibility" Value="Visible" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+
+                    <Hyperlink NavigateUri="{Binding FirstAttachmentImageUrl}"
+                               RequestNavigate="AttachmentImage_RequestNavigate">
+                        <Run Text="이미지" />
+                    </Hyperlink>
+                                                </TextBlock>
+
+                                                <!-- 이미지 없음: 일반 텍스트 -->
+                                                <TextBlock Text="없음"
+                                                            Foreground="#6B7280">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Visibility" Value="Visible" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding HasAttachment}" Value="True">
+                                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+
+                                            </Grid>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
                             </DataGrid.Columns>
                         </DataGrid>
                     </StackPanel>

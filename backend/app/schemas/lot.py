@@ -163,6 +163,13 @@ class LotTraceOutsourceWorkOut(BaseModel):
     remark: Optional[str] = None
     work_done_remark: Optional[str] = None
 
+class LotTraceDefectAttachmentOut(BaseModel):
+    inspection_defect_attachment_id: int
+    file_uri: str
+    file_name: Optional[str] = None
+    mime_type: Optional[str] = None
+    memo: Optional[str] = None
+    image_url: Optional[str] = None
 
 class LotTraceInspectionDefectOut(BaseModel):
     inspection_defect_id: int
@@ -172,6 +179,7 @@ class LotTraceInspectionDefectOut(BaseModel):
     defect_qty: int
     disposition: str
     memo: Optional[str] = None
+    attachments: List[LotTraceDefectAttachmentOut] = Field(default_factory=list)
 
 
 class LotTraceInspectionOut(BaseModel):

@@ -4,6 +4,7 @@ from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status as http_status
+from fastapi import Request
 from sqlalchemy import desc, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -21,6 +22,7 @@ from app.models.defect_type import DefectType
 from app.models.inspection_defect import InspectionDefect
 from app.models.inspection_result import InspectionResult
 from app.models.inspection_schedule import InspectionSchedule
+from app.models.inspection_defect_attachment import InspectionDefectAttachment
 from app.models.outsource_work_group import OutsourceWorkGroup
 from app.models.outsource_work_group_item import OutsourceWorkGroupItem
 from app.models.outsource_work_instruction import OutsourceWorkInstruction
@@ -37,6 +39,7 @@ from app.schemas.lot import (
     LotTraceOutsourceWorkOut,
     LotTraceInspectionOut,
     LotTraceInspectionDefectOut,
+    LotTraceDefectAttachmentOut,
     PageMeta,
 
 )
@@ -125,6 +128,25 @@ def _normalize_optional_str(value: Optional[str]) -> Optional[str]:
         return None
     value = value.strip()
     return value or None
+
+def _format_defect_type_name(defect_type) -> str | None:
+    if defect_type is None:
+        return None
+
+    category1 = (defect_type.category1_name or "").strip()
+    category2 = (defect_type.category2_name or "").strip()
+
+    if category1 and category2:
+        return f"{category1} / {category2}"
+
+    if category2:
+        return category2
+
+    if category1:
+        return category1
+
+    return defect_type.code
+
 
 
 def _validate_material_fields(payload: LotCreate):
@@ -259,6 +281,7 @@ def list_lots(
     created_date_from: Optional[date] = Query(None),
     created_date_to: Optional[date] = Query(None),
     inspection_schedule_registered: Optional[bool] = Query(None),
+    sort: Optional[str] = Query(None),
 ):
     items, total = lot_crud.list_with_joins(
         db,
@@ -274,6 +297,7 @@ def list_lots(
         created_date_from=created_date_from,
         created_date_to=created_date_to,
         inspection_schedule_registered=inspection_schedule_registered,
+        sort=sort,
     )
 
     return LotListOut(
@@ -309,6 +333,7 @@ def _build_lot_trace_progress(
 @router.get("/{lot_id}/detail", response_model=LotTraceDetailOut)
 def get_lot_trace_detail(
     lot_id: int,
+    request: Request,
     db: Session = Depends(get_db),
 ):
     row = (
@@ -449,15 +474,57 @@ def get_lot_trace_detail(
                 .all()
             )
 
+            defect_ids = [
+                inspection_defect.inspection_defect_id
+                for inspection_defect, _ in defect_rows
+            ]
+
+            attachment_rows = []
+
+            if defect_ids:
+                attachment_rows = (
+                    db.query(InspectionDefectAttachment)
+                    .filter(InspectionDefectAttachment.inspection_defect_id.in_(defect_ids))
+                    .order_by(InspectionDefectAttachment.inspection_defect_attachment_id)
+                    .all()
+                )
+
+            attachments_by_defect_id = {}
+
+            for attachment in attachment_rows:
+                attachments_by_defect_id.setdefault(
+                    attachment.inspection_defect_id,
+                    [],
+                ).append(attachment)
+
             defects = [
                 LotTraceInspectionDefectOut(
                     inspection_defect_id=inspection_defect.inspection_defect_id,
                     defect_type_id=inspection_defect.defect_type_id,
                     defect_type_code=defect_type.code,
-                    defect_type_name=defect_type.name,
+                    defect_type_name=_format_defect_type_name(defect_type),
                     defect_qty=inspection_defect.defect_qty,
                     disposition=inspection_defect.disposition,
                     memo=inspection_defect.memo,
+                    attachments=[
+                        LotTraceDefectAttachmentOut(
+                            inspection_defect_attachment_id=attachment.inspection_defect_attachment_id,
+                            file_uri=attachment.file_uri,
+                            file_name=attachment.file_name,
+                            mime_type=attachment.mime_type,
+                            memo=attachment.memo,
+                            image_url=str(
+                                request.url_for(
+                                    "get_result_attachment_content",
+                                    attachment_id=attachment.inspection_defect_attachment_id,
+                                )
+                            ),
+                        )
+                        for attachment in attachments_by_defect_id.get(
+                            inspection_defect.inspection_defect_id,
+                            [],
+                        )
+                    ],
                 )
                 for inspection_defect, defect_type in defect_rows
             ]

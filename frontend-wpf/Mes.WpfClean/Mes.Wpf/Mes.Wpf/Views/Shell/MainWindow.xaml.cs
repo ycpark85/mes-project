@@ -2,9 +2,22 @@
 using Mes.Wpf.Core.Interfaces;
 using Mes.Wpf.Infrastructure.Api;
 using Mes.Wpf.Infrastructure.Dialogs;
+using Mes.Wpf.Modules.BohyunOutsourceManagement.ViewModels;
+using Mes.Wpf.Modules.BohyunOutsourceManagement.Views;
 using Mes.Wpf.Modules.DefectTypes.ViewModels;
 using Mes.Wpf.Modules.Drawings.ViewModels;
 using Mes.Wpf.Modules.Drawings.Views;
+using Mes.Wpf.Modules.InspectionSchedules.ViewModels;
+using Mes.Wpf.Modules.InspectionSchedules.Views;
+using Mes.Wpf.Modules.Lots.ViewModels;
+using Mes.Wpf.Modules.Lots.Views;
+using Mes.Wpf.Modules.OrderLineList.Dtos;
+using Mes.Wpf.Modules.OrderLineList.ViewModels;
+using Mes.Wpf.Modules.OrderLineList.Views;
+using Mes.Wpf.Modules.OrderLines.ViewModels;
+using Mes.Wpf.Modules.OrderLines.Views;
+using Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels;
+using Mes.Wpf.Modules.OutsourceWorkInstructions.Views;
 using Mes.Wpf.Modules.Partners.ViewModels;
 using Mes.Wpf.Modules.Partners.Views;
 using Mes.Wpf.Modules.Processes.ViewModels;
@@ -13,28 +26,12 @@ using Mes.Wpf.Modules.Products.ViewModels;
 using Mes.Wpf.Modules.Products.Views;
 using Mes.Wpf.Modules.RoutingTemplates.ViewModels;
 using Mes.Wpf.Modules.RoutingTemplates.Views;
-using Mes.Wpf.Modules.OrderLines.ViewModels;
-using Mes.Wpf.Modules.OrderLines.Views;
-using Mes.Wpf.Modules.OrderLineList.ViewModels;
-using Mes.Wpf.Modules.OrderLineList.Views;
-
-using Mes.Wpf.Modules.Lots.ViewModels;
-using Mes.Wpf.Modules.Lots.Views;
-using Mes.Wpf.Modules.OrderLineList.Dtos;
-
-using Mes.Wpf.Modules.InspectionSchedules.ViewModels;
-using Mes.Wpf.Modules.InspectionSchedules.Views;
-
-using Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels;
-using Mes.Wpf.Modules.OutsourceWorkInstructions.Views;
-
-using Mes.Wpf.Modules.BohyunOutsourceManagement.ViewModels;
-using Mes.Wpf.Modules.BohyunOutsourceManagement.Views;
+using Mes.Wpf.Modules.Dashboard.ViewModels;
+using Mes.Wpf.Modules.Dashboard.Views;
 
 using System.Threading.Tasks;
-
-
 using System.Windows;
+using System.Windows.Controls;
 
 namespace Mes.Wpf.Views.Shell
 {
@@ -42,7 +39,6 @@ namespace Mes.Wpf.Views.Shell
     {
         private readonly ApiClient _apiClient;
         private readonly MessageService _messageService;
-
         private readonly DefectTypePageViewModel _defectTypePageViewModel;
         private readonly RoutingTemplatePageViewModel _routingTemplatePageViewModel;
         private readonly DrawingViewer _drawingViewer;
@@ -52,35 +48,65 @@ namespace Mes.Wpf.Views.Shell
             InitializeComponent();
 
             var appSettings = AppSettings.Load();
+
             _apiClient = new ApiClient(appSettings.Api.BaseUrl);
             _messageService = new MessageService();
 
             var drawingFileOpener = new DrawingFileOpener(_messageService);
-            _drawingViewer = new DrawingViewer(_apiClient, _messageService, drawingFileOpener);
+            _drawingViewer = new DrawingViewer(
+                _apiClient,
+                _messageService,
+                drawingFileOpener);
 
-            _defectTypePageViewModel = new DefectTypePageViewModel(_apiClient, _messageService);
-            _routingTemplatePageViewModel = new RoutingTemplatePageViewModel(_apiClient, _messageService);
+            _defectTypePageViewModel = new DefectTypePageViewModel(
+                _apiClient,
+                _messageService);
+
+            _routingTemplatePageViewModel = new RoutingTemplatePageViewModel(
+                _apiClient,
+                _messageService);
 
             Loaded += MainWindow_Loaded;
         }
 
         private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
-            await _defectTypePageViewModel.InitializeAsync();
-            ShowDefectType();
-           
+            await ShowDashboardAsync();
         }
 
-        private void Dashboard_Click(object sender, RoutedEventArgs e)
+        private void MenuExpander_Expanded(object sender, RoutedEventArgs e)
         {
-            MainContent.Content = null;
-            MainContent.Visibility = Visibility.Visible;
+            if (sender is not Expander openedExpander)
+            {
+                return;
+            }
 
-            HeaderTitle.Text = "MES 프로그램";
-            HeaderSubtitle.Text = "프론트엔드 아키텍처 베이스";
+            CollapseAllSidebarExpanders(openedExpander);
         }
 
+        private void CollapseAllSidebarExpanders(Expander? exceptExpander = null)
+        {
+            if (SidebarMenuStack == null)
+            {
+                return;
+            }
 
+            foreach (var child in SidebarMenuStack.Children)
+            {
+                if (child is Expander expander &&
+                    !ReferenceEquals(expander, exceptExpander))
+                {
+                    expander.IsExpanded = false;
+                }
+            }
+        }
+
+        private async void Dashboard_Click(object sender, RoutedEventArgs e)
+        {
+            CollapseAllSidebarExpanders();
+
+            await ShowDashboardAsync();
+        }
 
         private void DefectType_Click(object sender, RoutedEventArgs e)
         {
@@ -90,11 +116,12 @@ namespace Mes.Wpf.Views.Shell
         private async void Process_Click(object sender, RoutedEventArgs e)
         {
             var processPage = new ProcessPage();
-            var processViewModel = new ProcessPageViewModel(_apiClient, _messageService);
+            var processViewModel = new ProcessPageViewModel(
+                _apiClient,
+                _messageService);
 
             processPage.DataContext = processViewModel;
 
-            
             MainContent.Content = processPage;
             MainContent.Visibility = Visibility.Visible;
 
@@ -107,7 +134,9 @@ namespace Mes.Wpf.Views.Shell
         private async void Partner_Click(object sender, RoutedEventArgs e)
         {
             var partnerPage = new PartnerPage();
-            var partnerViewModel = new PartnerPageViewModel(_apiClient, _messageService);
+            var partnerViewModel = new PartnerPageViewModel(
+                _apiClient,
+                _messageService);
 
             partnerPage.DataContext = partnerViewModel;
 
@@ -123,11 +152,12 @@ namespace Mes.Wpf.Views.Shell
         private async void RoutingTemplate_Click(object sender, RoutedEventArgs e)
         {
             var routingTemplatePage = new RoutingTemplatePage();
-            var routingTemplateViewModel = new RoutingTemplatePageViewModel(_apiClient, _messageService);
+            var routingTemplateViewModel = new RoutingTemplatePageViewModel(
+                _apiClient,
+                _messageService);
 
             routingTemplatePage.DataContext = routingTemplateViewModel;
 
-            
             MainContent.Content = routingTemplatePage;
             MainContent.Visibility = Visibility.Visible;
 
@@ -149,12 +179,34 @@ namespace Mes.Wpf.Views.Shell
             HeaderSubtitle.Text = "불량유형 마스터 등록 / 조회 / 수정 / 삭제";
         }
 
+        private async Task ShowDashboardAsync()
+        {
+            var page = new DashboardPage();
+
+            var viewModel = new DashboardPageViewModel(
+                _apiClient,
+                _messageService);
+
+            page.DataContext = viewModel;
+
+            MainContent.Content = page;
+            MainContent.Visibility = Visibility.Visible;
+
+            HeaderTitle.Text = "메인 대시보드";
+            HeaderSubtitle.Text = "발주 · LOT · 외주 · 검수 · 품질 현황";
+
+            await viewModel.InitializeAsync();
+        }
+
         private async void RoutingTemplateStep_Click(object sender, RoutedEventArgs e)
         {
             var routingTemplateStepPage = new RoutingTemplateStepPage();
-            var routingTemplateStepViewModel = new RoutingTemplateStepPageViewModel(_apiClient, _messageService);
+            var routingTemplateStepViewModel = new RoutingTemplateStepPageViewModel(
+                _apiClient,
+                _messageService);
 
             routingTemplateStepPage.DataContext = routingTemplateStepViewModel;
+
             MainContent.Content = routingTemplateStepPage;
             MainContent.Visibility = Visibility.Visible;
 
@@ -167,9 +219,12 @@ namespace Mes.Wpf.Views.Shell
         private async void Drawing_Click(object sender, RoutedEventArgs e)
         {
             var drawingPage = new DrawingPage();
-            var drawingFileOpener = new DrawingFileOpener(_messageService);
 
-            var drawingViewModel = new DrawingPageViewModel(_apiClient, _messageService, drawingFileOpener);
+            var drawingFileOpener = new DrawingFileOpener(_messageService);
+            var drawingViewModel = new DrawingPageViewModel(
+                _apiClient,
+                _messageService,
+                drawingFileOpener);
 
             drawingPage.DataContext = drawingViewModel;
 
@@ -185,8 +240,12 @@ namespace Mes.Wpf.Views.Shell
         private async void Product_Click(object sender, RoutedEventArgs e)
         {
             var productPage = new ProductPage();
+
             var drawingFileOpener = new DrawingFileOpener(_messageService);
-            var drawingViewer = new DrawingViewer(_apiClient, _messageService, drawingFileOpener);
+            var drawingViewer = new DrawingViewer(
+                _apiClient,
+                _messageService,
+                drawingFileOpener);
 
             var productViewModel = new ProductPageViewModel(
                 _apiClient,
@@ -194,6 +253,7 @@ namespace Mes.Wpf.Views.Shell
                 drawingViewer);
 
             productPage.DataContext = productViewModel;
+
             MainContent.Content = productPage;
             MainContent.Visibility = Visibility.Visible;
 
@@ -206,8 +266,12 @@ namespace Mes.Wpf.Views.Shell
         private async void OrderLineCreate_Click(object sender, RoutedEventArgs e)
         {
             var page = new OrderLineCreatePage();
+
             var drawingFileOpener = new DrawingFileOpener(_messageService);
-            var drawingViewer = new DrawingViewer(_apiClient, _messageService, drawingFileOpener);
+            var drawingViewer = new DrawingViewer(
+                _apiClient,
+                _messageService,
+                drawingFileOpener);
 
             var viewModel = new OrderLineCreatePageViewModel(
                 _apiClient,
@@ -215,6 +279,7 @@ namespace Mes.Wpf.Views.Shell
                 drawingViewer);
 
             page.DataContext = viewModel;
+
             MainContent.Content = page;
             MainContent.Visibility = Visibility.Visible;
 
@@ -232,13 +297,14 @@ namespace Mes.Wpf.Views.Shell
         private async Task OpenOrderLineDetailAsync(long orderLineId)
         {
             var page = new OrderLineDetailPage();
+
             var vm = new OrderLineDetailPageViewModel(
                 _apiClient,
                 _messageService,
-                async () => await OpenOrderLineListAsync()
-            );
+                async () => await OpenOrderLineListAsync());
 
             page.DataContext = vm;
+
             MainContent.Content = page;
 
             await vm.InitializeAsync(orderLineId);
@@ -247,28 +313,32 @@ namespace Mes.Wpf.Views.Shell
         private async Task OpenOrderLineListAsync()
         {
             var page = new OrderLineListPage();
+
             var vm = new OrderLineListPageViewModel(
                 _apiClient,
                 _messageService,
                 async orderLineId => await OpenOrderLineDetailAsync(orderLineId),
-                async item => await OpenLotCreateWindowAsync(item)
-            );
+                async item => await OpenLotCreateWindowAsync(item));
 
             page.DataContext = vm;
+
             MainContent.Content = page;
             MainContent.Visibility = Visibility.Visible;
+
             HeaderTitle.Text = "발주리스트";
             HeaderSubtitle.Text = "수주라인 조회 / 발주상세 / LOT 생성";
 
             await vm.InitializeAsync();
         }
 
-
-
         private async Task OpenLotCreateWindowAsync(OrderLineListItemDto item)
         {
             var drawingFileOpener = new DrawingFileOpener(_messageService);
-            var drawingViewer = new DrawingViewer(_apiClient, _messageService, drawingFileOpener);
+
+            var drawingViewer = new DrawingViewer(
+                _apiClient,
+                _messageService,
+                drawingFileOpener);
 
             var vm = new LotCreateWindowViewModel(
                 _apiClient,
@@ -282,6 +352,7 @@ namespace Mes.Wpf.Views.Shell
             };
 
             await vm.InitializeAsync(item.OrderLineId);
+
             window.ShowDialog();
 
             await OpenOrderLineListAsync();
@@ -290,9 +361,12 @@ namespace Mes.Wpf.Views.Shell
         private async void LotProcess_Click(object sender, RoutedEventArgs e)
         {
             var page = new LotPage();
-            var viewModel = new LotPageViewModel(_apiClient, _messageService);
+            var viewModel = new LotPageViewModel(
+                _apiClient,
+                _messageService);
 
             page.DataContext = viewModel;
+
             MainContent.Content = page;
             MainContent.Visibility = Visibility.Visible;
 
@@ -305,9 +379,14 @@ namespace Mes.Wpf.Views.Shell
         private async void InspectionWorkInstruction_Click(object sender, RoutedEventArgs e)
         {
             var inspectionWorkInstructionPage = new InspectionWorkInstructionPage();
-            var inspectionWorkInstructionViewModel = new InspectionWorkInstructionPageViewModel(_apiClient, _messageService);
+
+            var inspectionWorkInstructionViewModel =
+                new InspectionWorkInstructionPageViewModel(
+                    _apiClient,
+                    _messageService);
 
             inspectionWorkInstructionPage.DataContext = inspectionWorkInstructionViewModel;
+
             MainContent.Content = inspectionWorkInstructionPage;
             MainContent.Visibility = Visibility.Visible;
 
@@ -320,9 +399,14 @@ namespace Mes.Wpf.Views.Shell
         private async void InspectionScheduleManagement_Click(object sender, RoutedEventArgs e)
         {
             var view = new InspectionScheduleManagementView();
-            var viewModel = new InspectionScheduleManagementPageViewModel(_apiClient, _messageService, _drawingViewer);
+
+            var viewModel = new InspectionScheduleManagementPageViewModel(
+                _apiClient,
+                _messageService,
+                _drawingViewer);
 
             view.DataContext = viewModel;
+
             MainContent.Content = view;
             MainContent.Visibility = Visibility.Visible;
 
@@ -332,13 +416,16 @@ namespace Mes.Wpf.Views.Shell
             await viewModel.InitializeAsync();
         }
 
-
         private async void OutsourceWorkInstruction_Click(object sender, RoutedEventArgs e)
         {
             var page = new OutsourceWorkInstructionPage();
-            var viewModel = new OutsourceWorkInstructionPageViewModel(_apiClient, _messageService);
+
+            var viewModel = new OutsourceWorkInstructionPageViewModel(
+                _apiClient,
+                _messageService);
 
             page.DataContext = viewModel;
+
             MainContent.Content = page;
             MainContent.Visibility = Visibility.Visible;
 
@@ -351,9 +438,13 @@ namespace Mes.Wpf.Views.Shell
         private async void OutsourcePurchaseOrder_Click(object sender, RoutedEventArgs e)
         {
             var page = new OutsourcePurchaseOrderPage();
-            var viewModel = new OutsourcePurchaseOrderPageViewModel(_apiClient, _messageService);
+
+            var viewModel = new OutsourcePurchaseOrderPageViewModel(
+                _apiClient,
+                _messageService);
 
             page.DataContext = viewModel;
+
             MainContent.Content = page;
             MainContent.Visibility = Visibility.Visible;
 
@@ -366,9 +457,13 @@ namespace Mes.Wpf.Views.Shell
         private async void OutsourcePurchaseOrderList_Click(object sender, RoutedEventArgs e)
         {
             var view = new OutsourcePurchaseOrderListView();
-            var viewModel = new OutsourcePurchaseOrderListPageViewModel(_apiClient, _messageService);
+
+            var viewModel = new OutsourcePurchaseOrderListPageViewModel(
+                _apiClient,
+                _messageService);
 
             view.DataContext = viewModel;
+
             MainContent.Content = view;
             MainContent.Visibility = Visibility.Visible;
 
@@ -382,7 +477,9 @@ namespace Mes.Wpf.Views.Shell
         {
             var view = new BohyunOutsourceManagementView();
 
-            var viewModel = new BohyunOutsourceManagementViewModel(_apiClient, _messageService);
+            var viewModel = new BohyunOutsourceManagementViewModel(
+                _apiClient,
+                _messageService);
 
             view.DataContext = viewModel;
 
@@ -399,7 +496,9 @@ namespace Mes.Wpf.Views.Shell
         {
             var view = new BohyunOutsourceShipmentListView();
 
-            var viewModel = new BohyunOutsourceShipmentListViewModel(_apiClient, _messageService);
+            var viewModel = new BohyunOutsourceShipmentListViewModel(
+                _apiClient,
+                _messageService);
 
             view.DataContext = viewModel;
 
@@ -411,6 +510,7 @@ namespace Mes.Wpf.Views.Shell
 
             await viewModel.InitializeAsync();
         }
+
         private async void ProductMonitoring_Click(object sender, RoutedEventArgs e)
         {
             var page = new ProductMonitoringPage();
@@ -430,8 +530,5 @@ namespace Mes.Wpf.Views.Shell
 
             await viewModel.InitializeAsync();
         }
-
-
-
     }
 }

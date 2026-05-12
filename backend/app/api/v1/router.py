@@ -13,7 +13,7 @@ from app.api.v1.inspection_schedules import router as inspection_schedule_router
 from app.api.v1.inspection_results import router as inspection_result_router
 from app.api.v1.defect_types import router as defect_type_router
 from app.api.v1.outsource_work_instructions import router as outsource_work_instruction_router
-
+from app.api.v1.dashboard import router as dashboard_router
 
 router = APIRouter()
 router.include_router(health_router)
@@ -30,3 +30,4 @@ router.include_router(inspection_schedule_router)
 router.include_router(inspection_result_router)
 router.include_router(defect_type_router)
 router.include_router(outsource_work_instruction_router)
+router.include_router(dashboard_router)

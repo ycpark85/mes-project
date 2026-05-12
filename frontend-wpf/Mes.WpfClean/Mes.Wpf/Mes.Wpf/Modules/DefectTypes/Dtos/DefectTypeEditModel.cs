@@ -1,14 +1,14 @@
 ﻿using Mes.Wpf.Core.Common;
-using Mes.Wpf.Modules.DefectTypes.Dtos;
 
-namespace Mes.Wpf.Core.Models
+namespace Mes.Wpf.Modules.DefectTypes.Dtos
 {
-    public class DefectTypeEditModel : BindableBase
+    public class DefectTypeEditModel : ViewModelBase
     {
         private long? _defectTypeId;
         private string _defectCode = string.Empty;
-        private string _defectName = string.Empty;
-        private string? _memo;
+        private string _category1Name = string.Empty;
+        private string _category2Name = string.Empty;
+        private string _memo = string.Empty;
         private bool _isActive = true;
 
         public long? DefectTypeId
@@ -23,13 +23,19 @@ namespace Mes.Wpf.Core.Models
             set => SetProperty(ref _defectCode, value);
         }
 
-        public string DefectName
+        public string Category1Name
         {
-            get => _defectName;
-            set => SetProperty(ref _defectName, value);
+            get => _category1Name;
+            set => SetProperty(ref _category1Name, value);
         }
 
-        public string? Memo
+        public string Category2Name
+        {
+            get => _category2Name;
+            set => SetProperty(ref _category2Name, value);
+        }
+
+        public string Memo
         {
             get => _memo;
             set => SetProperty(ref _memo, value);
@@ -45,8 +51,9 @@ namespace Mes.Wpf.Core.Models
         {
             DefectTypeId = dto.DefectTypeId;
             DefectCode = dto.DefectCode;
-            DefectName = dto.DefectName;
-            Memo = dto.Memo;
+            Category1Name = dto.Category1Name;
+            Category2Name = dto.Category2Name;
+            Memo = dto.Memo ?? string.Empty;
             IsActive = dto.IsActive;
         }
 
@@ -54,7 +61,8 @@ namespace Mes.Wpf.Core.Models
         {
             DefectTypeId = null;
             DefectCode = string.Empty;
-            DefectName = string.Empty;
+            Category1Name = string.Empty;
+            Category2Name = string.Empty;
             Memo = string.Empty;
             IsActive = true;
         }

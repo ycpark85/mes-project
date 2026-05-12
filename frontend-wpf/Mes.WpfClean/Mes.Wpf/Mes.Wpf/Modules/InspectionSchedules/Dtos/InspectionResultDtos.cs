@@ -182,10 +182,11 @@ namespace Mes.Wpf.Modules.InspectionSchedules.Dtos
     public class InspectionResultDefectEditModel : ViewModelBase
     {
         private int? _defectTypeId;
-        private string _defectTypeName = string.Empty;
-        private string _memo = string.Empty;
-        private ObservableCollection<DefectAttachmentEditModel> _attachments = new();
+        private string _defectCode = string.Empty;
+        private string _category1Name = string.Empty;
+        private string _category2Name = string.Empty;
         private string _defectTypeMemo = string.Empty;
+        private ObservableCollection<DefectAttachmentEditModel> _attachments = new();
 
         public int? DefectTypeId
         {
@@ -193,11 +194,22 @@ namespace Mes.Wpf.Modules.InspectionSchedules.Dtos
             set => SetProperty(ref _defectTypeId, value);
         }
 
-
-        public string DefectTypeName
+        public string DefectCode
         {
-            get => _defectTypeName;
-            set => SetProperty(ref _defectTypeName, value);
+            get => _defectCode;
+            set => SetProperty(ref _defectCode, value);
+        }
+
+        public string Category1Name
+        {
+            get => _category1Name;
+            set => SetProperty(ref _category1Name, value);
+        }
+
+        public string Category2Name
+        {
+            get => _category2Name;
+            set => SetProperty(ref _category2Name, value);
         }
 
         public string DefectTypeMemo
@@ -206,11 +218,13 @@ namespace Mes.Wpf.Modules.InspectionSchedules.Dtos
             set => SetProperty(ref _defectTypeMemo, value);
         }
 
+        // 기존 SaveAsync에서 defect.Memo를 사용하고 있으므로 영향 최소화를 위해 유지
         public string Memo
         {
             get => DefectTypeMemo;
             set => DefectTypeMemo = value;
         }
+
         public ObservableCollection<DefectAttachmentEditModel> Attachments
         {
             get => _attachments;
@@ -220,8 +234,11 @@ namespace Mes.Wpf.Modules.InspectionSchedules.Dtos
         public void Clear()
         {
             DefectTypeId = null;
-            DefectTypeName = string.Empty;
+            DefectCode = string.Empty;
+            Category1Name = string.Empty;
+            Category2Name = string.Empty;
             DefectTypeMemo = string.Empty;
+            Attachments.Clear();
         }
     }
 

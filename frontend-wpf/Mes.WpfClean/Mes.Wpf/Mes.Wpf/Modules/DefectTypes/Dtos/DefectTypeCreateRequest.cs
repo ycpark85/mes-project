@@ -7,8 +7,11 @@ namespace Mes.Wpf.Modules.DefectTypes.Dtos
         [JsonPropertyName("code")]
         public string Code { get; set; } = string.Empty;
 
-        [JsonPropertyName("name")]
-        public string Name { get; set; } = string.Empty;
+        [JsonPropertyName("category1_name")]
+        public string Category1Name { get; set; } = string.Empty;
+
+        [JsonPropertyName("category2_name")]
+        public string Category2Name { get; set; } = string.Empty;
 
         [JsonPropertyName("memo")]
         public string? Memo { get; set; }

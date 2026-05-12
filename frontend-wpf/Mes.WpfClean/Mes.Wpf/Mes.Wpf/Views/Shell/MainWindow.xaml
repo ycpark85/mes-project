@@ -11,184 +11,366 @@
         Style="{StaticResource ShellWindowStyle}"
         WindowStartupLocation="CenterScreen">
 
+    <Window.Resources>
+
+        <SolidColorBrush x:Key="SidebarBackgroundBrush" Color="#0B1F33"/>
+        <SolidColorBrush x:Key="SidebarBackgroundDarkBrush" Color="#071827"/>
+        <SolidColorBrush x:Key="SidebarHeaderBrush" Color="#0A3A64"/>
+        <SolidColorBrush x:Key="SidebarHeaderLogoBrush" Color="#0C4C82"/>
+        <SolidColorBrush x:Key="SidebarHoverBrush" Color="#123A5A"/>
+        <SolidColorBrush x:Key="SidebarSelectedBrush" Color="#0D6FD3"/>
+        <SolidColorBrush x:Key="SidebarTextBrush" Color="#D8E6F3"/>
+        <SolidColorBrush x:Key="SidebarMutedTextBrush" Color="#8FA8BF"/>
+
+        <Style x:Key="SidebarMenuButtonStyle" TargetType="Button">
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="Margin" Value="28,1,10,1"/>
+            <Setter Property="Padding" Value="16,0,8,0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{StaticResource SidebarTextBrush}"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Root"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="4">
+                            <ContentPresenter Margin="{TemplateBinding Padding}"
+                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                              RecognizesAccessKey="True"/>
+                        </Border>
+
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Root"
+                                        Property="Background"
+                                        Value="{StaticResource SidebarHoverBrush}"/>
+                            </Trigger>
+
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Root"
+                                        Property="Background"
+                                        Value="{StaticResource SidebarSelectedBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="SidebarHomeButtonStyle"
+               TargetType="Button"
+               BasedOn="{StaticResource SidebarMenuButtonStyle}">
+            <Setter Property="Height" Value="42"/>
+            <Setter Property="Margin" Value="0,0,0,4"/>
+            <Setter Property="Padding" Value="20,0,8,0"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+
+        <Style x:Key="SidebarCategoryExpanderStyle" TargetType="Expander">
+            <Setter Property="Margin" Value="0,0,0,4"/>
+            <EventSetter Event="Expanded" Handler="MenuExpander_Expanded"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Expander">
+                        <StackPanel>
+                            <ToggleButton x:Name="HeaderToggle"
+                                          Height="42"
+                                          IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}}"
+                                          Content="{TemplateBinding Header}"
+                                          Background="Transparent"
+                                          Foreground="{StaticResource SidebarTextBrush}"
+                                          BorderBrush="Transparent"
+                                          Cursor="Hand">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border x:Name="HeaderRoot"
+                                                Background="{TemplateBinding Background}">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="32"/>
+                                                </Grid.ColumnDefinitions>
+
+                                                <ContentPresenter Grid.Column="0"
+                                                                  Margin="20,0,0,0"
+                                                                  VerticalAlignment="Center"
+                                                                  RecognizesAccessKey="True"/>
+
+                                                <TextBlock x:Name="ArrowText"
+                                                           Grid.Column="1"
+                                                           Text="›"
+                                                           FontSize="18"
+                                                           Foreground="{StaticResource SidebarMutedTextBrush}"
+                                                           HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center"/>
+                                            </Grid>
+                                        </Border>
+
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="HeaderRoot"
+                                                        Property="Background"
+                                                        Value="{StaticResource SidebarHoverBrush}"/>
+                                            </Trigger>
+
+                                            <Trigger Property="IsChecked" Value="True">
+                                                <Setter TargetName="HeaderRoot"
+                                                        Property="Background"
+                                                        Value="{StaticResource SidebarHoverBrush}"/>
+                                                <Setter TargetName="ArrowText"
+                                                        Property="Text"
+                                                        Value="⌄"/>
+                                                <Setter TargetName="ArrowText"
+                                                        Property="Foreground"
+                                                        Value="White"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                            </ToggleButton>
+
+                            <Border x:Name="ContentSite"
+                                    Visibility="Collapsed"
+                                    Padding="0,4,0,8"
+                                    Background="#081B2C">
+                                <ContentPresenter ContentSource="Content"/>
+                            </Border>
+                        </StackPanel>
+
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsExpanded" Value="True">
+                                <Setter TargetName="ContentSite"
+                                        Property="Visibility"
+                                        Value="Visible"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+    </Window.Resources>
+
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="240" />
-            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="220"/>
+            <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
-        <Border Grid.Column="0" Style="{StaticResource ShellSidebarStyle}">
+        <!-- Left Sidebar -->
+        <Border Grid.Column="0"
+                Background="{StaticResource SidebarBackgroundBrush}">
+
             <DockPanel LastChildFill="True">
-                <StackPanel DockPanel.Dock="Top">
-                    <TextBlock Text="MES"
-                               FontSize="24"
-                               FontWeight="Bold"
-                               Margin="0,0,0,6" />
 
-                    <TextBlock Text="생산관리 시스템"
+                <!-- Brand -->
+                <Border DockPanel.Dock="Top"
+                        Height="64"
+                        Background="{StaticResource SidebarHeaderBrush}"
+                        BorderBrush="#1F5C8E"
+                        BorderThickness="0,0,0,1">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="86"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <Border Grid.Column="0"
+                                Background="{StaticResource SidebarHeaderLogoBrush}">
+                            <TextBlock Text="SEMI"
+                                       Foreground="White"
+                                       FontSize="28"
+                                       FontWeight="Bold"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"/>
+                        </Border>
+
+                        <TextBlock Grid.Column="1"
+                                   Text="MES"
+                                   Foreground="#E5F1FF"
+                                   FontSize="15"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center"
+                                   Margin="16,0,0,0"/>
+                    </Grid>
+                </Border>
+
+                <!-- Bottom -->
+                <Border DockPanel.Dock="Bottom"
+                        Height="48"
+                        Background="{StaticResource SidebarBackgroundDarkBrush}"
+                        BorderBrush="#17344F"
+                        BorderThickness="0,1,0,0">
+                    <TextBlock Text="‹  메뉴 접기"
+                               Foreground="{StaticResource SidebarTextBrush}"
                                FontSize="13"
-                               Foreground="{StaticResource Brush.TextSecondary}"
-                               Margin="0,0,0,24" />
+                               VerticalAlignment="Center"
+                               Margin="20,0,0,0"/>
+                </Border>
 
-                    <Expander Header="메뉴"
-                              IsExpanded="False"
-                              Margin="0,0,0,12">
-                        <StackPanel Margin="0,10,0,0">
-                            <Button Content="대시보드"
-                                    Style="{StaticResource BaseButtonStyle}"
-                                    Margin="0,0,0,10"
-                                    Click="Dashboard_Click"/>
-                            <Button Content="품목이력관리"
-                                    Style="{StaticResource BaseButtonStyle}"
-                                    Margin="0,0,0,10"
-                                    Click="ProductMonitoring_Click"/>     
-                        </StackPanel>
-                    </Expander>
+                <!-- Menu -->
+                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled">
 
-                    <Expander Header="기초등록 (마스터DB)"
-                              IsExpanded="False"
-                              Margin="0,0,0,12">
-                        <StackPanel Margin="0,10,0,0">
-                            <Button Content="거래처관리"
-                                    Style="{StaticResource BaseButtonStyle}"
-                                    Margin="0,0,0,10"
-                                    Click="Partner_Click"/> 
-                            <Button Content="공정관리"
-                                    Style="{StaticResource BaseButtonStyle}"
-                                    Margin="0,0,0,10"
-                                    Click="Process_Click"/>
+                    <StackPanel x:Name="SidebarMenuStack"
+                                Margin="0,12,0,12">
 
-                            <Button Content="라우팅템플릿"
-                                    Style="{StaticResource BaseButtonStyle}"
-                                    Margin="0,0,0,10"
-                                    Click="RoutingTemplate_Click"/>
-                            
-                            <Button Content="라우팅템플릿스텝"
-                                    Style="{StaticResource BaseButtonStyle}"
-                                    Margin="0,0,0,10"
-                                    Click="RoutingTemplateStep_Click"/>
+                        <Button Content="⌂  홈"
+                                Style="{StaticResource SidebarHomeButtonStyle}"
+                                Click="Dashboard_Click"/>
 
-                            <Button Content="도면관리"
-                                    Style="{StaticResource BaseButtonStyle}"
-                                    Margin="0,0,0,10"
-                                    Click="Drawing_Click"/>             
+                        <Expander Header="▣  기준정보"
+                                  Style="{StaticResource SidebarCategoryExpanderStyle}"
+                                  IsExpanded="False">
+                            <StackPanel>
+                                <Button Content="거래처관리"
+                                        Style="{StaticResource SidebarMenuButtonStyle}"
+                                        Click="Partner_Click"/>
 
+                                <Button Content="공정관리"
+                                        Style="{StaticResource SidebarMenuButtonStyle}"
+                                        Click="Process_Click"/>
 
-                            <Button Content="불량유형"
-                                    Style="{StaticResource BaseButtonStyle}"
-                                    Margin="0,0,0,10"
-                                    Click="DefectType_Click"/>
-                            
-                            <Button Content="품목관리"
-                                    Style="{StaticResource BaseButtonStyle}"
-                                    Margin="0,0,0,10"   
-                                    Click="Product_Click"/>
-                            
-                        </StackPanel>
-                    </Expander>
-                    <Expander Header="발주메뉴"
-                              IsExpanded="False"
-                              Margin="0,0,0,12">    
-                        <StackPanel Margin="0,10,0,0">
-                            <Button Content="발주등록"
-                                    Style="{StaticResource BaseButtonStyle}"
-                                    Margin="0,0,0,10"
-                                    Click="OrderLineCreate_Click"/>
-                            <Button Content="발주리스트"
-                                    Style="{StaticResource BaseButtonStyle}"
-                                    Margin="0,0,0,10"
-                                    Click="OrderLineList_Click"/>
-                            <Button Content="LOT 공정관리"
-                                    Style="{StaticResource BaseButtonStyle}"
-                                    Margin="0,0,0,10"
-                                    Click="LotProcess_Click"/>                            
-                        </StackPanel>
-                    </Expander>
-                    <Expander Header="SCM메뉴"
-                              IsExpanded="False"
-                              Margin="0,0,0,12">        
-                        <StackPanel Margin="0,10,0,0">
-               
-                            <Button Content="외주 작업지시"
-                                    Style="{StaticResource BaseButtonStyle}"
-                                    Margin="0,0,0,10"
-                                    Click="OutsourceWorkInstruction_Click"/>        
-                            <Button Content="외주 발주서 작성 / 출력"
-                                     Style="{StaticResource BaseButtonStyle}"
-                                     Margin="0,0,0,10"
-                                     Click="OutsourcePurchaseOrder_Click"/>             
-                            <Button Content="외주발주 리스트"
-                                     Style="{StaticResource BaseButtonStyle}"
-                                     Margin="0,0,0,10"
-                                     Click="OutsourcePurchaseOrderList_Click"/>
-                            <Button Content="보현문화 외주관리"
-                                    Style="{StaticResource BaseButtonStyle}"
-                                    Margin="0,0,0,10"
-                                    Click="BohyunOutsourceManagement_Click"/>
-                            <Button Content="보현문화 출고리스트"
-                                    Style="{StaticResource BaseButtonStyle}"
-                                    Margin="0,0,0,10"
-                                    Click="BohyunOutsourceShipmentList_Click"/> 
-                        </StackPanel>
-                    </Expander>
-                    <Expander Header="검수메뉴"
-                              IsExpanded="False"
-                              Margin="0,0,0,12">        
-                        <StackPanel Margin="0,10,0,0">
-                            <Button Content="검수 작업지시 / 등록"
-                                    Style="{StaticResource BaseButtonStyle}"
-                                    Margin="0,0,0,10"
-                                    Click="InspectionWorkInstruction_Click"/>
-                            
-                            <Button Content="검수스케쥴관리"
-                                    Style="{StaticResource BaseButtonStyle}"
-                                    Margin="0,0,0,10"
-                                    Click="InspectionScheduleManagement_Click"/>   
+                                <Button Content="라우팅템플릿"
+                                        Style="{StaticResource SidebarMenuButtonStyle}"
+                                        Click="RoutingTemplate_Click"/>
 
-                        </StackPanel>
-                    </Expander>
-                </StackPanel>
+                                <Button Content="라우팅템플릿스텝"
+                                        Style="{StaticResource SidebarMenuButtonStyle}"
+                                        Click="RoutingTemplateStep_Click"/>
 
-                <TextBlock DockPanel.Dock="Bottom"
-                           Text="v1.0 Frontend Base"
-                           FontSize="12"
-                           Foreground="{StaticResource Brush.TextSecondary}" />
+                                <Button Content="도면관리"
+                                        Style="{StaticResource SidebarMenuButtonStyle}"
+                                        Click="Drawing_Click"/>
+
+                                <Button Content="불량유형"
+                                        Style="{StaticResource SidebarMenuButtonStyle}"
+                                        Click="DefectType_Click"/>
+
+                                <Button Content="품목관리"
+                                        Style="{StaticResource SidebarMenuButtonStyle}"
+                                        Click="Product_Click"/>
+                            </StackPanel>
+                        </Expander>
+
+                        <Expander Header="▤  영업관리"
+                                  Style="{StaticResource SidebarCategoryExpanderStyle}"
+                                  IsExpanded="False">
+                            <StackPanel>
+                                <Button Content="발주등록"
+                                        Style="{StaticResource SidebarMenuButtonStyle}"
+                                        Click="OrderLineCreate_Click"/>
+
+                                <Button Content="발주리스트"
+                                        Style="{StaticResource SidebarMenuButtonStyle}"
+                                        Click="OrderLineList_Click"/>
+                            </StackPanel>
+                        </Expander>
+
+                        <Expander Header="▦  생산관리"
+                                  Style="{StaticResource SidebarCategoryExpanderStyle}"
+                                  IsExpanded="False">
+                            <StackPanel>
+                                <Button Content="LOT 관리"
+                                        Style="{StaticResource SidebarMenuButtonStyle}"
+                                        Click="LotProcess_Click"/>
+
+                                <Button Content="품목이력관리"
+                                        Style="{StaticResource SidebarMenuButtonStyle}"
+                                        Click="ProductMonitoring_Click"/>
+                            </StackPanel>
+                        </Expander>
+
+                        <Expander Header="⚙  외주관리"
+                                  Style="{StaticResource SidebarCategoryExpanderStyle}"
+                                  IsExpanded="False">
+                            <StackPanel>
+                                <Button Content="외주 작업지시"
+                                        Style="{StaticResource SidebarMenuButtonStyle}"
+                                        Click="OutsourceWorkInstruction_Click"/>
+
+                                <Button Content="외주 발주서 작성 / 출력"
+                                        Style="{StaticResource SidebarMenuButtonStyle}"
+                                        Click="OutsourcePurchaseOrder_Click"/>
+
+                                <Button Content="외주발주 리스트"
+                                        Style="{StaticResource SidebarMenuButtonStyle}"
+                                        Click="OutsourcePurchaseOrderList_Click"/>
+
+                                <Button Content="보현문화 외주관리"
+                                        Style="{StaticResource SidebarMenuButtonStyle}"
+                                        Click="BohyunOutsourceManagement_Click"/>
+
+                                <Button Content="보현문화 출고리스트"
+                                        Style="{StaticResource SidebarMenuButtonStyle}"
+                                        Click="BohyunOutsourceShipmentList_Click"/>
+                            </StackPanel>
+                        </Expander>
+
+                        <Expander Header="☑  품질관리"
+                                  Style="{StaticResource SidebarCategoryExpanderStyle}"
+                                  IsExpanded="False">
+                            <StackPanel>
+                                <Button Content="검수 작업지시 / 등록"
+                                        Style="{StaticResource SidebarMenuButtonStyle}"
+                                        Click="InspectionWorkInstruction_Click"/>
+
+                                <Button Content="검수스케쥴관리"
+                                        Style="{StaticResource SidebarMenuButtonStyle}"
+                                        Click="InspectionScheduleManagement_Click"/>
+                            </StackPanel>
+                        </Expander>
+
+                    </StackPanel>
+                </ScrollViewer>
             </DockPanel>
         </Border>
 
+        <!-- Main Area -->
         <Grid Grid.Column="1">
             <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
-            <Border Grid.Row="0" Style="{StaticResource ShellHeaderStyle}">
+            <Border Grid.Row="0"
+                    Style="{StaticResource ShellHeaderStyle}">
                 <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
                     <StackPanel>
                         <TextBlock x:Name="HeaderTitle"
                                    Text="MES 프로그램"
                                    FontSize="24"
-                                   FontWeight="Bold" />
+                                   FontWeight="Bold"/>
+
                         <TextBlock x:Name="HeaderSubtitle"
                                    Text="프론트엔드 아키텍처 베이스"
                                    Margin="0,6,0,0"
-                                   Foreground="{StaticResource Brush.TextSecondary}" />
+                                   Foreground="{StaticResource Brush.TextSecondary}"/>
                     </StackPanel>
 
                     <Button Grid.Column="1"
                             Content="테스트 버튼"
                             Style="{StaticResource PrimaryButtonStyle}"
-                            VerticalAlignment="Center" />
+                            VerticalAlignment="Center"/>
                 </Grid>
             </Border>
 
             <Grid Grid.Row="1">
-                <ContentControl x:Name="MainContent" Visibility="Visible" />
+                <ContentControl x:Name="MainContent"
+                                Visibility="Visible"/>
             </Grid>
         </Grid>
     </Grid>

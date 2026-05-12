@@ -16,6 +16,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.Views
         public InspectionResultWindow(InspectionResultWindowViewModel viewModel)
         {
             InitializeComponent();
+
             DataContext = viewModel;
             viewModel.CloseRequested += OnCloseRequested;
         }
@@ -38,12 +39,14 @@ namespace Mes.Wpf.Modules.InspectionSchedules.Views
                 return;
             }
 
-            if (sender is not TextBox textBox || textBox.Tag is not InspectionResultDefectEditModel defect)
+            if (sender is not TextBox textBox ||
+                textBox.Tag is not InspectionResultDefectEditModel defect)
             {
                 return;
             }
 
             OpenDefectTypeLookup(vm, defect);
+
             e.Handled = true;
         }
 
@@ -51,7 +54,17 @@ namespace Mes.Wpf.Modules.InspectionSchedules.Views
             InspectionResultWindowViewModel vm,
             InspectionResultDefectEditModel defect)
         {
-            var initialKeyword = defect.DefectTypeName;
+            var initialKeyword = defect.Category2Name;
+
+            if (string.IsNullOrWhiteSpace(initialKeyword))
+            {
+                initialKeyword = defect.Category1Name;
+            }
+
+            if (string.IsNullOrWhiteSpace(initialKeyword))
+            {
+                initialKeyword = defect.DefectCode;
+            }
 
             if (string.IsNullOrWhiteSpace(initialKeyword) && defect.DefectTypeId.HasValue)
             {
@@ -68,7 +81,8 @@ namespace Mes.Wpf.Modules.InspectionSchedules.Views
                 Owner = this
             };
 
-            if (lookupWindow.ShowDialog() == true && lookupWindow.SelectedDefectType != null)
+            if (lookupWindow.ShowDialog() == true &&
+                lookupWindow.SelectedDefectType != null)
             {
                 vm.ApplySelectedDefectType(defect, lookupWindow.SelectedDefectType);
             }

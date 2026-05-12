@@ -255,7 +255,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
 
         public void ApplySelectedDefectType(
             InspectionResultDefectEditModel defect,
-            InspectionResultDefectTypeLookupDto selectedDefectType)
+            InspectionResultDefectTypeLookupDto selectedDefectType) 
         {
             if (defect == null || selectedDefectType == null)
             {
@@ -263,7 +263,9 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
             }
 
             defect.DefectTypeId = (int)selectedDefectType.DefectTypeId;
-            defect.DefectTypeName = selectedDefectType.DefectName?.Trim() ?? string.Empty;
+            defect.DefectCode = selectedDefectType.DefectCode?.Trim().ToUpperInvariant() ?? string.Empty;
+            defect.Category1Name = selectedDefectType.Category1Name?.Trim() ?? string.Empty;
+            defect.Category2Name = selectedDefectType.Category2Name?.Trim() ?? string.Empty;
             defect.DefectTypeMemo = selectedDefectType.Memo?.Trim() ?? string.Empty;
         }
 
@@ -275,7 +277,9 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
             }
 
             defect.DefectTypeId = null;
-            defect.DefectTypeName = string.Empty;
+            defect.DefectCode = string.Empty;
+            defect.Category1Name = string.Empty;
+            defect.Category2Name = string.Empty;
             defect.DefectTypeMemo = string.Empty;
         }
 
@@ -331,8 +335,10 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                         var edit = new InspectionResultDefectEditModel
                         {
                             DefectTypeId = defect.DefectTypeId,
-                            DefectTypeName = string.Empty,
-                            Memo = defect.Memo ?? string.Empty,
+                            DefectCode = string.Empty,
+                            Category1Name = string.Empty,
+                            Category2Name = string.Empty,
+                            DefectTypeMemo = defect.Memo ?? string.Empty,
                         };
 
                         if (defect.Attachments != null)

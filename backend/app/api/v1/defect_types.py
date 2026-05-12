@@ -18,7 +18,8 @@ router = APIRouter(prefix="/defect-types", tags=["DefectType"])
 def create_defect_type(payload: DefectTypeCreate, db: Session = Depends(get_db)):
     obj = DefectType(
         code=payload.code,
-        name=payload.name,
+        category1_name=payload.category1_name,
+        category2_name=payload.category2_name,
         memo=payload.memo,
         is_active=payload.is_active,
     )
@@ -53,10 +54,15 @@ def update_defect_type(
 ):
     obj = defect_type_crud.get_or_404(db, defect_type_id, active_only=False)
 
-    if payload.name is not None:
-        obj.name = payload.name
+    if payload.category1_name is not None:
+        obj.category1_name = payload.category1_name
+
+    if payload.category2_name is not None:
+        obj.category2_name = payload.category2_name
+
     if payload.memo is not None:
         obj.memo = payload.memo
+
     if payload.is_active is not None:
         obj.is_active = payload.is_active
 

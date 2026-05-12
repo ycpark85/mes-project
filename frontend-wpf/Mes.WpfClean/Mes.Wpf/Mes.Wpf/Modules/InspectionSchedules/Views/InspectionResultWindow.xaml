@@ -230,15 +230,25 @@
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
 
-                        <DataGridTextColumn Header="불량유형명"
-                                            Binding="{Binding DefectTypeName}"
-                                            Width="180"
-                                            IsReadOnly="True" />        
+                        <DataGridTextColumn Header="불량코드"
+                                            Binding="{Binding DefectCode}"
+                                            Width="110"
+                                            IsReadOnly="True" />    
+
+                        <DataGridTextColumn Header="1차카테고리"
+                                            Binding="{Binding Category1Name}"
+                                            Width="130"
+                                            IsReadOnly="True" />    
+
+                        <DataGridTextColumn Header="2차카테고리"
+                                            Binding="{Binding Category2Name}"
+                                            Width="150"
+                                            IsReadOnly="True" />    
 
                         <DataGridTextColumn Header="메모"
                                             Binding="{Binding DefectTypeMemo}"
                                             Width="220"
-                                            IsReadOnly="True" />    
+                                            IsReadOnly="True" />        
 
                         <DataGridTemplateColumn Header="불량사진" Width="260">
                             <DataGridTemplateColumn.CellTemplate>

@@ -17,8 +17,11 @@ namespace Mes.Wpf.Modules.InspectionSchedules.Dtos
         [JsonPropertyName("code")]
         public string DefectCode { get; set; } = string.Empty;
 
-        [JsonPropertyName("name")]
-        public string DefectName { get; set; } = string.Empty;
+        [JsonPropertyName("category1_name")]
+        public string Category1Name { get; set; } = string.Empty;
+
+        [JsonPropertyName("category2_name")]
+        public string Category2Name { get; set; } = string.Empty;
 
         [JsonPropertyName("memo")]
         public string? Memo { get; set; }

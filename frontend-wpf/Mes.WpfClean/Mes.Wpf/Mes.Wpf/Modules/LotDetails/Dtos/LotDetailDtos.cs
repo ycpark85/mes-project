@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.Json.Serialization;
 
 namespace Mes.Wpf.Modules.LotDetails.Dtos
@@ -269,5 +270,42 @@ namespace Mes.Wpf.Modules.LotDetails.Dtos
 
         [JsonPropertyName("memo")]
         public string? Memo { get; set; }
+
+        [JsonPropertyName("attachments")]
+        public List<LotTraceDefectAttachmentDto> Attachments { get; set; } = new();
+
+        [JsonIgnore]
+        public LotTraceDefectAttachmentDto? FirstAttachment => Attachments.FirstOrDefault();
+
+        [JsonIgnore]
+        public string? FirstAttachmentImageUrl => FirstAttachment?.ImageUrl;
+
+        [JsonIgnore]
+        public bool HasAttachment => !string.IsNullOrWhiteSpace(FirstAttachmentImageUrl);
+
+        [JsonIgnore]
+        public string AttachmentDisplayText => HasAttachment ? "이미지" : "없음";
     }
+
+    public class LotTraceDefectAttachmentDto
+    {
+        [JsonPropertyName("inspection_defect_attachment_id")]
+        public int InspectionDefectAttachmentId { get; set; }
+
+        [JsonPropertyName("file_uri")]
+        public string FileUri { get; set; } = string.Empty;
+
+        [JsonPropertyName("file_name")]
+        public string? FileName { get; set; }
+
+        [JsonPropertyName("mime_type")]
+        public string? MimeType { get; set; }
+
+        [JsonPropertyName("memo")]
+        public string? Memo { get; set; }
+
+        [JsonPropertyName("image_url")]
+        public string? ImageUrl { get; set; }
+    }
+
 }

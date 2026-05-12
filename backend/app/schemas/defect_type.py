@@ -3,13 +3,15 @@ from pydantic import BaseModel, Field
 
 class DefectTypeCreate(BaseModel):
     code: str = Field(..., max_length=50)
-    name: str = Field(..., max_length=200)
+    category1_name: str = Field(..., max_length=200)
+    category2_name: str = Field(..., max_length=200)
     memo: str | None = None
     is_active: bool = True
 
 
 class DefectTypeUpdate(BaseModel):
-    name: str | None = Field(None, max_length=200)
+    category1_name: str | None = Field(None, max_length=200)
+    category2_name: str | None = Field(None, max_length=200)
     memo: str | None = None
     is_active: bool | None = None
 
@@ -17,7 +19,8 @@ class DefectTypeUpdate(BaseModel):
 class DefectTypeOut(BaseModel):
     defect_type_id: int
     code: str
-    name: str
+    category1_name: str
+    category2_name: str
     memo: str | None
     is_active: bool
 

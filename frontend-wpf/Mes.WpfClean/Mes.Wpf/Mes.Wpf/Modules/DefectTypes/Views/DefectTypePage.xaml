@@ -18,6 +18,7 @@
                 BorderBrush="#DDD"
                 BorderThickness="1"
                 CornerRadius="6">
+
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="70"/>
@@ -55,15 +56,18 @@
                             Grid.ColumnSpan="3"
                             Orientation="Horizontal"
                             HorizontalAlignment="Right">
+
                     <Button Width="90"
                             Height="32"
                             Margin="0,0,8,0"
                             Content="조회"
                             Command="{Binding SearchCommand}" />
+
                     <Button Width="90"
                             Height="32"
                             Content="초기화"
                             Command="{Binding ResetCommand}" />
+
                 </StackPanel>
             </Grid>
         </Border>
@@ -82,6 +86,7 @@
                     BorderBrush="#DDD"
                     BorderThickness="1"
                     CornerRadius="6">
+
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -106,13 +111,20 @@
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="불량코드"
                                                 Binding="{Binding DefectCode}"
-                                                Width="130"/>
-                            <DataGridTextColumn Header="불량명"
-                                                Binding="{Binding DefectName}"
-                                                Width="*"/>
+                                                Width="120"/>
+
+                            <DataGridTextColumn Header="1차카테고리"
+                                                Binding="{Binding Category1Name}"
+                                                Width="150"/>
+
+                            <DataGridTextColumn Header="2차카테고리"
+                                                Binding="{Binding Category2Name}"
+                                                Width="170"/>
+
                             <DataGridTextColumn Header="메모"
                                                 Binding="{Binding Memo}"
-                                                Width="200"/>
+                                                Width="*"/>
+
                             <DataGridCheckBoxColumn Header="사용"
                                                     Binding="{Binding IsActive}"
                                                     Width="70"/>
@@ -127,18 +139,27 @@
                     BorderBrush="#DDD"
                     BorderThickness="1"
                     CornerRadius="6">
+
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="16"/>
+
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="12"/>
+
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="12"/>
+
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="12"/>
+
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="12"/>
+
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="24"/>
+
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
@@ -166,7 +187,7 @@
                                  IsEnabled="{Binding IsCodeEditable}" />
                     </Grid>
 
-                    <!-- 불량명 -->
+                    <!-- 불량 1차카테고리 -->
                     <Grid Grid.Row="4">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="120"/>
@@ -175,16 +196,16 @@
 
                         <TextBlock Grid.Column="0"
                                    VerticalAlignment="Center"
-                                   Text="불량명"
+                                   Text="1차카테고리"
                                    FontWeight="SemiBold"/>
 
                         <TextBox Grid.Column="1"
                                  Height="32"
                                  VerticalContentAlignment="Center"
-                                 Text="{Binding EditModel.DefectName, UpdateSourceTrigger=PropertyChanged}" />
+                                 Text="{Binding EditModel.Category1Name, UpdateSourceTrigger=PropertyChanged}" />
                     </Grid>
 
-                    <!-- 메모 -->
+                    <!-- 불량 2차카테고리 -->
                     <Grid Grid.Row="6">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="120"/>
@@ -193,17 +214,38 @@
 
                         <TextBlock Grid.Column="0"
                                    VerticalAlignment="Center"
-                                   Text="메모"
+                                   Text="2차카테고리"
                                    FontWeight="SemiBold"/>
 
                         <TextBox Grid.Column="1"
                                  Height="32"
                                  VerticalContentAlignment="Center"
+                                 Text="{Binding EditModel.Category2Name, UpdateSourceTrigger=PropertyChanged}" />
+                    </Grid>
+
+                    <!-- 메모 -->
+                    <Grid Grid.Row="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="120"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Grid.Column="0"
+                                   VerticalAlignment="Top"
+                                   Margin="0,6,0,0"
+                                   Text="메모"
+                                   FontWeight="SemiBold"/>
+
+                        <TextBox Grid.Column="1"
+                                 Height="90"
+                                 AcceptsReturn="True"
+                                 TextWrapping="Wrap"
+                                 VerticalScrollBarVisibility="Auto"
                                  Text="{Binding EditModel.Memo, UpdateSourceTrigger=PropertyChanged}" />
                     </Grid>
 
                     <!-- 사용여부 -->
-                    <Grid Grid.Row="8">
+                    <Grid Grid.Row="10">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="120"/>
                             <ColumnDefinition Width="*"/>
@@ -221,19 +263,22 @@
                     </Grid>
 
                     <!-- 버튼 -->
-                    <StackPanel Grid.Row="10"
+                    <StackPanel Grid.Row="12"
                                 Orientation="Horizontal"
                                 HorizontalAlignment="Right">
+
                         <Button Width="100"
                                 Height="32"
                                 Margin="0,0,8,0"
                                 Content="신규"
                                 Command="{Binding NewCommand}" />
+
                         <Button Width="100"
                                 Height="32"
                                 Margin="0,0,8,0"
                                 Content="저장"
                                 Command="{Binding SaveCommand}" />
+
                         <Button Width="100"
                                 Height="32"
                                 Content="삭제"

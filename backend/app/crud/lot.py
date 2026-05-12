@@ -63,6 +63,7 @@ class LotCRUD:
         created_date_from: Optional[date] = None,
         created_date_to: Optional[date] = None,
         inspection_schedule_registered: Optional[bool] = None,
+        sort: Optional[str] = None,
     ) -> Tuple[List[Dict], int]:
         latest_inspection_subq = (
             select(
@@ -210,7 +211,13 @@ class LotCRUD:
 
         total = db.execute(count_stmt).scalar_one()
 
-        stmt = stmt.order_by(Lot.due_date.asc(), Lot.created_date.asc(), Lot.lot_id.asc())
+        normalized_sort = (sort or "").strip().lower()
+
+        if normalized_sort == "latest":
+            stmt = stmt.order_by(Lot.created_at.desc(), Lot.lot_id.desc())
+        else:
+            stmt = stmt.order_by(Lot.due_date.asc(), Lot.created_date.asc(), Lot.lot_id.asc())
+
         stmt = stmt.offset((page - 1) * size).limit(size)
 
         rows = db.execute(stmt).all()

@@ -11,6 +11,8 @@ from sqlalchemy.orm import Session
 from app.core.auth import get_current_user
 from app.core.config import settings
 from app.db.session import get_db
+from fastapi.responses import FileResponse
+from app.models.inspection_defect_attachment import InspectionDefectAttachment
 from app.models.inspection_result import InspectionResult
 from app.models.inspection_schedule import InspectionSchedule
 from app.schemas.inspection_result import (
@@ -194,6 +196,49 @@ def upload_result_photo(
         "file_size": file_size,
     }
 
+@router.get("/result/attachments/{attachment_id}/content")
+def get_result_attachment_content(
+    attachment_id: int,
+    db: Session = Depends(get_db),
+):
+    attachment = db.get(InspectionDefectAttachment, attachment_id)
+
+    if attachment is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Attachment not found",
+        )
+
+    file_path = Path(settings.DEFECT_PHOTO_STORAGE_ROOT) / attachment.file_uri
+
+    if not file_path.exists() or not file_path.is_file():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Attachment file not found",
+        )
+
+    media_type = attachment.mime_type
+
+    if not media_type:
+        suffix = file_path.suffix.lower()
+
+        if suffix in [".jpg", ".jpeg"]:
+            media_type = "image/jpeg"
+        elif suffix == ".png":
+            media_type = "image/png"
+        elif suffix == ".gif":
+            media_type = "image/gif"
+        elif suffix == ".webp":
+            media_type = "image/webp"
+        else:
+            media_type = "application/octet-stream"
+
+    return FileResponse(
+        path=file_path,
+        media_type=media_type,
+        filename=attachment.file_name or file_path.name,
+        content_disposition_type="inline",
+    )
 
 @router.put("/{inspection_schedule_id}/result", response_model=InspectionResultUpsertOut)
 def put_result(

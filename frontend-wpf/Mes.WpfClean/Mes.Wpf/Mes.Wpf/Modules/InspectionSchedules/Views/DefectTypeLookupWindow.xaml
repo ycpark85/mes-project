@@ -88,9 +88,13 @@
                                         Binding="{Binding DefectCode}"
                                         Width="140"/>
 
-                    <DataGridTextColumn Header="불량유형명"
-                                        Binding="{Binding DefectName}"
-                                        Width="220"/>
+                    <DataGridTextColumn Header="1차카테고리"
+                                        Binding="{Binding Category1Name}"
+                                        Width="170"/>   
+
+                    <DataGridTextColumn Header="2차카테고리"
+                                        Binding="{Binding Category2Name}"
+                                        Width="200"/>       
 
                     <DataGridTextColumn Header="메모"
                                         Binding="{Binding Memo}"
