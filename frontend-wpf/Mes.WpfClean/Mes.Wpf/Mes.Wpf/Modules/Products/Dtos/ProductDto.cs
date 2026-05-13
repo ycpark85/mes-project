@@ -45,5 +45,9 @@ namespace Mes.Wpf.Modules.Products.Dtos
 
         [JsonPropertyName("memo")]
         public string? Memo { get; set; }
+
+        [JsonPropertyName("current_stock_qty")]
+        public int CurrentStockQty { get; set; }
+
     }
 }

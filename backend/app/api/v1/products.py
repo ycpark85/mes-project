@@ -7,6 +7,7 @@ from app.db.session import get_db
 from app.models.product import Product
 from app.models.drawing import Drawing
 from app.models.routing_template import RoutingTemplate
+from app.models.product_inventory import ProductInventory
 from app.schemas.product import (
     ProductCreate,
     ProductUpdate,
@@ -40,6 +41,18 @@ def _to_product_out(obj: Product) -> ProductOut:
         memo=obj.memo,
     )
 
+
+
+def _to_product_out(db: Session, obj: Product) -> ProductOut:
+    out = ProductOut.model_validate(obj, from_attributes=True)
+
+    current_qty = db.execute(
+        select(func.coalesce(ProductInventory.current_qty, 0))
+        .where(ProductInventory.product_id == obj.product_id)
+    ).scalar_one_or_none()
+
+    out.current_stock_qty = int(current_qty or 0)
+    return out
 
 def _ensure_drawing_exists(db: Session, drawing_id: int):
     if not db.query(Drawing.drawing_id).filter(Drawing.drawing_id == drawing_id, Drawing.is_active == True).first():
@@ -107,7 +120,7 @@ def create_products_bulk(
 @router.get("/{product_id}", response_model=ProductOut)
 def get_product(product_id: int = Path(..., ge=1), db: Session = Depends(get_db)):
     obj = product_crud.get_or_404(db, product_id, active_only=True)
-    return _to_product_out(obj)
+    return _to_product_out(db, product_crud.get_or_404(db, product_id, active_only=True))
 
 
 @router.get("", response_model=ProductListOut)

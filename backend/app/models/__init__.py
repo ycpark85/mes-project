@@ -23,6 +23,8 @@ from .outsource_purchase_order_item import OutsourcePurchaseOrderItem
 from .outsource_work_group import OutsourceWorkGroup
 from .outsource_work_group_item import OutsourceWorkGroupItem
 from .outsource_purchase_order_group import OutsourcePurchaseOrderGroup
+from .product_inventory import ProductInventory
+from .product_inventory_movement import ProductInventoryMovement
 
 
 __all__ = [
@@ -51,6 +53,8 @@ __all__ = [
     "OutsourceWorkGroup",
     "OutsourceWorkGroupItem",
     "OutsourcePurchaseOrderGroup",
+    "ProductInventory",
+    "ProductInventoryMovement"
 
 
     ]

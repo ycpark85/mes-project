@@ -53,7 +53,7 @@ class ProductOut(BaseModel):
 
     is_active: bool
     memo: Optional[str] = None
-
+    current_stock_qty: int = 0
     class Config:
         from_attributes = True
 

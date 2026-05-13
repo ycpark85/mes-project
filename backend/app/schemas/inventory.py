@@ -1,0 +1,54 @@
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Optional
+
+from pydantic import BaseModel, Field
+
+
+class ProductInventoryOut(BaseModel):
+    product_id: int
+    product_code: str
+    product_name: str
+    uom: str
+    current_qty: int = 0
+    updated_at: Optional[datetime] = None
+
+
+class ProductInventoryListOut(BaseModel):
+    items: list[ProductInventoryOut]
+    total: int
+    page: int
+    size: int
+
+
+class ProductInventoryMovementOut(BaseModel):
+    inventory_movement_id: int
+    product_id: int
+    product_code: Optional[str] = None
+    product_name: Optional[str] = None
+    movement_type: str
+    qty: int
+    balance_after: int
+    source_type: Optional[str] = None
+    source_id: Optional[int] = None
+    order_line_id: Optional[int] = None
+    inspection_schedule_id: Optional[int] = None
+    inspection_result_id: Optional[int] = None
+    memo: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ProductInventoryMovementListOut(BaseModel):
+    items: list[ProductInventoryMovementOut]
+    total: int
+    page: int
+    size: int
+
+
+class ProductInventoryAdjustmentIn(BaseModel):
+    qty: int = Field(..., gt=0)
+    memo: Optional[str] = None

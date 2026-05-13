@@ -16,6 +16,11 @@ from app.models.inspection_schedule import InspectionSchedule
 from app.models.lot import Lot
 from app.models.order_line import OrderLine
 from app.schemas.inspection_result import DefectLineIn
+from sqlalchemy import func
+from app.models.partner import Partner
+from app.models.product_inventory import ProductInventory
+from app.models.product_inventory_movement import ProductInventoryMovement
+from app.services.ship_qty_policy import calculate_ship_qty
 
 
 def _utcnow() -> datetime:
@@ -139,13 +144,19 @@ def upsert_inspection_result(
     else:
         sch.status = "DONE"
         sch.finished_at = now
-
         db.flush()
         _sync_lot_status_from_inspection_schedules(db, lot_id=sch.lot_id)
 
-    db.flush()
+    _apply_inventory_for_result(
+        db=db,
+        result=result,
+        schedule=sch,
+    )
 
+    db.flush()
     return result, sch.status, created_next_id
+
+   
 
 
 def _replace_defects_and_attachments(
@@ -308,3 +319,110 @@ def _sync_lot_status_from_inspection_schedules(
 
     if next_status == "DONE":
         _sync_order_line_status_from_lot(db, lot=lot)
+
+def _apply_inventory_for_result(
+    db: Session,
+    *,
+    result: InspectionResult,
+    schedule: InspectionSchedule,
+) -> None:
+    existing = db.execute(
+        select(ProductInventoryMovement.inventory_movement_id)
+        .where(
+            ProductInventoryMovement.source_type == "INSPECTION_RESULT",
+            ProductInventoryMovement.source_id == result.inspection_result_id,
+        )
+        .limit(1)
+    ).scalar_one_or_none()
+
+    if existing is not None:
+        return
+
+    lot = db.execute(
+        select(Lot)
+        .where(Lot.lot_id == schedule.lot_id)
+        .with_for_update()
+    ).scalar_one_or_none()
+
+    if lot is None:
+        raise HTTPException(status_code=404, detail="lot not found")
+
+    order_line = db.execute(
+        select(OrderLine)
+        .where(OrderLine.order_line_id == lot.order_line_id)
+        .with_for_update()
+    ).scalar_one_or_none()
+
+    if order_line is None:
+        raise HTTPException(status_code=404, detail="order_line not found")
+
+    partner = db.get(Partner, order_line.partner_id)
+    partner_name = partner.name if partner else ""
+
+    ship_target_qty = calculate_ship_qty(partner_name, int(order_line.order_qty))
+
+    already_shipped_qty = db.execute(
+        select(func.coalesce(func.sum(-ProductInventoryMovement.qty), 0))
+        .where(
+            ProductInventoryMovement.order_line_id == order_line.order_line_id,
+            ProductInventoryMovement.movement_type == "SHIP_OUT",
+        )
+    ).scalar_one()
+
+    remaining_ship_qty = max(ship_target_qty - int(already_shipped_qty or 0), 0)
+
+    sellable_qty = int(result.good_qty or 0) + int(result.defect_ship_qty or 0)
+
+    inventory = db.execute(
+        select(ProductInventory)
+        .where(ProductInventory.product_id == lot.product_id)
+        .with_for_update()
+    ).scalar_one_or_none()
+
+    if inventory is None:
+        inventory = ProductInventory(
+            product_id=lot.product_id,
+            current_qty=0,
+        )
+        db.add(inventory)
+        db.flush()
+
+    if sellable_qty > 0:
+        inventory.current_qty += sellable_qty
+
+        db.add(
+            ProductInventoryMovement(
+                product_id=lot.product_id,
+                movement_type="INSPECTION_IN",
+                qty=sellable_qty,
+                balance_after=inventory.current_qty,
+                source_type="INSPECTION_RESULT",
+                source_id=result.inspection_result_id,
+                order_line_id=order_line.order_line_id,
+                inspection_schedule_id=schedule.inspection_schedule_id,
+                inspection_result_id=result.inspection_result_id,
+                memo="검수 실적 재고 반영",
+            )
+        )
+
+    ship_qty = min(int(inventory.current_qty or 0), remaining_ship_qty)
+
+    if ship_qty > 0:
+        inventory.current_qty -= ship_qty
+
+        db.add(
+            ProductInventoryMovement(
+                product_id=lot.product_id,
+                movement_type="SHIP_OUT",
+                qty=-ship_qty,
+                balance_after=inventory.current_qty,
+                source_type="INSPECTION_RESULT",
+                source_id=result.inspection_result_id,
+                order_line_id=order_line.order_line_id,
+                inspection_schedule_id=schedule.inspection_schedule_id,
+                inspection_result_id=result.inspection_result_id,
+                memo=f"검수 실적 출고 반영 / 목표 {ship_target_qty}",
+            )
+        )
+
+    db.flush()        

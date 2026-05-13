@@ -94,10 +94,20 @@ class InspectionAccumulatedSummaryOut(BaseModel):
     defect_ship_qty: int = 0
     inspected_qty: int = 0
 
+class InspectionInventorySummaryOut(BaseModel):
+    product_id: int
+    order_line_id: int
+    current_stock_qty: int = 0
+    order_qty: int = 0
+    ship_target_qty: int = 0
+    already_shipped_qty: int = 0
+    remaining_ship_target_qty: int = 0    
+
 
 class InspectionResultGetOut(BaseModel):
     result: Optional[InspectionResultOut] = None
     accumulated: InspectionAccumulatedSummaryOut = Field(default_factory=InspectionAccumulatedSummaryOut)
+    inventory: InspectionInventorySummaryOut | None = None
 
 
 class InspectionResultUpsertOut(BaseModel):

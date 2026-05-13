@@ -12,6 +12,9 @@ namespace Mes.Wpf.Modules.InspectionSchedules.Dtos
 
         [JsonPropertyName("accumulated")]
         public InspectionAccumulatedSummaryDto? Accumulated { get; set; }
+
+        [JsonPropertyName("inventory")]
+        public InspectionInventorySummaryDto? Inventory { get; set; }
     }
 
     public class InspectionAccumulatedSummaryDto
@@ -27,6 +30,30 @@ namespace Mes.Wpf.Modules.InspectionSchedules.Dtos
 
         [JsonPropertyName("inspected_qty")]
         public int InspectedQty { get; set; }
+    }
+
+    public class InspectionInventorySummaryDto
+    {
+        [JsonPropertyName("product_id")]
+        public int ProductId { get; set; }
+
+        [JsonPropertyName("order_line_id")]
+        public int OrderLineId { get; set; }
+
+        [JsonPropertyName("current_stock_qty")]
+        public int CurrentStockQty { get; set; }
+
+        [JsonPropertyName("order_qty")]
+        public int OrderQty { get; set; }
+
+        [JsonPropertyName("ship_target_qty")]
+        public int ShipTargetQty { get; set; }
+
+        [JsonPropertyName("already_shipped_qty")]
+        public int AlreadyShippedQty { get; set; }
+
+        [JsonPropertyName("remaining_ship_target_qty")]
+        public int RemainingShipTargetQty { get; set; }
     }
 
     public class InspectionResultDto

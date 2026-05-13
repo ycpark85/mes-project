@@ -28,7 +28,8 @@ using Mes.Wpf.Modules.RoutingTemplates.ViewModels;
 using Mes.Wpf.Modules.RoutingTemplates.Views;
 using Mes.Wpf.Modules.Dashboard.ViewModels;
 using Mes.Wpf.Modules.Dashboard.Views;
-
+using Mes.Wpf.Modules.Inventories.ViewModels;
+using Mes.Wpf.Modules.Inventories.Views;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -527,6 +528,22 @@ namespace Mes.Wpf.Views.Shell
 
             HeaderTitle.Text = "품목 모니터링";
             HeaderSubtitle.Text = "품목 기준 LOT 이력 조회 / 최근 진행 현황 확인";
+
+            await viewModel.InitializeAsync();
+        }
+
+        private async void Inventory_Click(object sender, RoutedEventArgs e)
+        {
+            var page = new InventoryPage();
+            var viewModel = new InventoryPageViewModel(_apiClient, _messageService);
+
+            page.DataContext = viewModel;
+
+            MainContent.Content = page;
+            MainContent.Visibility = Visibility.Visible;
+
+            HeaderTitle.Text = "재고 관리";
+            HeaderSubtitle.Text = "품목별 현재고 / 입출고 이력 / 재고 조정";
 
             await viewModel.InitializeAsync();
         }

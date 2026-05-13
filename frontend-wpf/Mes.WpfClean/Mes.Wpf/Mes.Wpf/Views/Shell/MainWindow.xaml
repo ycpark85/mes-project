@@ -286,6 +286,10 @@
                                 <Button Content="품목이력관리"
                                         Style="{StaticResource SidebarMenuButtonStyle}"
                                         Click="ProductMonitoring_Click"/>
+
+                                <Button Content="재고 관리"
+                                        Style="{StaticResource SidebarMenuButtonStyle}"
+                                        Click="Inventory_Click"/>
                             </StackPanel>
                         </Expander>
 

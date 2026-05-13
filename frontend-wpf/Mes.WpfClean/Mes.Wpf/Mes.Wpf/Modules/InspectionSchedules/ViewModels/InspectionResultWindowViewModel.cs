@@ -37,6 +37,16 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
         private int _accumulatedDefectShipQty;
         private int _accumulatedInspectedQty;
 
+        private int _currentStockQty;
+        private int _shipTargetQty;
+        private int _alreadyShippedQty;
+        private int _remainingShipTargetQty;
+        private int _availableQty;
+        private int _expectedShipQty;
+        private int _expectedStockQty;
+        private int _shortageQty;
+        private int _expectedStockInQty;
+
         private int _goodQty;
         private int _defectShipQty;
         private int _defectQty;
@@ -178,6 +188,86 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
 
         public int TotalQty => GoodQty + DefectShipQty + DefectQty;
 
+        public int SellableQty => GoodQty + DefectShipQty;
+
+        public int CurrentStockQty
+        {
+            get => _currentStockQty;
+            set
+            {
+                if (SetProperty(ref _currentStockQty, value))
+                {
+                    RecalculateInventoryPreview();
+                }
+            }
+        }
+
+        public int ShipTargetQty
+        {
+            get => _shipTargetQty;
+            set
+            {
+                if (SetProperty(ref _shipTargetQty, value))
+                {
+                    RecalculateInventoryPreview();
+                }
+            }
+        }
+
+        public int AlreadyShippedQty
+        {
+            get => _alreadyShippedQty;
+            set
+            {
+                if (SetProperty(ref _alreadyShippedQty, value))
+                {
+                    RecalculateInventoryPreview();
+                }
+            }
+        }
+
+        public int RemainingShipTargetQty
+        {
+            get => _remainingShipTargetQty;
+            set
+            {
+                if (SetProperty(ref _remainingShipTargetQty, value))
+                {
+                    RecalculateInventoryPreview();
+                }
+            }
+        }
+
+        public int AvailableQty
+        {
+            get => _availableQty;
+            set => SetProperty(ref _availableQty, value);
+        }
+
+        public int ExpectedShipQty
+        {
+            get => _expectedShipQty;
+            set => SetProperty(ref _expectedShipQty, value);
+        }
+
+        public int ExpectedStockQty
+        {
+            get => _expectedStockQty;
+            set => SetProperty(ref _expectedStockQty, value);
+        }
+
+        public int ShortageQty
+        {
+            get => _shortageQty;
+            set => SetProperty(ref _shortageQty, value);
+        }
+
+        public int ExpectedStockInQty
+        {
+            get => _expectedStockInQty;
+            set => SetProperty(ref _expectedStockInQty, value);
+        }
+
         public bool IsPartial
         {
             get => _isPartial;
@@ -301,6 +391,14 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                 var dto = response?.Result;
                 var accumulated = response?.Accumulated;
 
+                var inventory = response?.Inventory;
+
+                CurrentStockQty = inventory?.CurrentStockQty ?? 0;
+                ShipTargetQty = inventory?.ShipTargetQty ?? OrderQty;
+                AlreadyShippedQty = inventory?.AlreadyShippedQty ?? 0;
+                RemainingShipTargetQty = inventory?.RemainingShipTargetQty
+                    ?? Math.Max(ShipTargetQty - AlreadyShippedQty, 0);
+
                 _baseAccumulatedGoodQty = accumulated?.GoodQty ?? 0;
                 _baseAccumulatedDefectQty = accumulated?.DefectQty ?? 0;
                 _baseAccumulatedDefectShipQty = accumulated?.DefectShipQty ?? 0;
@@ -370,11 +468,27 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
         private void RecalculateTotals()
         {
             OnPropertyChanged(nameof(TotalQty));
+            OnPropertyChanged(nameof(SellableQty));
 
             AccumulatedGoodQty = _baseAccumulatedGoodQty + GoodQty;
             AccumulatedDefectQty = _baseAccumulatedDefectQty + DefectQty;
             AccumulatedDefectShipQty = _baseAccumulatedDefectShipQty + DefectShipQty;
             AccumulatedInspectedQty = _baseAccumulatedInspectedQty + TotalQty;
+
+            RecalculateInventoryPreview();
+        }
+
+        private void RecalculateInventoryPreview()
+        {
+            var sellableQty = GoodQty + DefectShipQty;
+            var availableQty = CurrentStockQty + sellableQty;
+            var expectedShipQty = Math.Min(availableQty, RemainingShipTargetQty);
+
+            ExpectedStockInQty = sellableQty;
+            AvailableQty = availableQty;
+            ExpectedShipQty = expectedShipQty;
+            ExpectedStockQty = availableQty - expectedShipQty;
+            ShortageQty = Math.Max(RemainingShipTargetQty - availableQty, 0);
         }
 
         private void AddDefect()

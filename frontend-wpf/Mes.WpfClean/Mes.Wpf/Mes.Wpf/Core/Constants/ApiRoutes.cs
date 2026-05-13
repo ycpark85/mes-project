@@ -39,5 +39,8 @@
 
         public const string DashboardSummary = "api/v1/dashboard/summary";
 
+        public const string Inventories = "api/v1/inventories";
+        public const string InventoryMovements = "api/v1/inventories/movements";
+
     }
 }
