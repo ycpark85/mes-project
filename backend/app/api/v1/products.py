@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Query, Path, status, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
 from app.db.session import get_db
@@ -23,23 +23,7 @@ from app.services.bulk.product_bulk_service import product_bulk_service
 
 router = APIRouter(prefix="/products", tags=["Product"])
 
-def _to_product_out(obj: Product) -> ProductOut:
-    return ProductOut(
-        product_id=obj.product_id,
-        product_code=obj.product_code,
-        product_name=obj.product_name,
-        uom=obj.uom,
-        drawing_id=obj.drawing_id,
-        routing_template_id=obj.routing_template_id,
-        drawing_no=obj.drawing.drawing_no if obj.drawing else None,
-        routing_template_name=obj.routing_template.template_name if obj.routing_template else None,
-        panel_width_mm=obj.panel_width_mm,
-        panel_length_mm=obj.panel_length_mm,
-        product_spec=obj.product_spec,
-        cut_qty_per_panel=obj.cut_qty_per_panel,
-        is_active=obj.is_active,
-        memo=obj.memo,
-    )
+
 
 
 
@@ -93,7 +77,7 @@ def create_product(payload: ProductCreate, db: Session = Depends(get_db)):
     try:
         created = product_crud.create(db, obj)
         db.refresh(created, attribute_names=["drawing", "routing_template"])
-        return _to_product_out(created)
+        return _to_product_out(db, created)
     except IntegrityError:
         db.rollback()
 
@@ -120,7 +104,7 @@ def create_products_bulk(
 @router.get("/{product_id}", response_model=ProductOut)
 def get_product(product_id: int = Path(..., ge=1), db: Session = Depends(get_db)):
     obj = product_crud.get_or_404(db, product_id, active_only=True)
-    return _to_product_out(db, product_crud.get_or_404(db, product_id, active_only=True))
+    return _to_product_out(db, obj)
 
 
 @router.get("", response_model=ProductListOut)
@@ -133,7 +117,7 @@ def list_products(
 ):
     items, total = product_crud.list_paged(db, page=page, size=size, q=q, is_active=is_active)
     return {
-        "items": [_to_product_out(item) for item in items],
+        "items": [_to_product_out(db, item) for item in items],
         "total": total,
         "page": page,
         "size": size,
@@ -181,7 +165,7 @@ def update_product(
     try:
         updated = product_crud.commit(db, obj)
         db.refresh(updated, attribute_names=["drawing", "routing_template"])
-        return _to_product_out(updated)
+        return _to_product_out(db, updated)
     except IntegrityError:
         db.rollback()
 
@@ -206,4 +190,4 @@ def delete_product(product_id: int = Path(..., ge=1), db: Session = Depends(get_
     # soft delete
     deleted = product_crud.soft_delete(db, product_id)
     db.refresh(deleted, attribute_names=["drawing", "routing_template"])
-    return _to_product_out(deleted)
+    return _to_product_out(db, deleted)

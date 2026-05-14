@@ -61,6 +61,9 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
         [JsonPropertyName("lot_qty")]
         public int LotQty { get; set; }
 
+        [JsonPropertyName("current_stock_qty")]
+        public int CurrentStockQty { get; set; }
+
         [JsonPropertyName("available_process_types")]
         public List<string> AvailableProcessTypes { get; set; } = new();
 
@@ -99,6 +102,8 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
         public long CustomerPartnerId { get; set; }
         public string? CustomerPartnerName { get; set; }
         public int LotQty { get; set; }
+        public int CurrentStockQty { get; set; }
+
         public List<string> AvailableProcessTypes { get; set; } = new();
 
         public int? PanelWidthMm { get; set; }
@@ -144,6 +149,7 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
                 CustomerPartnerId = dto.CustomerPartnerId,
                 CustomerPartnerName = dto.CustomerPartnerName,
                 LotQty = dto.LotQty,
+                CurrentStockQty = dto.CurrentStockQty,
                 AvailableProcessTypes = dto.AvailableProcessTypes ?? new List<string>(),
                 PanelWidthMm = dto.PanelWidthMm,
                 PanelLengthMm = dto.PanelLengthMm,
@@ -361,10 +367,15 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
         public int SheetQty
         {
             get => _sheetQty;
-            set => SetProperty(ref _sheetQty, value);
+            set
+            {
+                if (SetProperty(ref _sheetQty, value))
+                {
+                    OnPropertyChanged(nameof(ExpectedOutputQty));
+                }
+            }
+
         }
-
-
         public string? FabricLotNo
         {
             get => _fabricLotNo;
@@ -374,7 +385,30 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
         public int? SheetCutCount
         {
             get => _sheetCutCount;
-            set => SetProperty(ref _sheetCutCount, value);
+            set
+            {
+                if (SetProperty(ref _sheetCutCount, value))
+                {
+                    OnPropertyChanged(nameof(ExpectedOutputQty));
+                }
+            }
+        }
+        public int? ExpectedOutputQty
+        {
+            get
+            {
+                if (SheetQty <= 0)
+                {
+                    return null;
+                }
+
+                if (!SheetCutCount.HasValue || SheetCutCount.Value <= 0)
+                {
+                    return null;
+                }
+
+                return SheetQty * SheetCutCount.Value;
+            }
         }
 
         public List<OutsourceWorkInstructionCandidateLotRowModel> Lots { get; } = new();
@@ -408,6 +442,7 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
             OnPropertyChanged(nameof(PlateSize));
             OnPropertyChanged(nameof(Spec));
             OnPropertyChanged(nameof(CutCountText));
+            OnPropertyChanged(nameof(ExpectedOutputQty));
         }
 
         public void Clear()

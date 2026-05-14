@@ -31,15 +31,56 @@
                     <DataGrid ItemsSource="{Binding CandidateLots}"
                               AutoGenerateColumns="False"
                               CanUserAddRows="False"
-                              SelectionMode="Extended">
+                              CanUserDeleteRows="False"
+                              HeadersVisibility="Column"
+                              RowHeaderWidth="0"
+                              SelectionMode="Extended">     
                         <DataGrid.Columns>
-                            <DataGridCheckBoxColumn Header="선택" Binding="{Binding IsSelected}" Width="55" />
-                            <DataGridTextColumn Header="LOT" Binding="{Binding LotNo}" Width="120" />
-                            <DataGridTextColumn Header="거래처" Binding="{Binding CustomerPartnerName}" Width="140" />
-                            <DataGridTextColumn Header="품목코드" Binding="{Binding ProductCode}" Width="110" />
-                            <DataGridTextColumn Header="품목명" Binding="{Binding ProductName}" Width="180" />
-                            <DataGridTextColumn Header="발주수량" Binding="{Binding LotQty}" Width="90" />
-                            <DataGridTextColumn Header="공정" Binding="{Binding ProcessText}" Width="120" />
+                            <DataGridTemplateColumn Header="선택" Width="55">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"
+                                                  Focusable="False" />      
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+
+                            <DataGridTextColumn Header="LOT"
+                                                Binding="{Binding LotNo}"
+                                                Width="120"
+                                                IsReadOnly="True" />        
+
+                            <DataGridTextColumn Header="거래처"
+                                                Binding="{Binding CustomerPartnerName}"
+                                                Width="140"
+                                                IsReadOnly="True" />    
+
+                            <DataGridTextColumn Header="품목코드"
+                                                Binding="{Binding ProductCode}"
+                                                Width="110"
+                                                IsReadOnly="True" />    
+
+                            <DataGridTextColumn Header="품목명"
+                                                Binding="{Binding ProductName}"
+                                                Width="180"
+                                                IsReadOnly="True" />    
+
+                            <DataGridTextColumn Header="발주수량"
+                                                Binding="{Binding LotQty, StringFormat={}{0:N0}}"
+                                                Width="90"
+                                                IsReadOnly="True" />    
+
+                            <DataGridTextColumn Header="현재고"
+                                                Binding="{Binding CurrentStockQty, StringFormat={}{0:N0}}"
+                                                Width="90"
+                                                IsReadOnly="True" />    
+
+                            <DataGridTextColumn Header="공정"
+                                                Binding="{Binding ProcessText}"
+                                                Width="120"
+                                                IsReadOnly="True" />    
                         </DataGrid.Columns>
                     </DataGrid>
                 </DockPanel>
@@ -140,7 +181,7 @@
                             <TextBox Grid.Column="1"
                                      Height="30"
                                      VerticalContentAlignment="Center"
-                                     Text="{Binding SelectedDraft.LengthM, UpdateSourceTrigger=PropertyChanged}" />
+                                     Text="{Binding SelectedDraft.LengthM, UpdateSourceTrigger=PropertyChanged,StringFormat={}{0:N0}}" />
 
                             <TextBlock Grid.Column="3"
                                        VerticalAlignment="Center"
@@ -151,7 +192,7 @@
                                      IsReadOnly="True"
                                      Background="#F5F5F5"
                                      VerticalContentAlignment="Center"
-                                     Text="{Binding SelectedDraft.SheetQty}" />
+                                     Text="{Binding SelectedDraft.SheetQty, StringFormat={}{0:N0}}" />
 
                             <TextBlock Grid.Column="6"
                                        VerticalAlignment="Center"
@@ -169,10 +210,13 @@
                                        Text="개별은 DB 컷수 사용 / 묶음은 직접 입력" />
                         </Grid>
 
-                        <!-- 원단 LOT -->
+                        <!-- 계산수량 / 원단 LOT -->
                         <Grid Grid.Row="4">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="55" />
+                                <ColumnDefinition Width="70" />
+                                <ColumnDefinition Width="110" />
+                                <ColumnDefinition Width="16" />
+                                <ColumnDefinition Width="70" />
                                 <ColumnDefinition Width="180" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
@@ -180,12 +224,24 @@
                             <TextBlock Grid.Column="0"
                                        VerticalAlignment="Center"
                                        FontWeight="SemiBold"
-                                       Text="원단LOT" />
+                                       Text="계산수량" />   
 
                             <TextBox Grid.Column="1"
                                      Height="30"
+                                     IsReadOnly="True"
+                                     Background="#F5F5F5"
                                      VerticalContentAlignment="Center"
-                                     Text="{Binding SelectedDraft.FabricLotNo, UpdateSourceTrigger=PropertyChanged}" />
+                                     Text="{Binding SelectedDraft.ExpectedOutputQty, Mode=OneWay, StringFormat={}{0:N0}}" /> 
+
+                            <TextBlock Grid.Column="3"
+                                       VerticalAlignment="Center"
+                                       FontWeight="SemiBold"
+                                       Text="원단LOT" />      
+
+                            <TextBox Grid.Column="4"
+                                     Height="30"
+                                     VerticalContentAlignment="Center"
+                                     Text="{Binding SelectedDraft.FabricLotNo, UpdateSourceTrigger=PropertyChanged}" />     
                         </Grid>
 
                         <!-- 메모 -->
@@ -215,7 +271,7 @@
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="LOT" Binding="{Binding LotNo}" Width="110" />
                                 <DataGridTextColumn Header="품목명" Binding="{Binding ProductName}" Width="180" />
-                                <DataGridTextColumn Header="수량" Binding="{Binding LotQty}" Width="70" />
+                                <DataGridTextColumn Header="수량" Binding="{Binding LotQty, StringFormat={}{0:N0}}" Width="70" />
                                 <DataGridTextColumn Header="공정" Binding="{Binding ProcessText}" Width="90" />
                                 <DataGridTextColumn Header="기본컷수" Binding="{Binding CutCountText}" Width="70" />
                                 <DataGridTextColumn Header="묶음컷수" Binding="{Binding ManualCutsPerSheet, UpdateSourceTrigger=PropertyChanged}" Width="80" />

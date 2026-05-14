@@ -1,0 +1,186 @@
+﻿<Window x:Class="Mes.Wpf.Modules.Inventories.Views.InitialInventoryBulkUploadWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="기초재고 일괄등록"
+        Width="980"
+        Height="680"
+        MinWidth="900"
+        MinHeight="600"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResize">
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0"
+                Padding="12"
+                BorderBrush="#D9DEE7"
+                BorderThickness="1"
+                CornerRadius="4"
+                Background="#F8FBFF"
+                Margin="0,0,0,12">
+            <StackPanel>
+                <TextBlock Text="기초재고 일괄등록"
+                           FontSize="18"
+                           FontWeight="SemiBold"
+                           Margin="0,0,0,6"/>
+
+                <TextBlock Text="시스템 오픈 전 실사 재고를 엑셀로 일괄 등록합니다. 이미 재고 이력이 있는 품목은 등록되지 않습니다."
+                           Foreground="#555555"/>
+            </StackPanel>
+        </Border>
+
+        <Grid Grid.Row="1" Margin="0,0,0,12">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Row="0" Orientation="Horizontal">
+                <Button Width="120"
+                        Height="30"
+                        Content="템플릿 다운로드"
+                        Command="{Binding DownloadTemplateCommand}"
+                        Margin="0,0,8,0"/>
+
+                <Button Width="100"
+                        Height="30"
+                        Content="엑셀 선택"
+                        Command="{Binding SelectFileCommand}"
+                        Margin="0,0,8,0"/>
+
+                <Button Width="100"
+                        Height="30"
+                        Content="등록"
+                        Command="{Binding UploadCommand}"
+                        Margin="0,0,8,0"/>
+
+                <Button Width="100"
+                        Height="30"
+                        Content="초기화"
+                        Command="{Binding ClearCommand}"
+                        Margin="0,0,8,0"/>
+
+                <Button Width="100"
+                        Height="30"
+                        Content="닫기"
+                        Command="{Binding CloseCommand}"/>
+            </StackPanel>
+
+            <Grid Grid.Row="1" Margin="0,10,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="80"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="90"/>
+                    <ColumnDefinition Width="300"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0"
+                           VerticalAlignment="Center"
+                           Text="선택파일"
+                           FontWeight="SemiBold"/>
+
+                <TextBlock Grid.Column="1"
+                           VerticalAlignment="Center"
+                           Text="{Binding BulkFilePath}"
+                           TextTrimming="CharacterEllipsis"
+                           Margin="0,0,16,0"/>
+
+                <TextBlock Grid.Column="2"
+                           VerticalAlignment="Center"
+                           Text="검증결과"
+                           FontWeight="SemiBold"/>
+
+                <TextBlock Grid.Column="3"
+                           VerticalAlignment="Center"
+                           Text="{Binding BulkSummaryText}"/>
+            </Grid>
+        </Grid>
+
+        <DataGrid Grid.Row="2"
+                  ItemsSource="{Binding Rows}"
+                  AutoGenerateColumns="False"
+                  IsReadOnly="True"
+                  CanUserAddRows="False"
+                  HeadersVisibility="Column"
+                  RowHeaderWidth="0">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="행번호"
+                                    Binding="{Binding RowNumber}"
+                                    Width="70"/>
+
+                <DataGridTextColumn Header="품목코드"
+                                    Binding="{Binding ProductCode}"
+                                    Width="160"/>
+
+                <DataGridTextColumn Header="기초재고"
+                                    Binding="{Binding InitialQty, StringFormat={}{0:N0}}"
+                                    Width="110"/>
+
+                <DataGridTextColumn Header="비고"
+                                    Binding="{Binding Memo}"
+                                    Width="220"/>
+
+                <DataGridTemplateColumn Header="상태" Width="100">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Status}"
+                                       HorizontalAlignment="Center">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="#333333"/>
+                                        <Setter Property="FontWeight" Value="SemiBold"/>
+
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Status}" Value="정상">
+                                                <Setter Property="Foreground" Value="#2E7D32"/>
+                                            </DataTrigger>
+
+                                            <DataTrigger Binding="{Binding Status}" Value="등록완료">
+                                                <Setter Property="Foreground" Value="#1F5FBF"/>
+                                            </DataTrigger>
+
+                                            <DataTrigger Binding="{Binding Status}" Value="제외">
+                                                <Setter Property="Foreground" Value="#777777"/>
+                                            </DataTrigger>
+
+                                            <DataTrigger Binding="{Binding Status}" Value="오류">
+                                                <Setter Property="Foreground" Value="#C62828"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <DataGridTextColumn Header="오류내용"
+                                    Binding="{Binding ErrorMessage}"
+                                    Width="*"/>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <Grid Grid.Row="3" Margin="0,12,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Grid.Column="0"
+                       VerticalAlignment="Center"
+                       Foreground="#666666"
+                       Text="엑셀 컬럼: product_code, initial_qty, memo / initial_qty가 0인 행은 등록 제외됩니다."/>
+
+            <TextBlock Grid.Column="1"
+                       VerticalAlignment="Center"
+                       Text="{Binding LoadingMessage}"
+                       Foreground="#1F5FBF"/>
+        </Grid>
+    </Grid>
+</Window>

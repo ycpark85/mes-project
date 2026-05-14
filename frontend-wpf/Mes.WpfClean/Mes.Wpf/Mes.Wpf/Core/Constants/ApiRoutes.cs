@@ -41,6 +41,7 @@
 
         public const string Inventories = "api/v1/inventories";
         public const string InventoryMovements = "api/v1/inventories/movements";
+        public const string InitialInventoryBulk = "api/v1/inventories/initial-bulk";
 
     }
 }

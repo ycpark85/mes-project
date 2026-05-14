@@ -212,6 +212,7 @@
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
                                 </Grid.RowDefinitions>
 
                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="거래처" Style="{StaticResource LabelStyle}" />
@@ -227,10 +228,13 @@
                                 <TextBlock Grid.Row="2" Grid.Column="2" Text="판사이즈" Style="{StaticResource LabelStyle}" />
                                 <TextBlock Grid.Row="2" Grid.Column="3" Text="{Binding PlateSize}" Style="{StaticResource ValueStyle}" />
 
-                                <TextBlock Grid.Row="3" Grid.Column="0" Text="발주수량" Style="{StaticResource LabelStyle}" />
-                                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding OrderQtyText}" Style="{StaticResource ValueStyle}" />
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="재고수량" Style="{StaticResource LabelStyle}" />
+                                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding StockQtyText}" Style="{StaticResource ValueStyle}" />
                                 <TextBlock Grid.Row="3" Grid.Column="2" Text="납기일" Style="{StaticResource LabelStyle}" />
                                 <TextBlock Grid.Row="3" Grid.Column="3" Text="{Binding OrderDueDateText}" Style="{StaticResource ValueStyle}" />
+                                <TextBlock Grid.Row="4" Grid.Column="0" Text="특이사항" Style="{StaticResource LabelStyle}" />       
+                                <TextBlock Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="3" Text="{Binding OrderMemoText}" TextWrapping="Wrap"
+                                           Style="{StaticResource ValueStyle}" />   
                             </Grid>
                         </StackPanel>
                     </Border>
@@ -262,6 +266,7 @@
                                 <DataGridTextColumn Header="완료Sheet" Binding="{Binding WorkDoneSheetQty, StringFormat=N0}" Width="90" />
                                 <DataGridTextColumn Header="확정생산량" Binding="{Binding ConfirmedOutsourceQty, StringFormat=N0}" Width="100" />
                                 <DataGridTextColumn Header="상태" Binding="{Binding Status}" Width="90" />
+                                <DataGridTextColumn Header="작업지시 메모" Binding="{Binding Remark}" Width="220" />
                             </DataGrid.Columns>
                         </DataGrid>
                     </StackPanel>
@@ -285,6 +290,7 @@
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
 
                             <TextBlock Grid.Row="0" Grid.Column="0" Text="검수상태" Style="{StaticResource LabelStyle}" />
@@ -300,6 +306,8 @@
                             <TextBlock Grid.Row="1" Grid.Column="3" Text="{Binding DefectQtyText}" Style="{StaticResource ValueStyle}" />
                             <TextBlock Grid.Row="1" Grid.Column="4" Text="불량출고" Style="{StaticResource LabelStyle}" />
                             <TextBlock Grid.Row="1" Grid.Column="5" Text="{Binding DefectShipQtyText}" Style="{StaticResource ValueStyle}" />
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="특이사항" Style="{StaticResource LabelStyle}" />
+                            <TextBlock Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="5" Text="{Binding InspectionMemoText}" TextWrapping="Wrap" Style="{StaticResource ValueStyle}" />
                         </Grid>
 
                         <TextBlock Margin="0,8,0,4"

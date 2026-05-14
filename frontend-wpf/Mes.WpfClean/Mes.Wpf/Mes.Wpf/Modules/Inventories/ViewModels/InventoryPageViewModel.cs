@@ -30,6 +30,7 @@ namespace Mes.Wpf.Modules.Inventories.ViewModels
             MovementTypeOptions = new ObservableCollection<string>
             {
                 "전체",
+                "기초재고",
                 "검수입고",
                 "출고",
                 "재고증가",
@@ -40,8 +41,11 @@ namespace Mes.Wpf.Modules.Inventories.ViewModels
 
             AdjustInCommand = new AsyncRelayCommand(AdjustInAsync);
             AdjustOutCommand = new AsyncRelayCommand(AdjustOutAsync);
+            OpenInitialInventoryBulkUploadCommand = new RelayCommand(OpenInitialInventoryBulkUpload);
         }
 
+        public event Action<InitialInventoryBulkUploadWindowViewModel>? RequestOpenInitialInventoryBulkUpload;
+        public RelayCommand OpenInitialInventoryBulkUploadCommand { get; }
         public ObservableCollection<InventoryDto> Items { get; }
         public ObservableCollection<InventoryMovementDto> Movements { get; }
         public ObservableCollection<string> MovementTypeOptions { get; }
@@ -281,12 +285,25 @@ namespace Mes.Wpf.Modules.Inventories.ViewModels
         {
             return movementTypeText switch
             {
+                "기초재고" => "INITIAL_STOCK",
                 "검수입고" => "INSPECTION_IN",
                 "출고" => "SHIP_OUT",
                 "재고증가" => "ADJUST_IN",
                 "재고감소" => "ADJUST_OUT",
                 _ => string.Empty
             };
+        }
+
+        private void OpenInitialInventoryBulkUpload()
+        {
+            var viewModel = new InitialInventoryBulkUploadWindowViewModel(_apiClient, _messageService);
+
+            viewModel.UploadCompleted += () =>
+            {
+                _ = SearchAsync();
+            };
+
+            RequestOpenInitialInventoryBulkUpload?.Invoke(viewModel);
         }
 
     }

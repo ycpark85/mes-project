@@ -28,6 +28,7 @@ from app.models.outsource_work_instruction_file import OutsourceWorkInstructionF
 from app.models.outsource_work_instruction_item import OutsourceWorkInstructionItem
 from app.models.partner import Partner
 from app.models.product import Product
+from app.models.product_inventory import ProductInventory
 from app.models.routing_template import RoutingTemplate
 from app.schemas.outsource_work_instruction import (
     BohyunOutsourceGroupItemOut,
@@ -1266,6 +1267,25 @@ def get_candidate_lots(
         )
 
     rows = db.execute(stmt).all()
+
+    product_ids = sorted({
+        int(product.product_id)
+        for lot, order_line, product, partner, routing_template in rows
+    })
+
+    current_stock_qty_map: dict[int, int] = {}
+
+    if product_ids:
+        inventory_rows = db.execute(
+            select(ProductInventory.product_id, ProductInventory.current_qty)
+            .where(ProductInventory.product_id.in_(product_ids))
+        ).all()
+
+        current_stock_qty_map = {
+            int(product_id): int(current_qty or 0)
+            for product_id, current_qty in inventory_rows
+        }
+
     items: list[OutsourceWorkInstructionCandidateLotOut] = []
 
     for lot, order_line, product, partner, routing_template in rows:
@@ -1301,6 +1321,7 @@ def get_candidate_lots(
                 customer_partner_id=partner.partner_id,
                 customer_partner_name=partner.name,
                 lot_qty=lot.lot_qty,
+                current_stock_qty=current_stock_qty_map.get(int(product.product_id), 0),
                 available_process_types=available,
                 panel_width_mm=product.panel_width_mm,
                 panel_length_mm=product.panel_length_mm,

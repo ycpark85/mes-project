@@ -82,6 +82,9 @@ namespace Mes.Wpf.Modules.InspectionSchedules.Dtos
         [JsonPropertyName("partial_reason")]
         public string? PartialReason { get; set; }
 
+        [JsonPropertyName("memo")]
+        public string? Memo { get; set; }
+
         [JsonPropertyName("defects")]
         public ObservableCollection<InspectionResultDefectDto> Defects { get; set; } = new();
     }
@@ -159,6 +162,9 @@ namespace Mes.Wpf.Modules.InspectionSchedules.Dtos
 
         [JsonPropertyName("partial_reason")]
         public string? PartialReason { get; set; }
+
+        [JsonPropertyName("memo")]
+        public string? Memo { get; set; }
 
         [JsonPropertyName("defects")]
         public ObservableCollection<InspectionResultDefectRequest> Defects { get; set; } = new();

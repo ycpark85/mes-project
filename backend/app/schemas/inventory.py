@@ -52,3 +52,27 @@ class ProductInventoryMovementListOut(BaseModel):
 class ProductInventoryAdjustmentIn(BaseModel):
     qty: int = Field(..., gt=0)
     memo: Optional[str] = None
+
+class InitialInventoryBulkItemIn(BaseModel):
+    row_number: int
+    product_code: str
+    initial_qty: int = Field(..., ge=0)
+    memo: Optional[str] = None
+
+
+class InitialInventoryBulkIn(BaseModel):
+    items: list[InitialInventoryBulkItemIn]
+
+
+class InitialInventoryBulkErrorOut(BaseModel):
+    row_number: int
+    product_code: Optional[str] = None
+    message: str
+
+
+class InitialInventoryBulkResultOut(BaseModel):
+    total_count: int
+    success_count: int
+    skipped_count: int
+    failure_count: int
+    errors: list[InitialInventoryBulkErrorOut] = []    

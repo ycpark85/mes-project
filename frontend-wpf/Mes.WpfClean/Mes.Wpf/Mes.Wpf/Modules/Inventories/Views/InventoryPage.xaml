@@ -22,6 +22,10 @@
                 <Button Content="초기화"
                         Width="80"
                         Command="{Binding ResetCommand}"/>
+                <Button Content="기초재고등록"
+                        Width="110"
+                        Command="{Binding OpenInitialInventoryBulkUploadCommand}"
+                        Margin="8,0,0,0"/>      
             </StackPanel>
         </DockPanel>
 
@@ -119,6 +123,12 @@
                                             <Setter Property="Foreground" Value="#333333"/>
 
                                             <Style.Triggers>
+                                                <DataTrigger Binding="{Binding MovementType}" Value="INITIAL_STOCK">
+                                                    <Setter Property="Text" Value="기초재고"/>
+                                                    <Setter Property="Foreground" Value="#1F5FBF"/>
+                                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                                </DataTrigger>
+
                                                 <DataTrigger Binding="{Binding MovementType}" Value="INSPECTION_IN">
                                                     <Setter Property="Text" Value="검수입고"/>
                                                     <Setter Property="Foreground" Value="#2E7D32"/>

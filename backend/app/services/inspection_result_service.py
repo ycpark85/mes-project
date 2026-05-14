@@ -20,7 +20,7 @@ from sqlalchemy import func
 from app.models.partner import Partner
 from app.models.product_inventory import ProductInventory
 from app.models.product_inventory_movement import ProductInventoryMovement
-from app.services.ship_qty_policy import calculate_ship_qty
+from app.services.ship_qty_policy import calculate_ship_qty, is_stock_replenishment_partner
 
 
 def _utcnow() -> datetime:
@@ -40,6 +40,7 @@ def upsert_inspection_result(
     is_partial: bool,
     next_inspection_date: Optional[date],
     partial_reason: Optional[str],
+    memo: Optional[str],
     defects: Sequence[DefectLineIn],
     actor: str,
 ) -> tuple[InspectionResult, str, Optional[int]]:
@@ -90,7 +91,7 @@ def upsert_inspection_result(
             raise HTTPException(status_code=422, detail="Invalid or inactive defect_type_id exists")
 
     now = _utcnow()
-
+    memo = memo.strip() if memo else None
     # 6) inspection_result upsert
     result = db.execute(
         select(InspectionResult).where(InspectionResult.inspection_schedule_id == inspection_schedule_id)
@@ -106,6 +107,7 @@ def upsert_inspection_result(
             is_partial=is_partial,
             next_inspection_date=next_inspection_date,
             partial_reason=partial_reason,
+            memo=memo,
             created_by=actor,
         )
         db.add(result)
@@ -118,6 +120,7 @@ def upsert_inspection_result(
         result.is_partial = is_partial
         result.next_inspection_date = next_inspection_date
         result.partial_reason = partial_reason
+        result.memo = memo
         db.flush()
 
     # 7) defects/attachments: 전체 삭제 후 재삽입
@@ -358,18 +361,31 @@ def _apply_inventory_for_result(
 
     partner = db.get(Partner, order_line.partner_id)
     partner_name = partner.name if partner else ""
+    partner_business_no = partner.business_no if partner else ""
 
-    ship_target_qty = calculate_ship_qty(partner_name, int(order_line.order_qty))
+    is_stock_replenishment = is_stock_replenishment_partner(
+        partner_name,
+        partner_business_no,
+    )
 
-    already_shipped_qty = db.execute(
-        select(func.coalesce(func.sum(-ProductInventoryMovement.qty), 0))
-        .where(
-            ProductInventoryMovement.order_line_id == order_line.order_line_id,
-            ProductInventoryMovement.movement_type == "SHIP_OUT",
+    if is_stock_replenishment:
+        ship_target_qty = 0
+        remaining_ship_qty = 0
+    else:
+        ship_target_qty = calculate_ship_qty(
+            partner_name,
+            int(order_line.order_qty),
         )
-    ).scalar_one()
 
-    remaining_ship_qty = max(ship_target_qty - int(already_shipped_qty or 0), 0)
+        already_shipped_qty = db.execute(
+            select(func.coalesce(func.sum(-ProductInventoryMovement.qty), 0))
+            .where(
+                ProductInventoryMovement.order_line_id == order_line.order_line_id,
+                ProductInventoryMovement.movement_type == "SHIP_OUT",
+            )
+        ).scalar_one()
+
+        remaining_ship_qty = max(ship_target_qty - int(already_shipped_qty or 0), 0)
 
     sellable_qty = int(result.good_qty or 0) + int(result.defect_ship_qty or 0)
 

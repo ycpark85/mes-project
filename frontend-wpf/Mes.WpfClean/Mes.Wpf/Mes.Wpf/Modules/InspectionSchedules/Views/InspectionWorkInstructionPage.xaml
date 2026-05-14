@@ -217,7 +217,7 @@
                 <!-- 3행 -->
                 <TextBlock Grid.Row="4"
                            Grid.Column="0"
-                           Text="메모"
+                           Text="특이사항"
                            VerticalAlignment="Top"
                            Margin="0,4,8,0"/>       
 
@@ -229,7 +229,9 @@
                          TextWrapping="Wrap"
                          AcceptsReturn="True"
                          VerticalScrollBarVisibility="Auto"
-                         Text="{Binding EditModel.Memo, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>        
+                         IsReadOnly="True"
+                         Background="#F5F7FA"
+                         Text="{Binding EditModel.Memo, Mode=OneWay}"/>        
 
                 <!-- 버튼 -->
                 <StackPanel Grid.Row="6"

@@ -19,6 +19,7 @@
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <!-- 상단: 기본정보 + 누적섹션 + 출고/재고 예상 -->
@@ -569,8 +570,38 @@
             </DockPanel>
         </GroupBox>
 
-        <!-- 분할검수 -->
+        <!-- 특이사항 -->
         <Border Grid.Row="3"
+                Margin="0,12,0,0"
+                Padding="12"
+                BorderBrush="#D9DEE7"
+                BorderThickness="1"
+                CornerRadius="4"
+                Background="White">     
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="90"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0"
+                           Text="특이사항"
+                           VerticalAlignment="Top"
+                           Margin="0,4,8,0"
+                           FontWeight="SemiBold"/>      
+
+                <TextBox Grid.Column="1"
+                         Height="64"
+                         Padding="8,6"
+                         TextWrapping="Wrap"
+                         AcceptsReturn="True"
+                         VerticalScrollBarVisibility="Auto"
+                         Text="{Binding Memo, UpdateSourceTrigger=PropertyChanged}"/>       
+            </Grid>
+        </Border>
+
+        <!-- 분할검수 -->
+        <Border Grid.Row="4"
                 Margin="0,12,0,12"
                 Padding="12"
                 BorderBrush="#D9DEE7"
@@ -615,7 +646,7 @@
         </Border>
 
         <!-- 하단 버튼 -->
-        <StackPanel Grid.Row="4"
+        <StackPanel Grid.Row="5"
                     Orientation="Horizontal"
                     HorizontalAlignment="Right">
             <Button Width="100"

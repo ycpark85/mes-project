@@ -22,6 +22,9 @@ from app.models.routing_template_step import RoutingTemplateStep
 from app.models.partner import Partner
 from app.models.process import Process
 from app.models.product import Product
+from app.models.product_inventory import ProductInventory
+from app.models.product_inventory_movement import ProductInventoryMovement
+from app.services.ship_qty_policy import calculate_ship_qty, is_stock_replenishment_partner
 from app.schemas.order_line import (
     OrderLineCreate,
     OrderLineUpdate,
@@ -133,7 +136,13 @@ def _create_lot_steps_from_routing(db: Session, lot_id: int, routing_template_id
         )
 
 
-def _create_primary_lot_for_order_line(db: Session, order_line: OrderLine, product: Product) -> Lot:
+def _create_primary_lot_for_order_line(
+    db: Session,
+    order_line: OrderLine,
+    product: Product,
+    *,
+    lot_qty: int | None = None,
+) -> Lot:
     if order_line.status != OrderLineStatus.OPEN.value:
         raise HTTPException(
             status_code=409,
@@ -143,16 +152,22 @@ def _create_primary_lot_for_order_line(db: Session, order_line: OrderLine, produ
     if not product.routing_template_id:
         raise HTTPException(status_code=409, detail="Product has no routing template")
 
+    create_lot_qty = int(lot_qty if lot_qty is not None else order_line.order_qty)
+
+    if create_lot_qty <= 0:
+        raise HTTPException(status_code=409, detail="LOT quantity must be greater than zero")
+
     created_date = date.today()
 
     for _ in range(3):
         lot_no = _generate_lot_no(db, created_date, e_fixed="0")
+
         lot = Lot(
             lot_no=lot_no,
             order_line_id=order_line.order_line_id,
             product_id=order_line.product_id,
             parent_lot_id=None,
-            lot_qty=int(order_line.order_qty),
+            lot_qty=create_lot_qty,
             uom=order_line.uom,
             material_lot_no=None,
             material_used_qty=None,
@@ -168,20 +183,71 @@ def _create_primary_lot_for_order_line(db: Session, order_line: OrderLine, produ
                 lot_crud.create(db, lot)
                 _create_lot_steps_from_routing(db, lot.lot_id, product.routing_template_id)
 
-            order_line.status = OrderLineStatus.CLOSED.value
-            db.flush()
-            db.refresh(lot)
-            return lot
+                order_line.status = OrderLineStatus.CLOSED.value
+
+                db.flush()
+                db.refresh(lot)
+
+                return lot
 
         except IntegrityError:
             continue
 
     raise HTTPException(status_code=409, detail="Failed to generate unique lot_no (retry exceeded)")
 
+def _apply_stock_fulfillment_for_order_line(
+    db: Session,
+    *,
+    order_line: OrderLine,
+    partner: Partner,
+) -> int:
+    ship_target_qty = calculate_ship_qty(
+        partner.name,
+        int(order_line.order_qty),
+    )
+
+    inventory = (
+        db.execute(
+            select(ProductInventory)
+            .where(ProductInventory.product_id == order_line.product_id)
+            .with_for_update()
+        )
+        .scalar_one_or_none()
+    )
+
+    current_qty = int(inventory.current_qty or 0) if inventory else 0
+
+    if current_qty <= 0:
+        return ship_target_qty
+
+    ship_qty = min(current_qty, ship_target_qty)
+
+    if ship_qty <= 0:
+        return ship_target_qty
+
+    inventory.current_qty = current_qty - ship_qty
+
+    db.add(
+        ProductInventoryMovement(
+            product_id=order_line.product_id,
+            movement_type="SHIP_OUT",
+            qty=-ship_qty,
+            balance_after=inventory.current_qty,
+            source_type="ORDER_STOCK_FULFILLMENT",
+            source_id=order_line.order_line_id,
+            order_line_id=order_line.order_line_id,
+            memo=f"발주 등록 재고 충당 출고 / 목표 {ship_target_qty}",
+        )
+    )
+
+    db.flush()
+
+    return max(ship_target_qty - ship_qty, 0)
+
 
 @router.post("", response_model=OrderLineOut, status_code=http_status.HTTP_201_CREATED)
 def create_order_line(payload: OrderLineCreate, db: Session = Depends(get_db)):
-    _ensure_partner_active(db, payload.partner_id)
+    partner = _ensure_partner_active(db, payload.partner_id)
     product = _ensure_product_active(db, payload.product_id)
 
     data = payload.model_dump()
@@ -191,7 +257,33 @@ def create_order_line(payload: OrderLineCreate, db: Session = Depends(get_db)):
 
     try:
         order_line_crud.create(db, obj)
-        _create_primary_lot_for_order_line(db, obj, product)
+        db.flush()
+
+        if is_stock_replenishment_partner(partner.name, partner.business_no):
+            _create_primary_lot_for_order_line(
+                db,
+                obj,
+                product,
+                lot_qty=int(obj.order_qty),
+            )
+        else:
+            shortage_qty = _apply_stock_fulfillment_for_order_line(
+                db=db,
+                order_line=obj,
+                partner=partner,
+            )
+
+            if shortage_qty > 0:
+                _create_primary_lot_for_order_line(
+                    db,
+                    obj,
+                    product,
+                    lot_qty=shortage_qty,
+                )
+            else:
+                obj.status = OrderLineStatus.DONE.value
+                db.flush()
+
         db.commit()
         db.refresh(obj)
 

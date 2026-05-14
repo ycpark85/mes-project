@@ -358,6 +358,7 @@ def put_result(
             is_partial=body.is_partial,
             next_inspection_date=body.next_inspection_date,
             partial_reason=body.partial_reason,
+            memo=body.memo,
             defects=body.defects,
             actor=actor,
         )

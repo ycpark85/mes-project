@@ -11,6 +11,9 @@ from app.models.product import Product
 from app.models.product_inventory import ProductInventory
 from app.models.product_inventory_movement import ProductInventoryMovement
 from app.schemas.inventory import (
+    InitialInventoryBulkIn,
+    InitialInventoryBulkResultOut,
+    InitialInventoryBulkErrorOut,
     ProductInventoryAdjustmentIn,
     ProductInventoryListOut,
     ProductInventoryMovementListOut,
@@ -209,4 +212,168 @@ def adjust_inventory(
         inspection_result_id=movement.inspection_result_id,
         memo=movement.memo,
         created_at=movement.created_at,
+    )
+
+@router.post("/initial-bulk", response_model=InitialInventoryBulkResultOut)
+def upload_initial_inventory_bulk(
+    payload: InitialInventoryBulkIn,
+    db: Session = Depends(get_db),
+):
+    errors: list[InitialInventoryBulkErrorOut] = []
+    normalized_items = []
+    seen_codes: dict[str, int] = {}
+
+    for item in payload.items:
+        product_code = (item.product_code or "").strip().upper()
+
+        if not product_code:
+            errors.append(
+                InitialInventoryBulkErrorOut(
+                    row_number=item.row_number,
+                    product_code=product_code,
+                    message="품목코드는 필수입니다.",
+                )
+            )
+            continue
+
+        if product_code in seen_codes:
+            errors.append(
+                InitialInventoryBulkErrorOut(
+                    row_number=item.row_number,
+                    product_code=product_code,
+                    message=f"엑셀 내 중복 품목코드입니다. 첫 행: {seen_codes[product_code]}",
+                )
+            )
+            continue
+
+        seen_codes[product_code] = item.row_number
+
+        normalized_items.append(
+            {
+                "row_number": item.row_number,
+                "product_code": product_code,
+                "initial_qty": int(item.initial_qty or 0),
+                "memo": item.memo.strip() if item.memo else None,
+            }
+        )
+
+    product_codes = [x["product_code"] for x in normalized_items]
+
+    products = (
+        db.execute(
+            select(Product).where(
+                Product.product_code.in_(product_codes),
+                Product.is_active.is_(True),
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    product_map = {p.product_code.upper(): p for p in products}
+
+    product_ids = [p.product_id for p in products]
+
+    movement_product_ids = set(
+        db.execute(
+            select(ProductInventoryMovement.product_id).where(
+                ProductInventoryMovement.product_id.in_(product_ids)
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    inventories = (
+        db.execute(
+            select(ProductInventory)
+            .where(ProductInventory.product_id.in_(product_ids))
+            .with_for_update()
+        )
+        .scalars()
+        .all()
+    )
+
+    inventory_map = {x.product_id: x for x in inventories}
+
+    success_count = 0
+    skipped_count = 0
+
+    for item in normalized_items:
+        row_number = item["row_number"]
+        product_code = item["product_code"]
+        initial_qty = item["initial_qty"]
+        memo = item["memo"]
+
+        product = product_map.get(product_code)
+
+        if product is None:
+            errors.append(
+                InitialInventoryBulkErrorOut(
+                    row_number=row_number,
+                    product_code=product_code,
+                    message="존재하지 않거나 미사용 처리된 품목코드입니다.",
+                )
+            )
+            continue
+
+        if product.product_id in movement_product_ids:
+            errors.append(
+                InitialInventoryBulkErrorOut(
+                    row_number=row_number,
+                    product_code=product_code,
+                    message="이미 재고 이력이 있는 품목입니다. 기초재고 등록이 불가합니다.",
+                )
+            )
+            continue
+
+        if initial_qty == 0:
+            skipped_count += 1
+            continue
+
+        inventory = inventory_map.get(product.product_id)
+
+        if inventory is None:
+            inventory = ProductInventory(
+                product_id=product.product_id,
+                current_qty=0,
+            )
+            db.add(inventory)
+            db.flush()
+            inventory_map[product.product_id] = inventory
+
+        if int(inventory.current_qty or 0) != 0:
+            errors.append(
+                InitialInventoryBulkErrorOut(
+                    row_number=row_number,
+                    product_code=product_code,
+                    message="현재고가 0이 아닌 품목입니다. 기초재고 등록이 불가합니다.",
+                )
+            )
+            continue
+
+        inventory.current_qty = initial_qty
+
+        db.add(
+            ProductInventoryMovement(
+                product_id=product.product_id,
+                movement_type="INITIAL_STOCK",
+                qty=initial_qty,
+                balance_after=initial_qty,
+                source_type="INITIAL_STOCK_BULK",
+                source_id=None,
+                memo=memo or "기초재고 등록",
+            )
+        )
+
+        success_count += 1
+
+    db.commit()
+
+    return InitialInventoryBulkResultOut(
+        total_count=len(payload.items),
+        success_count=success_count,
+        skipped_count=skipped_count,
+        failure_count=len(errors),
+        errors=errors,
     )

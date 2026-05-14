@@ -104,8 +104,8 @@ class OutsourceWorkInstructionCandidateLotOut(BaseModel):
     customer_partner_id: int
     customer_partner_name: Optional[str] = None
     lot_qty: int
+    current_stock_qty: int = 0
     available_process_types: List[str]
-
     panel_width_mm: int | None = None
     panel_length_mm: int | None = None
     product_spec: str | None = None

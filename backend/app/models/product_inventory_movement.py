@@ -23,7 +23,7 @@ class ProductInventoryMovement(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "movement_type IN ('INSPECTION_IN','SHIP_OUT','ADJUST_IN','ADJUST_OUT')",
+            "movement_type IN ('INITIAL_STOCK','INSPECTION_IN','SHIP_OUT','ADJUST_IN','ADJUST_OUT')",
             name="ck_product_inventory_movement__movement_type",
         ),
         CheckConstraint(

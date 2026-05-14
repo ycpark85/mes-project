@@ -70,7 +70,12 @@ namespace Mes.Wpf.Modules.LotDetails.ViewModels
         public string ProductSpec => Detail?.ProductOrder.ProductSpec ?? "-";
         public string PlateSize => BuildPlateSize();
         public string OrderQtyText => FormatInt(Detail?.ProductOrder.OrderQty);
+        public string StockQtyText => FormatInt(Detail?.ProductOrder.CurrentStockQty);
         public string OrderDueDateText => FormatDate(Detail?.ProductOrder.DueDate);
+
+        public string OrderMemoText => string.IsNullOrWhiteSpace(Detail?.ProductOrder.Memo)
+            ? "-"
+            : Detail.ProductOrder.Memo!;
 
         public string InspectionStatusText
         {
@@ -96,7 +101,9 @@ namespace Mes.Wpf.Modules.LotDetails.ViewModels
         public string DefectQtyText => FormatNullableInt(Detail?.Inspection?.DefectQty);
         public string DefectShipQtyText => FormatNullableInt(Detail?.Inspection?.DefectShipQty);
         public string InspectionResultCreatedAtText => FormatDateTime(Detail?.Inspection?.ResultCreatedAt);
-
+        public string InspectionMemoText => string.IsNullOrWhiteSpace(Detail?.Inspection?.Memo)
+            ? "-"
+            : Detail.Inspection.Memo!;
         public bool IsLotCreated => Detail?.Progress.LotCreated == true;
         public bool IsOutsourceInstructionCreated => Detail?.Progress.OutsourceInstructionCreated == true;
         public bool IsOutsourceWorkDone => Detail?.Progress.OutsourceWorkDone == true;
@@ -192,6 +199,8 @@ namespace Mes.Wpf.Modules.LotDetails.ViewModels
             OnPropertyChanged(nameof(ProductSpec));
             OnPropertyChanged(nameof(PlateSize));
             OnPropertyChanged(nameof(OrderQtyText));
+            OnPropertyChanged(nameof(OrderMemoText));
+            OnPropertyChanged(nameof(StockQtyText));
             OnPropertyChanged(nameof(OrderDueDateText));
 
             OnPropertyChanged(nameof(InspectionStatusText));
@@ -201,6 +210,7 @@ namespace Mes.Wpf.Modules.LotDetails.ViewModels
             OnPropertyChanged(nameof(DefectQtyText));
             OnPropertyChanged(nameof(DefectShipQtyText));
             OnPropertyChanged(nameof(InspectionResultCreatedAtText));
+            OnPropertyChanged(nameof(InspectionMemoText));
 
             OnPropertyChanged(nameof(IsLotCreated));
             OnPropertyChanged(nameof(IsOutsourceInstructionCreated));

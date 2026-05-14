@@ -32,7 +32,7 @@ class InspectionResultUpsertIn(BaseModel):
     is_partial: bool = False
     next_inspection_date: Optional[date] = None
     partial_reason: Optional[str] = None
-
+    memo: Optional[str] = None
     defects: List[DefectLineIn] = Field(default_factory=list)
 
 class DefectAttachmentUploadOut(BaseModel):
@@ -78,7 +78,7 @@ class InspectionResultOut(BaseModel):
     is_partial: bool
     next_inspection_date: Optional[date] = None
     partial_reason: Optional[str] = None
-
+    memo: Optional[str] = None
     created_by: Optional[str] = None
     created_at: datetime
     updated_at: datetime

@@ -112,6 +112,9 @@ namespace Mes.Wpf.Modules.LotDetails.Dtos
         [JsonPropertyName("cut_qty_per_panel")]
         public int? CutQtyPerPanel { get; set; }
 
+        [JsonPropertyName("current_stock_qty")]
+        public int CurrentStockQty { get; set; }
+
         [JsonPropertyName("order_qty")]
         public int OrderQty { get; set; }
 
@@ -120,6 +123,9 @@ namespace Mes.Wpf.Modules.LotDetails.Dtos
 
         [JsonPropertyName("due_date")]
         public DateTime DueDate { get; set; }
+
+        [JsonPropertyName("memo")]
+        public string? Memo { get; set; }
     }
 
     public class LotTraceOutsourceWorkDto
@@ -237,6 +243,9 @@ namespace Mes.Wpf.Modules.LotDetails.Dtos
 
         [JsonPropertyName("partial_reason")]
         public string? PartialReason { get; set; }
+
+        [JsonPropertyName("memo")]
+        public string? Memo { get; set; }
 
         [JsonPropertyName("created_by")]
         public string? CreatedBy { get; set; }

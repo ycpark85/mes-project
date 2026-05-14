@@ -20,6 +20,7 @@ from app.models.product import Product
 from app.models.routing_template_step import RoutingTemplateStep
 from app.models.defect_type import DefectType
 from app.models.inspection_defect import InspectionDefect
+from app.models.product_inventory import ProductInventory
 from app.models.inspection_result import InspectionResult
 from app.models.inspection_schedule import InspectionSchedule
 from app.models.inspection_defect_attachment import InspectionDefectAttachment
@@ -352,6 +353,13 @@ def get_lot_trace_detail(
 
     lot, order_line, product, partner = row
 
+    current_stock_qty = db.execute(
+        select(ProductInventory.current_qty)
+        .where(ProductInventory.product_id == product.product_id)
+    ).scalar_one_or_none()
+
+    current_stock_qty = int(current_stock_qty or 0)
+
     parent_lot_no = None
 
     if lot.parent_lot_id:
@@ -560,6 +568,7 @@ def get_lot_trace_detail(
                 if inspection_result
                 else None
             ),
+            memo=inspection_result.memo if inspection_result else None,
             created_by=inspection_result.created_by if inspection_result else None,
             result_created_at=(
                 inspection_result.created_at
@@ -590,26 +599,26 @@ def get_lot_trace_detail(
             memo=lot.memo,
         ),
         product_order=LotTraceProductOrderOut(
-            order_line_id=order_line.order_line_id,
-            order_no=order_line.order_no,
-            line_no=order_line.line_no,
-            partner_id=partner.partner_id,
-            partner_name=partner.name,
-            product_id=product.product_id,
-            product_code=product.product_code,
-            product_name=product.product_name,
-            product_spec=product.product_spec,
-            panel_width_mm=product.panel_width_mm,
-            panel_length_mm=product.panel_length_mm,
-            cut_qty_per_panel=product.cut_qty_per_panel,
-            order_qty=order_line.order_qty,
-            order_date=order_line.order_date,
-            due_date=order_line.due_date,
-        ),
+        order_line_id=order_line.order_line_id,
+        order_no=order_line.order_no,
+        line_no=order_line.line_no,
+        partner_id=partner.partner_id,
+        partner_name=partner.name,
+        product_id=product.product_id,
+        product_code=product.product_code,
+        product_name=product.product_name,
+        product_spec=product.product_spec,
+        panel_width_mm=product.panel_width_mm,
+        panel_length_mm=product.panel_length_mm,
+        cut_qty_per_panel=product.cut_qty_per_panel,
+        current_stock_qty=current_stock_qty,
+        order_qty=order_line.order_qty,
+        order_date=order_line.order_date,
+        due_date=order_line.due_date,
+    ),
         outsource_works=outsource_works,
         inspection=inspection,
     )
-
 
 
 @router.get("/{lot_id}", response_model=LotDetailOut)

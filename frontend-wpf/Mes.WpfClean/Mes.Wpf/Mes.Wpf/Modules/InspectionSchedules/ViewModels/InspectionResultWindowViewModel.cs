@@ -22,10 +22,12 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
         private string _lotNo = string.Empty;
         private string _productName = string.Empty;
         private string _partnerName = string.Empty;
+        
         private DateTime? _inspectionDate;
         private int _planQty;
         private DateTime? _dueDate;
         private int _orderQty;
+
 
         private int _baseAccumulatedGoodQty;
         private int _baseAccumulatedDefectQty;
@@ -53,6 +55,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
         private bool _isPartial;
         private DateTime? _nextInspectionDate;
         private string _partialReason = string.Empty;
+        private string _memo = string.Empty;
         private bool _isLoading;
         private InspectionResultDefectEditModel? _selectedDefect;
 
@@ -286,6 +289,12 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
             set => SetProperty(ref _partialReason, value);
         }
 
+        public string Memo
+        {
+            get => _memo;
+            set => SetProperty(ref _memo, value);
+        }
+
         public bool IsLoading
         {
             get => _isLoading;
@@ -412,6 +421,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                     IsPartial = false;
                     NextInspectionDate = null;
                     PartialReason = string.Empty;
+                    Memo = string.Empty;
                     Defects.Clear();
 
                     RecalculateTotals();
@@ -631,7 +641,8 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                     DefectQty = DefectQty,
                     IsPartial = IsPartial,
                     NextInspectionDate = IsPartial ? NextInspectionDate?.Date : null,
-                    PartialReason = IsPartial ? PartialReason.Trim() : null
+                    PartialReason = IsPartial ? PartialReason.Trim() : null,
+                    Memo = string.IsNullOrWhiteSpace(Memo) ? null : Memo.Trim(),
                 };
 
                 foreach (var defect in Defects)

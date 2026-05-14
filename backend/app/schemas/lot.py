@@ -133,9 +133,11 @@ class LotTraceProductOrderOut(BaseModel):
     panel_width_mm: Optional[int] = None
     panel_length_mm: Optional[int] = None
     cut_qty_per_panel: Optional[int] = None
+    current_stock_qty: int = 0
     order_qty: int
     order_date: date
     due_date: date
+    memo: Optional[str] = None
 
 
 class LotTraceOutsourceWorkOut(BaseModel):
@@ -198,6 +200,7 @@ class LotTraceInspectionOut(BaseModel):
     is_partial: Optional[bool] = None
     next_inspection_date: Optional[date] = None
     partial_reason: Optional[str] = None
+    memo: Optional[str] = None
     created_by: Optional[str] = None
     result_created_at: Optional[datetime] = None
 

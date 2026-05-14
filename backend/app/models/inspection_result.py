@@ -56,6 +56,8 @@ class InspectionResult(Base):
     next_inspection_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     partial_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
+    memo: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
     created_by: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
