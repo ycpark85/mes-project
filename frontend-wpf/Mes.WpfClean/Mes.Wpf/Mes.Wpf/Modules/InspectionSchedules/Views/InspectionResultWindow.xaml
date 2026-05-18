@@ -411,68 +411,117 @@
 
         <!-- 검수 실적 입력 -->
         <Border Grid.Row="1"
-                Margin="0,16,0,12"
-                Padding="12"
-                BorderBrush="#D9DEE7"
-                BorderThickness="1"
-                CornerRadius="4"
-                Background="White">
+        Margin="0,12,0,0"
+        Padding="12"
+        BorderBrush="#D9DEE7"
+        BorderThickness="1"
+        CornerRadius="4"
+        Background="White">
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="100"/>
-                    <ColumnDefinition Width="140"/>
                     <ColumnDefinition Width="110"/>
-                    <ColumnDefinition Width="140"/>
                     <ColumnDefinition Width="120"/>
-                    <ColumnDefinition Width="140"/>
-                    <ColumnDefinition Width="100"/>
-                    <ColumnDefinition Width="140"/>
-                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="20"/>
+                    <ColumnDefinition Width="110"/>
+                    <ColumnDefinition Width="120"/>
+                    <ColumnDefinition Width="20"/>
+                    <ColumnDefinition Width="110"/>
+                    <ColumnDefinition Width="120"/>
                 </Grid.ColumnDefinitions>
 
-                <TextBlock Grid.Column="0"
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="12"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="12"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Grid.Column="0"
                            VerticalAlignment="Center"
                            Text="양품수량"
-                           FontWeight="SemiBold"/>
-
-                <TextBox Grid.Column="1"
-                         Margin="8,0,16,0"
+                           FontWeight="SemiBold"/>      
+                <TextBox Grid.Row="0" Grid.Column="1"
                          Text="{Binding GoodQty, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:N0}}"
-                         VerticalAlignment="Center"/>
+                         VerticalContentAlignment="Center"/>        
 
-                <TextBlock Grid.Column="2"
-                           VerticalAlignment="Center"
-                           Text="불량수량"
-                           FontWeight="SemiBold"/>
-
-                <TextBox Grid.Column="3"
-                         Margin="8,0,16,0"
-                         Text="{Binding DefectQty, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:N0}}"
-                         VerticalAlignment="Center"/>
-
-                <TextBlock Grid.Column="4"
+                <TextBlock Grid.Row="0" Grid.Column="3"
                            VerticalAlignment="Center"
                            Text="불량출고수량"
-                           FontWeight="SemiBold"/>
-
-                <TextBox Grid.Column="5"
-                         Margin="8,0,16,0"
+                           FontWeight="SemiBold"/>  
+                <TextBox Grid.Row="0" Grid.Column="4"
                          Text="{Binding DefectShipQty, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:N0}}"
-                         VerticalAlignment="Center"/>
+                         VerticalContentAlignment="Center"/>    
 
-                <TextBlock Grid.Column="6"
+                <TextBlock Grid.Row="0" Grid.Column="6"
+                           VerticalAlignment="Center"
+                           Text="불량수량"
+                           FontWeight="SemiBold"/>      
+                <TextBox Grid.Row="0" Grid.Column="7"
+                         Text="{Binding DefectQty, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:N0}}"
+                         VerticalContentAlignment="Center"/>    
+
+                <TextBlock Grid.Row="2" Grid.Column="0"
+                           VerticalAlignment="Center"
+                           Text="재고출하수량"
+                           FontWeight="SemiBold"/>  
+                <TextBox Grid.Row="2" Grid.Column="1"
+                         Text="{Binding StockShipQty, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:N0}}"
+                         VerticalContentAlignment="Center"/>    
+
+                <TextBlock Grid.Row="2" Grid.Column="3"
+                           VerticalAlignment="Center"
+                           Text="검수분출하수량"
+                           FontWeight="SemiBold"/>      
+                <TextBox Grid.Row="2" Grid.Column="4"
+                         Text="{Binding ResultShipQty, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:N0}}"
+                         VerticalContentAlignment="Center"/>    
+
+                <TextBlock Grid.Row="2" Grid.Column="6"
+                           VerticalAlignment="Center"
+                           Text="재고편입수량"
+                           FontWeight="SemiBold"/>      
+                <TextBox Grid.Row="2" Grid.Column="7"
+                 Text="{Binding StockInQty, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:N0}}"
+                 VerticalContentAlignment="Center"/>
+
+                <TextBlock Grid.Row="4" Grid.Column="0"
                            VerticalAlignment="Center"
                            Text="검수수량"
-                           FontWeight="SemiBold"/>
-
-                <Border Grid.Column="7"
-                        Margin="8,0,0,0"
+                           FontWeight="SemiBold"/>      
+                <Border Grid.Row="4" Grid.Column="1"
                         Padding="8,4"
                         Background="#F5F7FA"
                         BorderBrush="#D9DEE7"
-                        BorderThickness="1">
+                        BorderThickness="1">        
                     <TextBlock Text="{Binding TotalQty, StringFormat={}{0:N0}}"
-                               VerticalAlignment="Center"/>
+                       VerticalAlignment="Center"/>
+                </Border>
+
+                <TextBlock Grid.Row="4" Grid.Column="3"
+                           VerticalAlignment="Center"
+                           Text="판매가능수량"
+                           FontWeight="SemiBold"/>  
+                <Border Grid.Row="4" Grid.Column="4"
+                        Padding="8,4"
+                        Background="#F5F7FA"
+                        BorderBrush="#D9DEE7"
+                        BorderThickness="1">    
+                    <TextBlock Text="{Binding SellableQty, StringFormat={}{0:N0}}"
+                       VerticalAlignment="Center"/>
+                </Border>
+
+                <TextBlock Grid.Row="4" Grid.Column="6"
+                           VerticalAlignment="Center"
+                           Text="예상부족수량"
+                           FontWeight="SemiBold"/>  
+                <Border Grid.Row="4" Grid.Column="7"
+                        Padding="8,4"
+                        Background="#F5F7FA"
+                        BorderBrush="#D9DEE7"
+                        BorderThickness="1">    
+                    <TextBlock Text="{Binding ShortageQty, StringFormat={}{0:N0}}"
+                       VerticalAlignment="Center"/>
                 </Border>
             </Grid>
         </Border>

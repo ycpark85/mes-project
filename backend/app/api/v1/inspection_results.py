@@ -161,7 +161,6 @@ def _get_inventory_summary(
     lot = db.execute(
         select(Lot).where(Lot.lot_id == current_schedule.lot_id)
     ).scalar_one_or_none()
-
     if lot is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -171,7 +170,6 @@ def _get_inventory_summary(
     order_line = db.execute(
         select(OrderLine).where(OrderLine.order_line_id == lot.order_line_id)
     ).scalar_one_or_none()
-
     if order_line is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -186,28 +184,56 @@ def _get_inventory_summary(
             ProductInventory.product_id == lot.product_id
         )
     ).scalar_one_or_none()
-
     current_stock_qty = int(current_stock_qty or 0)
 
-    if current_result_id is not None:
-        current_result_inventory_delta = db.execute(
-            select(func.coalesce(func.sum(ProductInventoryMovement.qty), 0)).where(
-                ProductInventoryMovement.inspection_result_id == current_result_id
-            )
-        ).scalar_one()
+    current_result_stock_ship_qty = 0
+    current_result_result_ship_qty = 0
+    current_result_stock_in_qty = 0
 
-        current_stock_qty -= int(current_result_inventory_delta or 0)
+    if current_result_id is not None:
+        current_result_stock_ship_qty = int(
+            db.execute(
+                select(func.coalesce(func.sum(-ProductInventoryMovement.qty), 0)).where(
+                    ProductInventoryMovement.source_type == "INSPECTION_RESULT_STOCK_SHIP",
+                    ProductInventoryMovement.source_id == current_result_id,
+                )
+            ).scalar_one()
+            or 0
+        )
+
+        current_result_result_ship_qty = int(
+            db.execute(
+                select(func.coalesce(func.sum(-ProductInventoryMovement.qty), 0)).where(
+                    ProductInventoryMovement.source_type == "INSPECTION_RESULT_RESULT_SHIP",
+                    ProductInventoryMovement.source_id == current_result_id,
+                )
+            ).scalar_one()
+            or 0
+        )
+
+        current_result_stock_in_qty = int(
+            db.execute(
+                select(func.coalesce(func.sum(ProductInventoryMovement.qty), 0)).where(
+                    ProductInventoryMovement.source_type == "INSPECTION_RESULT_STOCK_IN",
+                    ProductInventoryMovement.source_id == current_result_id,
+                )
+            ).scalar_one()
+            or 0
+        )
+
+        current_stock_qty = current_stock_qty + current_result_stock_ship_qty - current_result_stock_in_qty
 
     ship_target_qty = calculate_ship_qty(
         partner_name,
         int(order_line.order_qty),
     )
 
-    shipped_query = select(
-        func.coalesce(func.sum(-ProductInventoryMovement.qty), 0)
-    ).where(
-        ProductInventoryMovement.order_line_id == order_line.order_line_id,
-        ProductInventoryMovement.movement_type == "SHIP_OUT",
+    shipped_query = (
+        select(func.coalesce(func.sum(-ProductInventoryMovement.qty), 0))
+        .where(
+            ProductInventoryMovement.order_line_id == order_line.order_line_id,
+            ProductInventoryMovement.movement_type == "SHIP_OUT",
+        )
     )
 
     if current_result_id is not None:
@@ -231,6 +257,9 @@ def _get_inventory_summary(
         ship_target_qty=ship_target_qty,
         already_shipped_qty=already_shipped_qty,
         remaining_ship_target_qty=remaining_ship_target_qty,
+        current_result_stock_ship_qty=current_result_stock_ship_qty,
+        current_result_result_ship_qty=current_result_result_ship_qty,
+        current_result_stock_in_qty=current_result_stock_in_qty,
     )
 
 

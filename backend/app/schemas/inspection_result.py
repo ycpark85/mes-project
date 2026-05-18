@@ -5,7 +5,6 @@ from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
-
 Disposition = Literal["SHIP_AS_IS", "NOT_SHIPPABLE"]
 
 
@@ -29,17 +28,24 @@ class InspectionResultUpsertIn(BaseModel):
     defect_ship_qty: int = Field(0, ge=0)
     defect_qty: int = Field(..., ge=0)
 
+    stock_ship_qty: int = Field(0, ge=0)
+    result_ship_qty: int = Field(0, ge=0)
+    stock_in_qty: int = Field(0, ge=0)
+
     is_partial: bool = False
     next_inspection_date: Optional[date] = None
     partial_reason: Optional[str] = None
     memo: Optional[str] = None
+
     defects: List[DefectLineIn] = Field(default_factory=list)
+
 
 class DefectAttachmentUploadOut(BaseModel):
     file_uri: str
     file_name: str
     mime_type: Optional[str] = None
     file_size: int
+
 
 class DefectAttachmentOut(BaseModel):
     inspection_defect_attachment_id: int
@@ -69,7 +75,6 @@ class DefectLineOut(BaseModel):
 class InspectionResultOut(BaseModel):
     inspection_result_id: int
     inspection_schedule_id: int
-
     good_qty: int
     defect_ship_qty: int
     defect_qty: int
@@ -78,7 +83,6 @@ class InspectionResultOut(BaseModel):
     is_partial: bool
     next_inspection_date: Optional[date] = None
     partial_reason: Optional[str] = None
-    memo: Optional[str] = None
     created_by: Optional[str] = None
     created_at: datetime
     updated_at: datetime
@@ -88,20 +92,27 @@ class InspectionResultOut(BaseModel):
     class Config:
         from_attributes = True
 
+
 class InspectionAccumulatedSummaryOut(BaseModel):
     good_qty: int = 0
     defect_qty: int = 0
     defect_ship_qty: int = 0
     inspected_qty: int = 0
 
+
 class InspectionInventorySummaryOut(BaseModel):
     product_id: int
     order_line_id: int
+
     current_stock_qty: int = 0
     order_qty: int = 0
     ship_target_qty: int = 0
     already_shipped_qty: int = 0
-    remaining_ship_target_qty: int = 0    
+    remaining_ship_target_qty: int = 0
+
+    current_result_stock_ship_qty: int = 0
+    current_result_result_ship_qty: int = 0
+    current_result_stock_in_qty: int = 0
 
 
 class InspectionResultGetOut(BaseModel):

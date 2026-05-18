@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status as http_sta
 from sqlalchemy import and_, desc, exists, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
-
+from collections import defaultdict
 from app.crud.lot import lot_crud
 from app.crud.order_line import order_line_crud
 from app.db.session import get_db  # 너희 프로젝트의 get_db 경로에 맞춰 수정
@@ -25,6 +25,8 @@ from app.models.product import Product
 from app.models.product_inventory import ProductInventory
 from app.models.product_inventory_movement import ProductInventoryMovement
 from app.services.ship_qty_policy import calculate_ship_qty, is_stock_replenishment_partner
+from app.services.bulk.order_line_bulk_service import order_line_bulk_service
+
 from app.schemas.order_line import (
     OrderLineCreate,
     OrderLineUpdate,
@@ -32,6 +34,16 @@ from app.schemas.order_line import (
     OrderLineListOut,
     PageMeta,
     OrderLineStatus,
+    OrderLineBulkImportRowIn,
+    OrderLineBulkValidateRequest,
+    OrderLineBulkValidateResult,
+    OrderLineBulkCommitRequest,
+    OrderLineBulkCommitResult,
+    OrderLineBulkCommitGroupResult,
+    OrderLineFulfillmentMode,
+    OrderLineProductionPolicy,
+    OrderLineFulfillmentPlanUpdate,
+    OrderLineBaseLotCreateResult,
 )
 from app.schemas.order_line_detail import (
     OrderLineDetailDto,
@@ -244,6 +256,259 @@ def _apply_stock_fulfillment_for_order_line(
 
     return max(ship_target_qty - ship_qty, 0)
 
+def _create_order_line_with_policy(db: Session, payload: OrderLineCreate) -> OrderLine:
+    partner = _ensure_partner_active(db, payload.partner_id)
+    product = _ensure_product_active(db, payload.product_id)
+
+    data = payload.model_dump()
+    data["uom"] = product.uom
+
+    obj = OrderLine(**data)
+    order_line_crud.create(db, obj)
+    db.flush()
+
+    if is_stock_replenishment_partner(partner.name, partner.business_no):
+        _create_primary_lot_for_order_line(
+            db,
+            obj,
+            product,
+            lot_qty=int(obj.order_qty),
+        )
+    else:
+        shortage_qty = _apply_stock_fulfillment_for_order_line(
+            db=db,
+            order_line=obj,
+            partner=partner,
+        )
+
+        if shortage_qty > 0:
+            _create_primary_lot_for_order_line(
+                db,
+                obj,
+                product,
+                lot_qty=shortage_qty,
+            )
+        else:
+            obj.status = OrderLineStatus.DONE.value
+
+    db.flush()
+    return obj
+
+def _build_bulk_group_memo(items_by_order_no: dict[str, list[OrderLineBulkImportRowIn]], erp_order_no: str) -> str | None:
+    remarks: list[str] = []
+
+    for item in items_by_order_no.get(erp_order_no, []):
+        remark = (item.remark or "").strip()
+        if remark and remark not in remarks:
+            remarks.append(remark)
+
+    if not remarks:
+        return None
+
+    if len(remarks) == 1:
+        return remarks[0]
+
+    return "\n".join(remarks)
+
+
+def _validate_product_name_change_choices(group, choice_map: dict[int, bool]) -> None:
+    product_updates: dict[int, set[tuple[str | None, str | None]]] = defaultdict(set)
+
+    for row in group.rows:
+        if not choice_map.get(row.row_number, False):
+            continue
+
+        if not row.product_name_mismatch:
+            continue
+
+        if not row.can_apply_product_name_change:
+            raise HTTPException(
+                status_code=409,
+                detail=f"row_number={row.row_number} 는 품목명 변경 반영이 불가능합니다.",
+            )
+
+        product_updates[row.product_id].add(
+            (row.parsed_product_name, row.parsed_product_spec)
+        )
+
+    for product_id, values in product_updates.items():
+        if len(values) > 1:
+            raise HTTPException(
+                status_code=409,
+                detail=f"같은 품목(product_id={product_id})에 서로 다른 품목명 변경이 동시에 요청되었습니다.",
+            )
+        
+def _get_available_inventory_qty(db: Session, product_id: int) -> int:
+    inventory = (
+        db.execute(
+            select(ProductInventory)
+            .where(ProductInventory.product_id == product_id)
+        )
+        .scalar_one_or_none()
+    )
+    return int(inventory.current_qty or 0) if inventory else 0
+
+
+def _get_target_ship_qty(order_line: OrderLine, partner_name: str) -> int:
+    return int(calculate_ship_qty(partner_name or "", int(order_line.order_qty or 0)) or 0)
+
+
+def _get_planned_production_qty(
+    db: Session,
+    order_line: OrderLine,
+    partner_name: str,
+) -> int:
+    available_inventory_qty = _get_available_inventory_qty(db, order_line.product_id)
+    target_ship_qty = _get_target_ship_qty(order_line, partner_name)
+
+    fulfillment_mode = order_line.fulfillment_mode or "INVENTORY_FIRST"
+    production_policy = order_line.production_policy or "ORDER_ONLY"
+    extra_production_qty = int(order_line.extra_production_qty or 0)
+
+    if fulfillment_mode == "PRODUCTION_FIRST":
+        base_planned_production_qty = target_ship_qty
+    else:
+        base_planned_production_qty = max(target_ship_qty - available_inventory_qty, 0)
+
+    if production_policy != "ALLOW_STOCK_BUILD":
+        extra_production_qty = 0
+
+    return base_planned_production_qty + extra_production_qty
+
+
+        
+@router.post("/bulk/commit", response_model=OrderLineBulkCommitResult)
+def commit_order_lines_bulk(
+    payload: OrderLineBulkCommitRequest,
+    db: Session = Depends(get_db),
+):
+    validation = order_line_bulk_service.validate_bulk(
+        db,
+        OrderLineBulkValidateRequest(items=payload.items),
+    )
+
+    items_by_order_no: dict[str, list[OrderLineBulkImportRowIn]] = defaultdict(list)
+    for item in payload.items:
+        items_by_order_no[item.erp_order_no.strip()].append(item)
+
+    choice_map = {
+        item.row_number: item.apply_product_name_change
+        for item in payload.row_choices
+    }
+
+    results: list[OrderLineBulkCommitGroupResult] = []
+    success_group_count = 0
+    failure_group_count = 0
+
+    for group in validation.groups:
+        if not group.can_commit:
+            failure_group_count += 1
+            results.append(
+                OrderLineBulkCommitGroupResult(
+                    erp_order_no=group.erp_order_no,
+                    status="ERROR",
+                    message="검증 오류가 있어 등록할 수 없습니다.",
+                    created_order_line_ids=[],
+                )
+            )
+            continue
+
+        try:
+            created_ids: list[int] = []
+
+            with db.begin_nested():
+                _validate_product_name_change_choices(group, choice_map)
+
+                group_memo = _build_bulk_group_memo(items_by_order_no, group.erp_order_no)
+
+                for row in group.rows:
+                    if row.status == "ERROR":
+                        raise HTTPException(
+                            status_code=409,
+                            detail=f"row_number={row.row_number} 검증 오류로 등록할 수 없습니다.",
+                        )
+
+                    if choice_map.get(row.row_number, False) and row.product_name_mismatch:
+                        product = db.get(Product, row.product_id)
+                        if product is None or not product.is_active:
+                            raise HTTPException(
+                                status_code=404,
+                                detail=f"row_number={row.row_number} 품목을 찾을 수 없습니다.",
+                            )
+
+                        if row.parsed_product_name:
+                            product.product_name = row.parsed_product_name
+                        product.product_spec = row.parsed_product_spec
+
+                        db.add(product)
+                        db.flush()
+
+                    create_payload = OrderLineCreate(
+                        order_no=row.erp_order_no,
+                        line_no=row.line_no,
+                        partner_id=row.partner_id,
+                        product_id=row.product_id,
+                        order_date=row.order_date,
+                        due_date=row.due_date,
+                        order_qty=row.order_qty,
+                        uom="",
+                        customer_po=None,
+                        memo=group_memo,
+                    )
+
+                    created = _create_order_line_with_policy(db, create_payload)
+                    created_ids.append(created.order_line_id)
+
+            success_group_count += 1
+            results.append(
+                OrderLineBulkCommitGroupResult(
+                    erp_order_no=group.erp_order_no,
+                    status="SUCCESS",
+                    message=None,
+                    created_order_line_ids=created_ids,
+                )
+            )
+
+        except HTTPException as exc:
+            failure_group_count += 1
+            results.append(
+                OrderLineBulkCommitGroupResult(
+                    erp_order_no=group.erp_order_no,
+                    status="ERROR",
+                    message=str(exc.detail),
+                    created_order_line_ids=[],
+                )
+            )
+        except IntegrityError:
+            failure_group_count += 1
+            results.append(
+                OrderLineBulkCommitGroupResult(
+                    erp_order_no=group.erp_order_no,
+                    status="ERROR",
+                    message="Duplicate order_no+line_no or integrity error",
+                    created_order_line_ids=[],
+                )
+            )
+
+    db.commit()
+
+    return OrderLineBulkCommitResult(
+        total_group_count=len(validation.groups),
+        success_group_count=success_group_count,
+        failure_group_count=failure_group_count,
+        groups=results,
+    )
+
+
+
+@router.post("/bulk/validate", response_model=OrderLineBulkValidateResult)
+def validate_order_lines_bulk(
+    payload: OrderLineBulkValidateRequest,
+    db: Session = Depends(get_db),
+):
+    return order_line_bulk_service.validate_bulk(db, payload)
+
+
 
 @router.post("", response_model=OrderLineOut, status_code=http_status.HTTP_201_CREATED)
 def create_order_line(payload: OrderLineCreate, db: Session = Depends(get_db)):
@@ -253,49 +518,72 @@ def create_order_line(payload: OrderLineCreate, db: Session = Depends(get_db)):
     data = payload.model_dump()
     data["uom"] = product.uom
 
+    inventory = (
+        db.execute(
+            select(ProductInventory)
+            .where(ProductInventory.product_id == payload.product_id)
+        )
+        .scalar_one_or_none()
+    )
+    available_inventory_qty = int(inventory.current_qty or 0) if inventory else 0
+
+    if available_inventory_qty <= 0:
+        recommended_mode = OrderLineFulfillmentMode.PRODUCTION_FIRST.value
+    elif available_inventory_qty >= int(payload.order_qty):
+        recommended_mode = OrderLineFulfillmentMode.INVENTORY_FIRST.value
+    else:
+        recommended_mode = OrderLineFulfillmentMode.HYBRID.value
+
+    data["fulfillment_mode"] = recommended_mode
+    data["production_policy"] = OrderLineProductionPolicy.ORDER_ONLY.value
+    data["extra_production_qty"] = 0
+    data["decision_made"] = False
+    data["decision_made_at"] = None
+    data["decision_made_by"] = None
+
     obj = OrderLine(**data)
 
     try:
         order_line_crud.create(db, obj)
-        db.flush()
-
-        if is_stock_replenishment_partner(partner.name, partner.business_no):
-            _create_primary_lot_for_order_line(
-                db,
-                obj,
-                product,
-                lot_qty=int(obj.order_qty),
-            )
-        else:
-            shortage_qty = _apply_stock_fulfillment_for_order_line(
-                db=db,
-                order_line=obj,
-                partner=partner,
-            )
-
-            if shortage_qty > 0:
-                _create_primary_lot_for_order_line(
-                    db,
-                    obj,
-                    product,
-                    lot_qty=shortage_qty,
-                )
-            else:
-                obj.status = OrderLineStatus.DONE.value
-                db.flush()
-
         db.commit()
         db.refresh(obj)
-
     except HTTPException:
         db.rollback()
         raise
-
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=409, detail="Duplicate order_no+line_no or integrity error")
 
     return OrderLineOut.model_validate(obj, from_attributes=True)
+
+
+@router.patch("/{order_line_id}/fulfillment-plan", response_model=OrderLineOut)
+def update_order_line_fulfillment_plan(
+    order_line_id: int,
+    payload: OrderLineFulfillmentPlanUpdate,
+    db: Session = Depends(get_db),
+):
+    obj = order_line_crud.get(db, order_line_id)
+    if not obj or not obj.is_active:
+        raise HTTPException(status_code=404, detail="OrderLine not found")
+
+    if obj.status in {OrderLineStatus.DONE.value, OrderLineStatus.CANCELED.value}:
+        raise HTTPException(status_code=409, detail="DONE 또는 CANCELED 상태의 수주는 처리계획을 변경할 수 없습니다.")
+
+    data = payload.model_dump()
+
+    if data["production_policy"] == OrderLineProductionPolicy.ORDER_ONLY.value:
+        data["extra_production_qty"] = 0
+
+    data["decision_made"] = True
+    data["decision_made_at"] = datetime.now(timezone.utc)
+
+    order_line_crud.update(db, obj, data)
+    db.commit()
+    db.refresh(obj)
+
+    return OrderLineOut.model_validate(obj, from_attributes=True)
+
 
 
 @router.get("", response_model=OrderLineListOut)
@@ -305,6 +593,7 @@ def list_order_lines(
     size: int = Query(20, ge=1, le=200),
     q: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
+    status_group: Optional[str] = Query(None),
     is_active: Optional[bool] = Query(True),
     partner_id: Optional[int] = Query(None),
     product_id: Optional[int] = Query(None),
@@ -318,7 +607,8 @@ def list_order_lines(
         page=page,
         size=size,
         q=q,
-        status=status if status else None,
+        status=status,
+        status_group=status_group,
         is_active=is_active,
         partner_id=partner_id,
         product_id=product_id,
@@ -521,6 +811,73 @@ def get_order_line_detail(order_line_id: int, db: Session = Depends(get_db)):
         lots=lot_items,
         timeline=timeline,
     )
+
+@router.post("/{order_line_id}/base-lot", response_model=OrderLineBaseLotCreateResult)
+def create_base_lot_from_fulfillment_plan(
+    order_line_id: int,
+    db: Session = Depends(get_db),
+):
+    order_line = order_line_crud.get(db, order_line_id)
+    if not order_line or not order_line.is_active:
+        raise HTTPException(status_code=404, detail="OrderLine not found")
+
+    if order_line.status != OrderLineStatus.OPEN.value:
+        raise HTTPException(status_code=409, detail="기본 LOT는 OPEN 상태 수주에서만 생성할 수 있습니다.")
+
+    lots = (
+        db.execute(
+            select(Lot)
+            .where(Lot.order_line_id == order_line_id)
+            .order_by(Lot.created_date.asc(), Lot.lot_id.asc())
+        )
+        .scalars()
+        .all()
+    )
+
+    has_base_lot = any(l.parent_lot_id is None for l in lots)
+    if has_base_lot:
+        raise HTTPException(status_code=409, detail="이미 기본 LOT가 존재합니다.")
+
+    if not order_line.decision_made:
+        raise HTTPException(status_code=409, detail="처리계획이 먼저 저장되어야 합니다.")
+
+    partner = db.get(Partner, order_line.partner_id)
+    if not partner:
+        raise HTTPException(status_code=404, detail="Partner not found")
+
+    product = db.get(Product, order_line.product_id)
+    if not product or not product.is_active:
+        raise HTTPException(status_code=404, detail="Product not found or inactive")
+
+    planned_production_qty = _get_planned_production_qty(db, order_line, partner.name)
+    if planned_production_qty <= 0:
+        raise HTTPException(status_code=409, detail="계획 생산수량이 0이어서 기본 LOT를 생성할 수 없습니다.")
+
+    try:
+        lot = _create_primary_lot_for_order_line(
+            db,
+            order_line,
+            product,
+            lot_qty=planned_production_qty,
+        )
+        db.commit()
+        db.refresh(order_line)
+    except HTTPException:
+        db.rollback()
+        raise
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="기본 LOT 생성 중 무결성 오류가 발생했습니다.")
+
+    return OrderLineBaseLotCreateResult(
+        order_line_id=order_line.order_line_id,
+        planned_production_qty=planned_production_qty,
+        created_lot_id=lot.lot_id,
+        created_lot_no=lot.lot_no,
+        created_lot_qty=lot.lot_qty,
+        order_status=order_line.status,
+    )
+
 
 @router.get("/{order_line_id}/lot-create-context", response_model=LotCreateContextDto)
 def get_lot_create_context(order_line_id: int, db: Session = Depends(get_db)):

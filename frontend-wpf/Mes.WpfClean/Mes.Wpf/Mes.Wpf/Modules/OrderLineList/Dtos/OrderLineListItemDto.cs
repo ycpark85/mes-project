@@ -62,6 +62,81 @@ namespace Mes.Wpf.Modules.OrderLineList.Dtos
         [JsonPropertyName("lot_count")]
         public int LotCount { get; set; }
 
-        public string StatusDisplay => Status == "CLOSED" ? "IN_PROGRESS" : Status;
+        [JsonPropertyName("fulfillment_mode")]
+        public string? FulfillmentMode { get; set; }
+
+        [JsonPropertyName("production_policy")]
+        public string? ProductionPolicy { get; set; }
+
+        [JsonPropertyName("extra_production_qty")]
+        public int ExtraProductionQty { get; set; }
+
+        [JsonPropertyName("decision_made")]
+        public bool DecisionMade { get; set; }
+
+        [JsonPropertyName("decision_made_at")]
+        public DateTime? DecisionMadeAt { get; set; }
+
+        [JsonPropertyName("decision_made_by")]
+        public string? DecisionMadeBy { get; set; }
+
+        [JsonPropertyName("available_inventory_qty")]
+        public int AvailableInventoryQty { get; set; }
+
+        [JsonPropertyName("recommended_fulfillment_mode")]
+        public string? RecommendedFulfillmentMode { get; set; }
+
+        [JsonPropertyName("recommended_production_qty")]
+        public int RecommendedProductionQty { get; set; }
+
+        [JsonPropertyName("planned_production_qty")]
+        public int PlannedProductionQty { get; set; }
+
+        [JsonPropertyName("decision_required")]
+        public bool DecisionRequired { get; set; }
+
+        [JsonPropertyName("target_ship_qty")]
+        public int TargetShipQty { get; set; }
+
+        [JsonPropertyName("expected_ship_qty")]
+        public int ExpectedShipQty { get; set; }
+
+        [JsonPropertyName("expected_short_qty")]
+        public int ExpectedShortQty { get; set; }
+
+        public string StatusDisplay => Status switch
+        {
+            "OPEN" => "LOT 생성대기",
+            "CLOSED" => "생산중",
+            "DONE" => "생산완료",
+            "CANCELED" => "취소",
+            _ => Status
+        };
+
+        public string FulfillmentModeDisplay => FulfillmentMode switch
+        {
+            "INVENTORY_FIRST" => "재고 우선",
+            "PRODUCTION_FIRST" => "생산 우선",
+            "HYBRID" => "혼합",
+            _ => "-"
+        };
+
+        public string ProductionPolicyDisplay => ProductionPolicy switch
+        {
+            "ORDER_ONLY" => "주문분만 생산",
+            "ALLOW_STOCK_BUILD" => "추가 생산 허용",
+            "INVENTORY_ONLY_CLOSE" => "재고만 출고 후 종료",
+            _ => "-"
+        };
+
+        public string RecommendedFulfillmentModeDisplay => RecommendedFulfillmentMode switch
+        {
+            "INVENTORY_FIRST" => "재고 우선",
+            "PRODUCTION_FIRST" => "생산 우선",
+            "HYBRID" => "혼합",
+            _ => "-"
+        };
+
+
     }
 }

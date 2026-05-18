@@ -54,6 +54,15 @@ namespace Mes.Wpf.Modules.InspectionSchedules.Dtos
 
         [JsonPropertyName("remaining_ship_target_qty")]
         public int RemainingShipTargetQty { get; set; }
+
+        [JsonPropertyName("current_result_stock_ship_qty")]
+        public int CurrentResultStockShipQty { get; set; }
+
+        [JsonPropertyName("current_result_result_ship_qty")]
+        public int CurrentResultResultShipQty { get; set; }
+
+        [JsonPropertyName("current_result_stock_in_qty")]
+        public int CurrentResultStockInQty { get; set; }
     }
 
     public class InspectionResultDto
@@ -91,8 +100,8 @@ namespace Mes.Wpf.Modules.InspectionSchedules.Dtos
 
     public class InspectionResultDefectDto
     {
-        [JsonPropertyName("inspection_defect_line_id")]
-        public int InspectionDefectLineId { get; set; }
+        [JsonPropertyName("inspection_defect_id")]
+        public int InspectionDefectId { get; set; }
 
         [JsonPropertyName("defect_type_id")]
         public int DefectTypeId { get; set; }
@@ -153,6 +162,15 @@ namespace Mes.Wpf.Modules.InspectionSchedules.Dtos
 
         [JsonPropertyName("defect_qty")]
         public int DefectQty { get; set; }
+
+        [JsonPropertyName("stock_ship_qty")]
+        public int StockShipQty { get; set; }
+
+        [JsonPropertyName("result_ship_qty")]
+        public int ResultShipQty { get; set; }
+
+        [JsonPropertyName("stock_in_qty")]
+        public int StockInQty { get; set; }
 
         [JsonPropertyName("is_partial")]
         public bool IsPartial { get; set; }
@@ -251,7 +269,6 @@ namespace Mes.Wpf.Modules.InspectionSchedules.Dtos
             set => SetProperty(ref _defectTypeMemo, value);
         }
 
-        // 기존 SaveAsync에서 defect.Memo를 사용하고 있으므로 영향 최소화를 위해 유지
         public string Memo
         {
             get => DefectTypeMemo;

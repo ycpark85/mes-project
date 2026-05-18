@@ -22,12 +22,10 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
         private string _lotNo = string.Empty;
         private string _productName = string.Empty;
         private string _partnerName = string.Empty;
-        
         private DateTime? _inspectionDate;
         private int _planQty;
         private DateTime? _dueDate;
         private int _orderQty;
-
 
         private int _baseAccumulatedGoodQty;
         private int _baseAccumulatedDefectQty;
@@ -43,11 +41,14 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
         private int _shipTargetQty;
         private int _alreadyShippedQty;
         private int _remainingShipTargetQty;
-        private int _availableQty;
-        private int _expectedShipQty;
-        private int _expectedStockQty;
-        private int _shortageQty;
-        private int _expectedStockInQty;
+
+        private int _currentResultStockShipQty;
+        private int _currentResultResultShipQty;
+        private int _currentResultStockInQty;
+
+        private int _stockShipQty;
+        private int _resultShipQty;
+        private int _stockInQty;
 
         private int _goodQty;
         private int _defectShipQty;
@@ -58,6 +59,9 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
         private string _memo = string.Empty;
         private bool _isLoading;
         private InspectionResultDefectEditModel? _selectedDefect;
+
+        private int _expectedShipQty;
+        private int _shortageQty;
 
         public event Action<bool>? CloseRequested;
 
@@ -190,7 +194,6 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
         }
 
         public int TotalQty => GoodQty + DefectShipQty + DefectQty;
-
         public int SellableQty => GoodQty + DefectShipQty;
 
         public int CurrentStockQty
@@ -241,10 +244,58 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
             }
         }
 
-        public int AvailableQty
+        public int CurrentResultStockShipQty
         {
-            get => _availableQty;
-            set => SetProperty(ref _availableQty, value);
+            get => _currentResultStockShipQty;
+            set => SetProperty(ref _currentResultStockShipQty, value);
+        }
+
+        public int CurrentResultResultShipQty
+        {
+            get => _currentResultResultShipQty;
+            set => SetProperty(ref _currentResultResultShipQty, value);
+        }
+
+        public int CurrentResultStockInQty
+        {
+            get => _currentResultStockInQty;
+            set => SetProperty(ref _currentResultStockInQty, value);
+        }
+
+        public int StockShipQty
+        {
+            get => _stockShipQty;
+            set
+            {
+                if (SetProperty(ref _stockShipQty, value))
+                {
+                    RecalculateInventoryPreview();
+                }
+            }
+        }
+
+        public int ResultShipQty
+        {
+            get => _resultShipQty;
+            set
+            {
+                if (SetProperty(ref _resultShipQty, value))
+                {
+                    RecalculateInventoryPreview();
+                }
+            }
+        }
+
+        public int StockInQty
+        {
+            get => _stockInQty;
+            set
+            {
+                if (SetProperty(ref _stockInQty, value))
+                {
+                    RecalculateInventoryPreview();
+                }
+            }
         }
 
         public int ExpectedShipQty
@@ -253,22 +304,10 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
             set => SetProperty(ref _expectedShipQty, value);
         }
 
-        public int ExpectedStockQty
-        {
-            get => _expectedStockQty;
-            set => SetProperty(ref _expectedStockQty, value);
-        }
-
         public int ShortageQty
         {
             get => _shortageQty;
             set => SetProperty(ref _shortageQty, value);
-        }
-
-        public int ExpectedStockInQty
-        {
-            get => _expectedStockInQty;
-            set => SetProperty(ref _expectedStockInQty, value);
         }
 
         public bool IsPartial
@@ -354,7 +393,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
 
         public void ApplySelectedDefectType(
             InspectionResultDefectEditModel defect,
-            InspectionResultDefectTypeLookupDto selectedDefectType) 
+            InspectionResultDefectTypeLookupDto selectedDefectType)
         {
             if (defect == null || selectedDefectType == null)
             {
@@ -399,7 +438,6 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                 var response = result.Data;
                 var dto = response?.Result;
                 var accumulated = response?.Accumulated;
-
                 var inventory = response?.Inventory;
 
                 CurrentStockQty = inventory?.CurrentStockQty ?? 0;
@@ -407,6 +445,10 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                 AlreadyShippedQty = inventory?.AlreadyShippedQty ?? 0;
                 RemainingShipTargetQty = inventory?.RemainingShipTargetQty
                     ?? Math.Max(ShipTargetQty - AlreadyShippedQty, 0);
+
+                CurrentResultStockShipQty = inventory?.CurrentResultStockShipQty ?? 0;
+                CurrentResultResultShipQty = inventory?.CurrentResultResultShipQty ?? 0;
+                CurrentResultStockInQty = inventory?.CurrentResultStockInQty ?? 0;
 
                 _baseAccumulatedGoodQty = accumulated?.GoodQty ?? 0;
                 _baseAccumulatedDefectQty = accumulated?.DefectQty ?? 0;
@@ -418,6 +460,11 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                     GoodQty = 0;
                     DefectShipQty = 0;
                     DefectQty = 0;
+
+                    StockShipQty = 0;
+                    ResultShipQty = 0;
+                    StockInQty = 0;
+
                     IsPartial = false;
                     NextInspectionDate = null;
                     PartialReason = string.Empty;
@@ -431,9 +478,15 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                 GoodQty = dto.GoodQty;
                 DefectShipQty = dto.DefectShipQty;
                 DefectQty = dto.DefectQty;
+
+                StockShipQty = CurrentResultStockShipQty;
+                ResultShipQty = CurrentResultResultShipQty;
+                StockInQty = CurrentResultStockInQty;
+
                 IsPartial = dto.IsPartial;
                 NextInspectionDate = dto.NextInspectionDate;
                 PartialReason = dto.PartialReason ?? string.Empty;
+                Memo = dto.Memo ?? string.Empty;
 
                 Defects.Clear();
                 if (dto.Defects != null)
@@ -490,15 +543,55 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
 
         private void RecalculateInventoryPreview()
         {
-            var sellableQty = GoodQty + DefectShipQty;
-            var availableQty = CurrentStockQty + sellableQty;
-            var expectedShipQty = Math.Min(availableQty, RemainingShipTargetQty);
+            var sellableQty = SellableQty;
 
-            ExpectedStockInQty = sellableQty;
-            AvailableQty = availableQty;
-            ExpectedShipQty = expectedShipQty;
-            ExpectedStockQty = availableQty - expectedShipQty;
-            ShortageQty = Math.Max(RemainingShipTargetQty - availableQty, 0);
+            if (ResultShipQty < 0)
+            {
+                ResultShipQty = 0;
+                return;
+            }
+
+            if (StockInQty < 0)
+            {
+                StockInQty = 0;
+                return;
+            }
+
+            if (StockShipQty < 0)
+            {
+                StockShipQty = 0;
+                return;
+            }
+
+            if (ResultShipQty + StockInQty > sellableQty)
+            {
+                StockInQty = Math.Max(sellableQty - ResultShipQty, 0);
+            }
+
+            if (StockShipQty > CurrentStockQty)
+            {
+                StockShipQty = CurrentStockQty;
+            }
+
+            var actualShipQty = StockShipQty + ResultShipQty;
+
+            if (actualShipQty > RemainingShipTargetQty)
+            {
+                var allowedResultShipQty = Math.Max(RemainingShipTargetQty - StockShipQty, 0);
+                ResultShipQty = allowedResultShipQty;
+                if (ResultShipQty + StockInQty > sellableQty)
+                {
+                    StockInQty = Math.Max(sellableQty - ResultShipQty, 0);
+                }
+
+                actualShipQty = StockShipQty + ResultShipQty;
+            }
+
+            ExpectedShipQty = actualShipQty;
+            ShortageQty = Math.Max(RemainingShipTargetQty - actualShipQty, 0);
+
+            OnPropertyChanged(nameof(ExpectedShipQty));
+            OnPropertyChanged(nameof(ShortageQty));
         }
 
         private void AddDefect()
@@ -606,6 +699,24 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                 return;
             }
 
+            if (ResultShipQty + StockInQty != SellableQty)
+            {
+                _messageService.ShowWarning("검수분 출하수량 + 재고편입수량은 판매가능수량과 같아야 합니다.");
+                return;
+            }
+
+            if (StockShipQty > CurrentStockQty)
+            {
+                _messageService.ShowWarning("재고출하수량이 현재 재고수량을 초과할 수 없습니다.");
+                return;
+            }
+
+            if (StockShipQty + ResultShipQty > RemainingShipTargetQty)
+            {
+                _messageService.ShowWarning("총 출하수량이 남은 출고목표수량을 초과할 수 없습니다.");
+                return;
+            }
+
             if (IsPartial && !NextInspectionDate.HasValue)
             {
                 _messageService.ShowWarning("분할검수일 경우 다음 검수일자를 입력해주세요.");
@@ -639,6 +750,9 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                     GoodQty = GoodQty,
                     DefectShipQty = DefectShipQty,
                     DefectQty = DefectQty,
+                    StockShipQty = StockShipQty,
+                    ResultShipQty = ResultShipQty,
+                    StockInQty = StockInQty,
                     IsPartial = IsPartial,
                     NextInspectionDate = IsPartial ? NextInspectionDate?.Date : null,
                     PartialReason = IsPartial ? PartialReason.Trim() : null,

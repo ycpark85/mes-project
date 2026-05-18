@@ -75,6 +75,24 @@ class OrderLineOut(OrderLineBase):
     has_lot: bool = False
     lot_count: int = 0
 
+    target_ship_qty: int = 0
+    expected_ship_qty: int = 0
+    expected_short_qty: int = 0
+    
+    fulfillment_mode: Optional[OrderLineFulfillmentMode] = None
+    production_policy: Optional[OrderLineProductionPolicy] = None
+    extra_production_qty: int = 0
+
+    decision_made: bool = False
+    decision_made_at: Optional[datetime] = None
+    decision_made_by: Optional[str] = None
+
+    available_inventory_qty: int = 0
+    recommended_fulfillment_mode: Optional[OrderLineFulfillmentMode] = None
+    recommended_production_qty: int = 0
+    planned_production_qty: int = 0
+    decision_required: bool = False
+
     class Config:
         from_attributes = True
 
@@ -88,3 +106,128 @@ class PageMeta(BaseModel):
 class OrderLineListOut(BaseModel):
     items: List[OrderLineOut]
     meta: PageMeta
+
+#발주등록 벌크 등록
+
+class OrderLineBulkImportRowIn(BaseModel):
+    row_number: int = Field(..., ge=1)
+    erp_order_no: str = Field(..., max_length=40)
+    product_code: str = Field(..., max_length=60)
+    partner_name: str = Field(..., max_length=200)
+    erp_product_display_name: str = Field(..., max_length=300)
+    order_qty_text: str = Field(..., max_length=50)
+    due_date_text: str = Field(..., max_length=20)
+    remark: Optional[str] = None
+
+
+class OrderLineBulkValidateRequest(BaseModel):
+    items: List[OrderLineBulkImportRowIn] = Field(..., min_length=1)
+
+
+class OrderLineBulkValidateMessage(BaseModel):
+    field: str
+    level: str
+    message: str
+
+
+class OrderLineBulkValidateRowOut(BaseModel):
+    row_number: int
+    erp_order_no: str
+    line_no: Optional[int] = None
+
+    order_date: Optional[date] = None
+    due_date: Optional[date] = None
+
+    partner_id: Optional[int] = None
+    partner_name: Optional[str] = None
+
+    product_id: Optional[int] = None
+    product_code: str
+    erp_product_display_name: str
+    mes_product_display_name: Optional[str] = None
+
+    parsed_product_name: Optional[str] = None
+    parsed_product_spec: Optional[str] = None
+
+    order_qty: Optional[int] = None
+
+    status: str
+    product_name_mismatch: bool = False
+    can_apply_product_name_change: bool = False
+    apply_product_name_change: bool = False
+
+    messages: List[OrderLineBulkValidateMessage] = Field(default_factory=list)
+
+
+class OrderLineBulkValidateGroupOut(BaseModel):
+    erp_order_no: str
+    order_date: Optional[date] = None
+    due_date: Optional[date] = None
+
+    partner_id: Optional[int] = None
+    partner_name: Optional[str] = None
+
+    status: str
+    can_commit: bool
+
+    messages: List[OrderLineBulkValidateMessage] = Field(default_factory=list)
+    rows: List[OrderLineBulkValidateRowOut] = Field(default_factory=list)
+
+
+class OrderLineBulkValidateResult(BaseModel):
+    total_row_count: int
+    ready_row_count: int
+    review_row_count: int
+    error_row_count: int
+    duplicate_group_count: int
+    groups: List[OrderLineBulkValidateGroupOut] = Field(default_factory=list)
+
+
+class OrderLineBulkCommitRowChoice(BaseModel):
+    row_number: int = Field(..., ge=1)
+    apply_product_name_change: bool = False
+
+
+class OrderLineBulkCommitRequest(BaseModel):
+    items: List[OrderLineBulkImportRowIn] = Field(..., min_length=1)
+    row_choices: List[OrderLineBulkCommitRowChoice] = Field(default_factory=list)
+
+
+class OrderLineBulkCommitGroupResult(BaseModel):
+    erp_order_no: str
+    status: str
+    message: Optional[str] = None
+    created_order_line_ids: List[int] = Field(default_factory=list)
+
+
+class OrderLineBulkCommitResult(BaseModel):
+    total_group_count: int
+    success_group_count: int
+    failure_group_count: int
+    groups: List[OrderLineBulkCommitGroupResult] = Field(default_factory=list)
+
+
+class OrderLineFulfillmentMode(str, Enum):
+    INVENTORY_FIRST = "INVENTORY_FIRST"
+    PRODUCTION_FIRST = "PRODUCTION_FIRST"
+    HYBRID = "HYBRID"
+
+
+class OrderLineProductionPolicy(str, Enum):
+    ORDER_ONLY = "ORDER_ONLY"
+    ALLOW_STOCK_BUILD = "ALLOW_STOCK_BUILD"
+    INVENTORY_ONLY_CLOSE = "INVENTORY_ONLY_CLOSE"
+
+class OrderLineFulfillmentPlanUpdate(BaseModel):
+    fulfillment_mode: OrderLineFulfillmentMode
+    production_policy: OrderLineProductionPolicy
+    extra_production_qty: int = Field(0, ge=0)    
+
+
+class OrderLineBaseLotCreateResult(BaseModel):
+    order_line_id: int
+    planned_production_qty: int
+    created_lot_id: int
+    created_lot_no: str
+    created_lot_qty: int
+    order_status: str

@@ -1,13 +1,17 @@
-﻿using Mes.Wpf.Modules.OrderLines.Dtos;
+﻿using Mes.Wpf.Modules.OrderLineList.ViewModels;
+using Mes.Wpf.Modules.OrderLineList.Views;
+using Mes.Wpf.Modules.OrderLines.Dtos;
 using Mes.Wpf.Modules.OrderLines.ViewModels;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Input;
-using Mes.Wpf.Modules.Products.ViewModels;
-using Mes.Wpf.Modules.Products.Views;
 using Mes.Wpf.Modules.Partners.ViewModels;
 using Mes.Wpf.Modules.Partners.Views;
+using Mes.Wpf.Modules.Products.ViewModels;
+using Mes.Wpf.Modules.Products.Views;
+using Mes.Wpf.Views.Shell;
+using System.Threading.Tasks;
+using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Documents;
+using System.Windows.Input;
 
 namespace Mes.Wpf.Modules.OrderLines.Views
 {
@@ -161,5 +165,36 @@ namespace Mes.Wpf.Modules.OrderLines.Views
             await vm.ViewDrawingAsync(line);
         }
 
+        private async void OpenBulkImportPage_Click(object sender, RoutedEventArgs e)
+        {
+            if (DataContext is not OrderLineCreatePageViewModel currentVm)
+            {
+                return;
+            }
+
+            var bulkVm = new OrderLineBulkImportPageViewModel(
+                currentVm.ApiClient,
+                currentVm.MessageService,
+                () => new OrderLineListPage
+                {
+                    DataContext = new OrderLineListPageViewModel(
+                        currentVm.ApiClient,
+                        currentVm.MessageService)
+                });
+
+            var bulkPage = new OrderLineBulkImportPage
+            {
+                DataContext = bulkVm
+            };
+
+            await bulkVm.InitializeAsync();
+
+            if (Application.Current.MainWindow is MainWindow mainWindow)
+            {
+                mainWindow.MainContent.Content = bulkPage;
+            }
+        }
+
     }
 }
+

@@ -77,6 +77,8 @@
             <Setter Property="Foreground" Value="#DC2626"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
         </Style>
+        
+        
     </UserControl.Resources>
 
     <Grid Margin="16" Background="#F5F7FB">

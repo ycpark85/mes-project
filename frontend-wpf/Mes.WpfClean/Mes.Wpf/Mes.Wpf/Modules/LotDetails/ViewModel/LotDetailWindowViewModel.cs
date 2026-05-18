@@ -94,6 +94,19 @@ namespace Mes.Wpf.Modules.LotDetails.ViewModels
                 return Detail.Inspection.ScheduleStatus ?? "검수 전";
             }
         }
+        public string OutsourceWorkMemoText
+        {
+            get
+            {
+                if (Detail?.OutsourceWorks == null || Detail.OutsourceWorks.Count == 0)
+                {
+                    return "-";
+                }
+
+                var remark = Detail.OutsourceWorks[0].Remark;
+                return string.IsNullOrWhiteSpace(remark) ? "-" : remark!;
+            }
+        }
 
         public string InspectionDateText => FormatDate(Detail?.Inspection?.InspectionDate);
         public string InspectedQtyText => FormatNullableInt(Detail?.Inspection?.InspectedQty);
@@ -202,6 +215,7 @@ namespace Mes.Wpf.Modules.LotDetails.ViewModels
             OnPropertyChanged(nameof(OrderMemoText));
             OnPropertyChanged(nameof(StockQtyText));
             OnPropertyChanged(nameof(OrderDueDateText));
+            OnPropertyChanged(nameof(OutsourceWorkMemoText));
 
             OnPropertyChanged(nameof(InspectionStatusText));
             OnPropertyChanged(nameof(InspectionDateText));

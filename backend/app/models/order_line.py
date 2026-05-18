@@ -88,6 +88,16 @@ class OrderLine(Base):
     customer_po: Mapped[Optional[str]] = mapped_column(String(60), nullable=True)
     memo: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
+    # 처리계획(1단계)
+    fulfillment_mode: Mapped[Optional[str]] = mapped_column(String(24), nullable=True)
+    production_policy: Mapped[Optional[str]] = mapped_column(String(24), nullable=True)
+    extra_production_qty: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    decision_made: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    decision_made_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    decision_made_by: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+
+
     # 감사
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()

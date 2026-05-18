@@ -90,6 +90,11 @@
                             Height="32"
                             Content="라인 추가"
                             Command="{Binding AddLineCommand}" />
+
+                    <Button Content="엑셀 벌크등록"
+                            Width="120"
+                            Margin="8,0,0,0"
+                            Click="OpenBulkImportPage_Click" /> 
                 </DockPanel>
 
                 <DataGrid Grid.Row="2"

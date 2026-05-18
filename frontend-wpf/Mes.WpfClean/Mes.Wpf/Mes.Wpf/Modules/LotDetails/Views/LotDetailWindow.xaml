@@ -250,9 +250,9 @@
                                   AutoGenerateColumns="False"
                                   IsReadOnly="True"
                                   CanUserAddRows="False"
-                                  MinHeight="120"
+                                  Height="65"
                                   HeadersVisibility="Column"
-                                  RowHeaderWidth="0">
+                                  RowHeaderWidth="0">   
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="작업지시번호" Binding="{Binding InstructionNo}" Width="120" />
                                 <DataGridTextColumn Header="작업일" Binding="{Binding InstructionDate, StringFormat=yyyy-MM-dd}" Width="90" />
@@ -266,9 +266,24 @@
                                 <DataGridTextColumn Header="완료Sheet" Binding="{Binding WorkDoneSheetQty, StringFormat=N0}" Width="90" />
                                 <DataGridTextColumn Header="확정생산량" Binding="{Binding ConfirmedOutsourceQty, StringFormat=N0}" Width="100" />
                                 <DataGridTextColumn Header="상태" Binding="{Binding Status}" Width="90" />
-                                <DataGridTextColumn Header="작업지시 메모" Binding="{Binding Remark}" Width="220" />
                             </DataGrid.Columns>
                         </DataGrid>
+
+                        <Grid Margin="0,8,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="90" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Column="0"
+                                       Text="작업지시 메모"
+                                       Style="{StaticResource LabelStyle}" />   
+
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding OutsourceWorkMemoText}"
+                                       TextWrapping="Wrap"
+                                       Style="{StaticResource ValueStyle}" />   
+                        </Grid>
                     </StackPanel>
                 </Border>
 

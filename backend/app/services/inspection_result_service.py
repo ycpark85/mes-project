@@ -37,6 +37,9 @@ def upsert_inspection_result(
     good_qty: int,
     defect_ship_qty: int,
     defect_qty: int,
+    stock_ship_qty: int,
+    result_ship_qty: int,
+    stock_in_qty: int,
     is_partial: bool,
     next_inspection_date: Optional[date],
     partial_reason: Optional[str],
@@ -47,37 +50,38 @@ def upsert_inspection_result(
     """
     - schedule.status == IN_PROGRESS 에서만 허용
     - inspected_qty = good_qty + defect_ship_qty + defect_qty (서버 계산)
-    - defects/attachments: MVP 안전형(전체 삭제 후 재삽입)
-    - 불량내역은 유형/메모/첨부 기록용으로만 사용
+    - sellable_qty = good_qty + defect_ship_qty
+    - result_ship_qty + stock_in_qty == sellable_qty
+    - defects/attachments: 전체 삭제 후 재삽입
     - is_partial=true: schedule=PARTIAL_DONE + next schedule 자동 생성(RECEIVED)
-    - is_partial=false: schedule=DONE + lot DONE 전이(활성 schedule 없음)
+    - is_partial=false: schedule=DONE + 재고/출하 반영
     """
-
-    # 1) schedule row lock
     sch = db.execute(
         select(InspectionSchedule)
         .where(InspectionSchedule.inspection_schedule_id == inspection_schedule_id)
         .with_for_update()
     ).scalar_one_or_none()
-
     if not sch:
         raise HTTPException(status_code=404, detail="inspection_schedule not found")
 
-    # 2) 상태 검증
     if sch.status != "IN_PROGRESS":
         raise HTTPException(status_code=409, detail="Only IN_PROGRESS schedule can be saved as result")
 
-    # 3) partial 검증
     if is_partial:
         if not next_inspection_date:
             raise HTTPException(status_code=422, detail="next_inspection_date is required when is_partial=true")
     else:
         next_inspection_date = None
 
-    # 4) 수량 계산 (서버 SSOT)
     inspected_qty = good_qty + defect_ship_qty + defect_qty
+    sellable_qty = good_qty + defect_ship_qty
 
-    # 5) 불량유형 존재/활성 검증
+    if result_ship_qty + stock_in_qty != sellable_qty:
+        raise HTTPException(
+            status_code=422,
+            detail="result_ship_qty + stock_in_qty must equal good_qty + defect_ship_qty",
+        )
+
     if defects:
         defect_type_ids = sorted({d.defect_type_id for d in defects})
         rows = db.execute(
@@ -91,8 +95,7 @@ def upsert_inspection_result(
             raise HTTPException(status_code=422, detail="Invalid or inactive defect_type_id exists")
 
     now = _utcnow()
-    memo = memo.strip() if memo else None
-    # 6) inspection_result upsert
+
     result = db.execute(
         select(InspectionResult).where(InspectionResult.inspection_schedule_id == inspection_schedule_id)
     ).scalar_one_or_none()
@@ -107,7 +110,6 @@ def upsert_inspection_result(
             is_partial=is_partial,
             next_inspection_date=next_inspection_date,
             partial_reason=partial_reason,
-            memo=memo,
             created_by=actor,
         )
         db.add(result)
@@ -120,43 +122,46 @@ def upsert_inspection_result(
         result.is_partial = is_partial
         result.next_inspection_date = next_inspection_date
         result.partial_reason = partial_reason
-        result.memo = memo
         db.flush()
 
-    # 7) defects/attachments: 전체 삭제 후 재삽입
-    _replace_defects_and_attachments(db, inspection_result_id=result.inspection_result_id, defects=defects)
+    _replace_defects_and_attachments(
+        db,
+        inspection_result_id=result.inspection_result_id,
+        defects=defects,
+    )
 
     created_next_id: Optional[int] = None
 
-    # 8) schedule 상태 전이 + 후속 처리
-    # 8) schedule 상태 전이 + 후속 처리
     if is_partial:
         sch.status = "PARTIAL_DONE"
         sch.finished_at = now
-        base_received_at = sch.received_at or now
 
+        base_received_at = sch.received_at or now
         created_next_id = _create_next_schedule(
             db=db,
             lot_id=sch.lot_id,
             inspection_date=next_inspection_date,  # type: ignore[arg-type]
             received_at=base_received_at,
         )
-
         db.flush()
         _sync_lot_status_from_inspection_schedules(db, lot_id=sch.lot_id)
     else:
         sch.status = "DONE"
         sch.finished_at = now
         db.flush()
+
         _sync_lot_status_from_inspection_schedules(db, lot_id=sch.lot_id)
 
-    _apply_inventory_for_result(
-        db=db,
-        result=result,
-        schedule=sch,
-    )
+        _apply_inventory_for_result(
+            db=db,
+            result=result,
+            schedule=sch,
+            stock_ship_qty=stock_ship_qty,
+            result_ship_qty=result_ship_qty,
+            stock_in_qty=stock_in_qty,
+        )
+        db.flush()
 
-    db.flush()
     return result, sch.status, created_next_id
 
    
@@ -328,25 +333,21 @@ def _apply_inventory_for_result(
     *,
     result: InspectionResult,
     schedule: InspectionSchedule,
+    stock_ship_qty: int,
+    result_ship_qty: int,
+    stock_in_qty: int,
 ) -> None:
-    existing = db.execute(
-        select(ProductInventoryMovement.inventory_movement_id)
-        .where(
-            ProductInventoryMovement.source_type == "INSPECTION_RESULT",
-            ProductInventoryMovement.source_id == result.inspection_result_id,
-        )
-        .limit(1)
-    ).scalar_one_or_none()
-
-    if existing is not None:
-        return
+    source_types = (
+        "INSPECTION_RESULT_STOCK_SHIP",
+        "INSPECTION_RESULT_RESULT_SHIP",
+        "INSPECTION_RESULT_STOCK_IN",
+    )
 
     lot = db.execute(
         select(Lot)
         .where(Lot.lot_id == schedule.lot_id)
         .with_for_update()
     ).scalar_one_or_none()
-
     if lot is None:
         raise HTTPException(status_code=404, detail="lot not found")
 
@@ -355,46 +356,17 @@ def _apply_inventory_for_result(
         .where(OrderLine.order_line_id == lot.order_line_id)
         .with_for_update()
     ).scalar_one_or_none()
-
     if order_line is None:
         raise HTTPException(status_code=404, detail="order_line not found")
 
     partner = db.get(Partner, order_line.partner_id)
     partner_name = partner.name if partner else ""
-    partner_business_no = partner.business_no if partner else ""
-
-    is_stock_replenishment = is_stock_replenishment_partner(
-        partner_name,
-        partner_business_no,
-    )
-
-    if is_stock_replenishment:
-        ship_target_qty = 0
-        remaining_ship_qty = 0
-    else:
-        ship_target_qty = calculate_ship_qty(
-            partner_name,
-            int(order_line.order_qty),
-        )
-
-        already_shipped_qty = db.execute(
-            select(func.coalesce(func.sum(-ProductInventoryMovement.qty), 0))
-            .where(
-                ProductInventoryMovement.order_line_id == order_line.order_line_id,
-                ProductInventoryMovement.movement_type == "SHIP_OUT",
-            )
-        ).scalar_one()
-
-        remaining_ship_qty = max(ship_target_qty - int(already_shipped_qty or 0), 0)
-
-    sellable_qty = int(result.good_qty or 0) + int(result.defect_ship_qty or 0)
 
     inventory = db.execute(
         select(ProductInventory)
         .where(ProductInventory.product_id == lot.product_id)
         .with_for_update()
     ).scalar_one_or_none()
-
     if inventory is None:
         inventory = ProductInventory(
             product_id=lot.product_id,
@@ -403,42 +375,126 @@ def _apply_inventory_for_result(
         db.add(inventory)
         db.flush()
 
-    if sellable_qty > 0:
-        inventory.current_qty += sellable_qty
+    existing_movements = db.execute(
+        select(ProductInventoryMovement)
+        .where(
+            ProductInventoryMovement.source_id == result.inspection_result_id,
+            ProductInventoryMovement.source_type.in_(source_types),
+        )
+        .order_by(ProductInventoryMovement.inventory_movement_id.asc())
+    ).scalars().all()
 
-        db.add(
-            ProductInventoryMovement(
-                product_id=lot.product_id,
-                movement_type="INSPECTION_IN",
-                qty=sellable_qty,
-                balance_after=inventory.current_qty,
-                source_type="INSPECTION_RESULT",
-                source_id=result.inspection_result_id,
-                order_line_id=order_line.order_line_id,
-                inspection_schedule_id=schedule.inspection_schedule_id,
-                inspection_result_id=result.inspection_result_id,
-                memo="검수 실적 재고 반영",
-            )
+    # 기존 결과 수정 저장 대비: 현재 결과 movement를 되돌린 뒤 재적용
+    for mv in existing_movements:
+        if mv.source_type == "INSPECTION_RESULT_STOCK_IN":
+            inventory.current_qty -= int(mv.qty or 0)
+        elif mv.source_type == "INSPECTION_RESULT_STOCK_SHIP":
+            inventory.current_qty -= int(mv.qty or 0)  # qty가 음수라 재고 복구 효과
+        db.delete(mv)
+
+    db.flush()
+
+    ship_target_qty = calculate_ship_qty(partner_name, int(order_line.order_qty))
+
+    shipped_query = (
+        select(func.coalesce(func.sum(-ProductInventoryMovement.qty), 0))
+        .where(
+            ProductInventoryMovement.order_line_id == order_line.order_line_id,
+            ProductInventoryMovement.movement_type == "SHIP_OUT",
+        )
+    )
+
+    shipped_query = shipped_query.where(
+        or_(
+            ProductInventoryMovement.inspection_result_id.is_(None),
+            ProductInventoryMovement.inspection_result_id != result.inspection_result_id,
+        )
+    )
+
+    already_shipped_qty = db.execute(shipped_query).scalar_one()
+    remaining_ship_qty = max(ship_target_qty - int(already_shipped_qty or 0), 0)
+
+    current_stock_qty = int(inventory.current_qty or 0)
+    sellable_qty = int(result.good_qty or 0) + int(result.defect_ship_qty or 0)
+    actual_ship_qty = int(stock_ship_qty or 0) + int(result_ship_qty or 0)
+
+    if stock_ship_qty > current_stock_qty:
+        raise HTTPException(
+            status_code=422,
+            detail=f"stock_ship_qty exceeds current stock. current_stock_qty={current_stock_qty}",
         )
 
-    ship_qty = min(int(inventory.current_qty or 0), remaining_ship_qty)
+    if result_ship_qty + stock_in_qty != sellable_qty:
+        raise HTTPException(
+            status_code=422,
+            detail="result_ship_qty + stock_in_qty must equal sellable_qty",
+        )
 
-    if ship_qty > 0:
-        inventory.current_qty -= ship_qty
+    if actual_ship_qty > remaining_ship_qty:
+        raise HTTPException(
+            status_code=422,
+            detail=f"actual_ship_qty exceeds remaining ship target. remaining_ship_qty={remaining_ship_qty}",
+        )
 
+    if not result.is_partial:
+        if order_line.production_policy == "INVENTORY_ONLY_CLOSE":
+            # 부족 허용 종료
+            pass
+        else:
+            if actual_ship_qty != remaining_ship_qty:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"actual_ship_qty must match remaining ship target. remaining_ship_qty={remaining_ship_qty}",
+                )
+
+    if stock_ship_qty > 0:
+        inventory.current_qty -= stock_ship_qty
         db.add(
             ProductInventoryMovement(
                 product_id=lot.product_id,
                 movement_type="SHIP_OUT",
-                qty=-ship_qty,
+                qty=-stock_ship_qty,
                 balance_after=inventory.current_qty,
-                source_type="INSPECTION_RESULT",
+                source_type="INSPECTION_RESULT_STOCK_SHIP",
                 source_id=result.inspection_result_id,
                 order_line_id=order_line.order_line_id,
                 inspection_schedule_id=schedule.inspection_schedule_id,
                 inspection_result_id=result.inspection_result_id,
-                memo=f"검수 실적 출고 반영 / 목표 {ship_target_qty}",
+                memo=f"검수 실적 재고 출하 / 목표 {ship_target_qty}",
             )
         )
 
-    db.flush()        
+    if stock_in_qty > 0:
+        inventory.current_qty += stock_in_qty
+        db.add(
+            ProductInventoryMovement(
+                product_id=lot.product_id,
+                movement_type="INSPECTION_IN",
+                qty=stock_in_qty,
+                balance_after=inventory.current_qty,
+                source_type="INSPECTION_RESULT_STOCK_IN",
+                source_id=result.inspection_result_id,
+                order_line_id=order_line.order_line_id,
+                inspection_schedule_id=schedule.inspection_schedule_id,
+                inspection_result_id=result.inspection_result_id,
+                memo="검수 실적 재고 편입",
+            )
+        )
+
+    if result_ship_qty > 0:
+        db.add(
+            ProductInventoryMovement(
+                product_id=lot.product_id,
+                movement_type="SHIP_OUT",
+                qty=-result_ship_qty,
+                balance_after=inventory.current_qty,
+                source_type="INSPECTION_RESULT_RESULT_SHIP",
+                source_id=result.inspection_result_id,
+                order_line_id=order_line.order_line_id,
+                inspection_schedule_id=schedule.inspection_schedule_id,
+                inspection_result_id=result.inspection_result_id,
+                memo=f"검수 실적 검수분 출하 / 목표 {ship_target_qty}",
+            )
+        )
+
+    db.flush()   
