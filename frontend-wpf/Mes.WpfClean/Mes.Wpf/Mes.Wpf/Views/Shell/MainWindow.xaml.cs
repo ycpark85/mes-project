@@ -30,6 +30,8 @@ using Mes.Wpf.Modules.Dashboard.ViewModels;
 using Mes.Wpf.Modules.Dashboard.Views;
 using Mes.Wpf.Modules.Inventories.ViewModels;
 using Mes.Wpf.Modules.Inventories.Views;
+using Mes.Wpf.Modules.Shipments.ViewModels;
+using Mes.Wpf.Modules.Shipments.Views;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -544,6 +546,21 @@ namespace Mes.Wpf.Views.Shell
 
             HeaderTitle.Text = "재고 관리";
             HeaderSubtitle.Text = "품목별 현재고 / 입출고 이력 / 재고 조정";
+
+            await viewModel.InitializeAsync();
+        }
+
+        private async void Shipment_Click(object sender, RoutedEventArgs e)
+        {
+            var page = new ShipmentPage();
+            var viewModel = new ShipmentPageViewModel(_apiClient, _messageService);
+
+            page.DataContext = viewModel;
+            MainContent.Content = page;
+            MainContent.Visibility = Visibility.Visible;
+
+            HeaderTitle.Text = "출하 관리";
+            HeaderSubtitle.Text = "출하대기 / 출하완료 조회 및 선택출하 처리";
 
             await viewModel.InitializeAsync();
         }

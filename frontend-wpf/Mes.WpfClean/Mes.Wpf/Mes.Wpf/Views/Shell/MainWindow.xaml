@@ -290,6 +290,9 @@
                                 <Button Content="재고 관리"
                                         Style="{StaticResource SidebarMenuButtonStyle}"
                                         Click="Inventory_Click"/>
+                                <Button Content="출하 관리"
+                                        Style="{StaticResource SidebarMenuButtonStyle}"
+                                        Click="Shipment_Click"/>   
                             </StackPanel>
                         </Expander>
 

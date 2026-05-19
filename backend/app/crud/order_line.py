@@ -12,7 +12,7 @@ from app.models.product import Product
 from app.models.lot import Lot
 from app.models.product_inventory import ProductInventory
 from app.services.ship_qty_policy import calculate_ship_qty
-
+from app.models.product_inventory_movement import ProductInventoryMovement
 
 class OrderLineCRUD:
     def get(self, db: Session, order_line_id: int) -> Optional[OrderLine]:
@@ -196,6 +196,31 @@ class OrderLineCRUD:
                     available_inventory_qty + planned_production_qty,
                     target_ship_qty,
                 )
+            ship_target_qty = int(calculate_ship_qty(partner_name or "", int(ol.order_qty or 0)) or 0)
+
+            already_shipped_qty = int(
+                db.execute(
+                    select(func.coalesce(func.sum(-ProductInventoryMovement.qty), 0)).where(
+                        ProductInventoryMovement.order_line_id == ol.order_line_id,
+                        ProductInventoryMovement.movement_type == "SHIP_OUT",
+                    )
+                ).scalar_one()
+                or 0
+            )
+
+            remaining_ship_qty = max(ship_target_qty - already_shipped_qty, 0)
+
+            needs_shortage_action = (
+                ol.status == "CLOSED"
+                and remaining_ship_qty > 0
+                and (ol.production_policy or "") != "INVENTORY_ONLY_CLOSE"
+                and lot_count_int > 0
+            )
+
+            shortage_closed = (
+                ol.status == "DONE"
+                and remaining_ship_qty > 0
+            )    
 
             expected_short_qty = max(target_ship_qty - expected_ship_qty, 0)
 
@@ -237,6 +262,11 @@ class OrderLineCRUD:
                 "decision_required": decision_required,
                 "expected_ship_qty": expected_ship_qty,
                 "expected_short_qty": expected_short_qty,
+                "ship_target_qty": ship_target_qty,
+                "already_shipped_qty": already_shipped_qty,
+                "remaining_ship_qty": remaining_ship_qty,
+                "needs_shortage_action": needs_shortage_action,
+                "shortage_closed": shortage_closed,
             }
             items.append(d)
 

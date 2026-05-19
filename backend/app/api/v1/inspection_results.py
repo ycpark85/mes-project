@@ -20,6 +20,7 @@ from app.models.order_line import OrderLine
 from app.models.partner import Partner
 from app.models.product_inventory import ProductInventory
 from app.models.product_inventory_movement import ProductInventoryMovement
+from app.models.shipment_line import ShipmentLine
 from app.schemas.inspection_result import InspectionInventorySummaryOut
 from app.services.ship_qty_policy import calculate_ship_qty
 
@@ -191,11 +192,14 @@ def _get_inventory_summary(
     current_result_stock_in_qty = 0
 
     if current_result_id is not None:
+        result = db.get(InspectionResult, current_result_id)
+
         current_result_stock_ship_qty = int(
             db.execute(
-                select(func.coalesce(func.sum(-ProductInventoryMovement.qty), 0)).where(
-                    ProductInventoryMovement.source_type == "INSPECTION_RESULT_STOCK_SHIP",
-                    ProductInventoryMovement.source_id == current_result_id,
+                select(func.coalesce(func.sum(ShipmentLine.ship_qty), 0)).where(
+                    ShipmentLine.inspection_result_id == current_result_id,
+                    ShipmentLine.source_type == "STOCK",
+                    ShipmentLine.status != "CANCELED",
                 )
             ).scalar_one()
             or 0
@@ -203,46 +207,48 @@ def _get_inventory_summary(
 
         current_result_result_ship_qty = int(
             db.execute(
-                select(func.coalesce(func.sum(-ProductInventoryMovement.qty), 0)).where(
-                    ProductInventoryMovement.source_type == "INSPECTION_RESULT_RESULT_SHIP",
-                    ProductInventoryMovement.source_id == current_result_id,
+                select(func.coalesce(func.sum(ShipmentLine.ship_qty), 0)).where(
+                    ShipmentLine.inspection_result_id == current_result_id,
+                    ShipmentLine.source_type == "INSPECTION_RESULT",
+                    ShipmentLine.status != "CANCELED",
                 )
             ).scalar_one()
             or 0
         )
 
-        current_result_stock_in_qty = int(
+        sellable_qty = 0
+        if result is not None:
+            sellable_qty = int(result.good_qty or 0) + int(result.defect_ship_qty or 0)
+
+        current_result_stock_in_qty = max(
+            sellable_qty - current_result_result_ship_qty,
+            0,
+        )
+
+        current_result_inventory_in_qty = int(
             db.execute(
                 select(func.coalesce(func.sum(ProductInventoryMovement.qty), 0)).where(
-                    ProductInventoryMovement.source_type == "INSPECTION_RESULT_STOCK_IN",
-                    ProductInventoryMovement.source_id == current_result_id,
+                    ProductInventoryMovement.inspection_result_id == current_result_id,
+                    ProductInventoryMovement.movement_type == "INSPECTION_IN",
+                    ProductInventoryMovement.source_type.in_(("INSPECTION_RESULT", "INSPECTION_RESULT_IN")),
                 )
             ).scalar_one()
             or 0
         )
 
-        current_stock_qty = current_stock_qty + current_result_stock_ship_qty - current_result_stock_in_qty
+        current_stock_qty = current_stock_qty - current_result_inventory_in_qty
 
     ship_target_qty = calculate_ship_qty(
         partner_name,
         int(order_line.order_qty),
     )
 
-    shipped_query = (
-        select(func.coalesce(func.sum(-ProductInventoryMovement.qty), 0))
-        .where(
-            ProductInventoryMovement.order_line_id == order_line.order_line_id,
-            ProductInventoryMovement.movement_type == "SHIP_OUT",
-        )
+    shipped_query = select(
+        func.coalesce(func.sum(-ProductInventoryMovement.qty), 0)
+    ).where(
+        ProductInventoryMovement.order_line_id == order_line.order_line_id,
+        ProductInventoryMovement.movement_type == "SHIP_OUT",
     )
-
-    if current_result_id is not None:
-        shipped_query = shipped_query.where(
-            or_(
-                ProductInventoryMovement.inspection_result_id.is_(None),
-                ProductInventoryMovement.inspection_result_id != current_result_id,
-            )
-        )
 
     already_shipped_qty = db.execute(shipped_query).scalar_one()
     already_shipped_qty = int(already_shipped_qty or 0)
@@ -384,6 +390,9 @@ def put_result(
             good_qty=body.good_qty,
             defect_ship_qty=body.defect_ship_qty,
             defect_qty=body.defect_qty,
+            stock_ship_qty=body.stock_ship_qty,
+            result_ship_qty=body.result_ship_qty,
+            stock_in_qty=body.stock_in_qty,
             is_partial=body.is_partial,
             next_inspection_date=body.next_inspection_date,
             partial_reason=body.partial_reason,

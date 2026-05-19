@@ -58,10 +58,12 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
         private string _partialReason = string.Empty;
         private string _memo = string.Empty;
         private bool _isLoading;
+        private bool _isRecalculatingInventoryPreview;
         private InspectionResultDefectEditModel? _selectedDefect;
 
         private int _expectedShipQty;
         private int _shortageQty;
+        public int ShipmentWaitingQty => ExpectedShipQty;
 
         public event Action<bool>? CloseRequested;
 
@@ -269,7 +271,10 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
             {
                 if (SetProperty(ref _stockShipQty, value))
                 {
-                    RecalculateInventoryPreview();
+                    if (!_isRecalculatingInventoryPreview)
+                    {
+                        RecalculateInventoryPreview();
+                    }
                 }
             }
         }
@@ -281,7 +286,10 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
             {
                 if (SetProperty(ref _resultShipQty, value))
                 {
-                    RecalculateInventoryPreview();
+                    if (!_isRecalculatingInventoryPreview)
+                    {
+                        RecalculateInventoryPreview();
+                    }
                 }
             }
         }
@@ -293,7 +301,10 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
             {
                 if (SetProperty(ref _stockInQty, value))
                 {
-                    RecalculateInventoryPreview();
+                    if (!_isRecalculatingInventoryPreview)
+                    {
+                        RecalculateInventoryPreview();
+                    }
                 }
             }
         }
@@ -543,55 +554,69 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
 
         private void RecalculateInventoryPreview()
         {
-            var sellableQty = SellableQty;
-
-            if (ResultShipQty < 0)
+            if (_isRecalculatingInventoryPreview)
             {
-                ResultShipQty = 0;
                 return;
             }
 
-            if (StockInQty < 0)
+            try
             {
-                StockInQty = 0;
-                return;
-            }
+                _isRecalculatingInventoryPreview = true;
 
-            if (StockShipQty < 0)
-            {
-                StockShipQty = 0;
-                return;
-            }
+                var sellableQty = Math.Max(SellableQty, 0);
 
-            if (ResultShipQty + StockInQty > sellableQty)
-            {
-                StockInQty = Math.Max(sellableQty - ResultShipQty, 0);
-            }
+                var stockShipQty = Math.Max(StockShipQty, 0);
+                var resultShipQty = Math.Max(ResultShipQty, 0);
 
-            if (StockShipQty > CurrentStockQty)
-            {
-                StockShipQty = CurrentStockQty;
-            }
-
-            var actualShipQty = StockShipQty + ResultShipQty;
-
-            if (actualShipQty > RemainingShipTargetQty)
-            {
-                var allowedResultShipQty = Math.Max(RemainingShipTargetQty - StockShipQty, 0);
-                ResultShipQty = allowedResultShipQty;
-                if (ResultShipQty + StockInQty > sellableQty)
+                if (stockShipQty > CurrentStockQty)
                 {
-                    StockInQty = Math.Max(sellableQty - ResultShipQty, 0);
+                    stockShipQty = CurrentStockQty;
                 }
 
-                actualShipQty = StockShipQty + ResultShipQty;
+                var maxResultShipQtyByTarget = Math.Max(RemainingShipTargetQty - stockShipQty, 0);
+
+                if (resultShipQty > sellableQty)
+                {
+                    resultShipQty = sellableQty;
+                }
+
+                if (resultShipQty > maxResultShipQtyByTarget)
+                {
+                    resultShipQty = maxResultShipQtyByTarget;
+                }
+
+                var stockInQty = Math.Max(sellableQty - resultShipQty, 0);
+                var actualShipQty = stockShipQty + resultShipQty;
+
+                if (_stockShipQty != stockShipQty)
+                {
+                    _stockShipQty = stockShipQty;
+                    OnPropertyChanged(nameof(StockShipQty));
+                }
+
+                if (_resultShipQty != resultShipQty)
+                {
+                    _resultShipQty = resultShipQty;
+                    OnPropertyChanged(nameof(ResultShipQty));
+                }
+
+                if (_stockInQty != stockInQty)
+                {
+                    _stockInQty = stockInQty;
+                    OnPropertyChanged(nameof(StockInQty));
+                }
+
+                ExpectedShipQty = actualShipQty;
+                ShortageQty = Math.Max(RemainingShipTargetQty - actualShipQty, 0);
+
+                OnPropertyChanged(nameof(ExpectedShipQty));
+                OnPropertyChanged(nameof(ShipmentWaitingQty));
+                OnPropertyChanged(nameof(ShortageQty));
             }
-
-            ExpectedShipQty = actualShipQty;
-            ShortageQty = Math.Max(RemainingShipTargetQty - actualShipQty, 0);
-
-            OnPropertyChanged(nameof(ExpectedShipQty));
-            OnPropertyChanged(nameof(ShortageQty));
+            finally
+            {
+                _isRecalculatingInventoryPreview = false;
+            }
         }
 
         private void AddDefect()
@@ -701,19 +726,19 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
 
             if (ResultShipQty + StockInQty != SellableQty)
             {
-                _messageService.ShowWarning("검수분 출하수량 + 재고편입수량은 판매가능수량과 같아야 합니다.");
+                _messageService.ShowWarning("검수분 출하대기수량 + 재고편입수량은 판매가능수량과 같아야 합니다.");
                 return;
             }
 
             if (StockShipQty > CurrentStockQty)
             {
-                _messageService.ShowWarning("재고출하수량이 현재 재고수량을 초과할 수 없습니다.");
+                _messageService.ShowWarning("기존재고 출하대기수량이 현재 재고수량을 초과할 수 없습니다.");
                 return;
             }
 
             if (StockShipQty + ResultShipQty > RemainingShipTargetQty)
             {
-                _messageService.ShowWarning("총 출하수량이 남은 출고목표수량을 초과할 수 없습니다.");
+                _messageService.ShowWarning("총 출하대기수량이 남은 출고목표수량을 초과할 수 없습니다.");
                 return;
             }
 
@@ -788,7 +813,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                     return;
                 }
 
-                _messageService.ShowInfo("검수실적이 저장되었습니다.");
+                _messageService.ShowInfo("검수실적 및 출하대기가 저장되었습니다.");
                 CloseRequested?.Invoke(true);
             }
             finally

@@ -24,18 +24,23 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
 
         private string _searchKeyword = string.Empty;
         private string _selectedProductionTab = ProductionTabInProgress;
+
         private int _page = 1;
         private int _size = 20;
         private int _total;
+
         private DateTime? _orderDateFrom;
         private DateTime? _orderDateTo;
+
         private bool _canGoPreviousPage;
         private bool _canGoNextPage;
-        private bool _canCreateBaseLot;
 
         private string _selectedFulfillmentMode = "INVENTORY_FIRST";
         private string _selectedProductionPolicy = "ORDER_ONLY";
         private string _extraProductionQtyText = "0";
+
+        private bool _canCreateBaseLot;
+        private bool _canShortClose;
 
         public OrderLineListPageViewModel(
             IApiClient apiClient,
@@ -62,11 +67,6 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
                 await SearchAsync();
             });
 
-            OpenOrderDetailCommand = new AsyncRelayCommand(OpenOrderDetailAsync);
-            OpenLotActionCommand = new AsyncRelayCommand(OpenLotActionAsync);
-            PreviousPageCommand = new AsyncRelayCommand(GoPreviousPageAsync);
-            NextPageCommand = new AsyncRelayCommand(GoNextPageAsync);
-
             ShowInProgressCommand = new AsyncRelayCommand(async () =>
             {
                 await ChangeProductionTabAsync(ProductionTabInProgress);
@@ -78,25 +78,31 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
             });
 
             SaveFulfillmentPlanCommand = new AsyncRelayCommand(SaveFulfillmentPlanAsync);
-
             CreateBaseLotCommand = new AsyncRelayCommand(CreateBaseLotAsync);
+            ShortCloseCommand = new AsyncRelayCommand(ShortCloseAsync);
 
-
+            OpenOrderDetailCommand = new AsyncRelayCommand(OpenOrderDetailAsync);
+            OpenLotActionCommand = new AsyncRelayCommand(OpenLotActionAsync);
+            PreviousPageCommand = new AsyncRelayCommand(GoPreviousPageAsync);
+            NextPageCommand = new AsyncRelayCommand(GoNextPageAsync);
         }
 
         public ObservableCollection<OrderLineListItemDto> Items { get; }
 
         public AsyncRelayCommand SearchCommand { get; }
         public AsyncRelayCommand ResetCommand { get; }
+
+        public AsyncRelayCommand ShowInProgressCommand { get; }
+        public AsyncRelayCommand ShowCompletedCommand { get; }
+
+        public AsyncRelayCommand SaveFulfillmentPlanCommand { get; }
+        public AsyncRelayCommand CreateBaseLotCommand { get; }
+        public AsyncRelayCommand ShortCloseCommand { get; }
+
         public AsyncRelayCommand OpenOrderDetailCommand { get; }
         public AsyncRelayCommand OpenLotActionCommand { get; }
         public AsyncRelayCommand PreviousPageCommand { get; }
         public AsyncRelayCommand NextPageCommand { get; }
-        public AsyncRelayCommand ShowInProgressCommand { get; }
-        public AsyncRelayCommand ShowCompletedCommand { get; }
-        public AsyncRelayCommand SaveFulfillmentPlanCommand { get; }
-
-        public AsyncRelayCommand CreateBaseLotCommand { get; }
 
         public string SearchKeyword
         {
@@ -116,6 +122,9 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
                     OnPropertyChanged(nameof(IsDateFilterVisible));
                     OnPropertyChanged(nameof(CurrentTabTitle));
                     OnPropertyChanged(nameof(IsPlanningSectionVisible));
+                    OnPropertyChanged(nameof(CanEditFulfillmentPlan));
+                    OnPropertyChanged(nameof(CanEditFulfillmentMode));
+                    OnPropertyChanged(nameof(CanEditExtraProductionQty));
                 }
             }
         }
@@ -123,10 +132,9 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
         public bool IsInProgressTab => SelectedProductionTab == ProductionTabInProgress;
         public bool IsCompletedTab => SelectedProductionTab == ProductionTabCompleted;
         public bool IsDateFilterVisible => IsCompletedTab;
+
         public bool IsPlanningSectionVisible => IsInProgressTab && SelectedItem != null;
-        public string TargetShipQtyText => $"{SelectedItem?.TargetShipQty ?? 0:N0}";
-        public string ExpectedShipQtyText => $"{SelectedItem?.ExpectedShipQty ?? 0:N0}";
-        public string ExpectedShortQtyText => $"{SelectedItem?.ExpectedShortQty ?? 0:N0}";
+
         public string CurrentTabTitle => IsCompletedTab ? "발주리스트 - 생산완료" : "발주리스트 - 생산중";
 
         public DateTime? OrderDateFrom
@@ -190,15 +198,11 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
             set => SetProperty(ref _canGoNextPage, value);
         }
 
-        public bool CanCreateBaseLot
-        {
-            get => _canCreateBaseLot;
-            set => SetProperty(ref _canCreateBaseLot, value);
-        }
-        public bool CanEditFulfillmentMode => SelectedProductionPolicy != "INVENTORY_ONLY_CLOSE";
+        public string PageInfoText =>
+            $"{Page} / {Math.Max(1, (int)Math.Ceiling((double)Math.Max(Total, 1) / Math.Max(Size, 1)))} 페이지";
 
-        public string PageInfoText => $"{Page} / {Math.Max(1, (int)Math.Ceiling((double)Math.Max(Total, 1) / Math.Max(Size, 1)))} 페이지";
         public string TotalCountText => $"총 {Total:N0}건";
+
         public string LotActionButtonText => "재작업 LOT";
 
         public string SelectedFulfillmentMode
@@ -224,6 +228,7 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
                         ExtraProductionQtyText = "0";
                     }
 
+                    OnPropertyChanged(nameof(CanEditFulfillmentPlan));
                     OnPropertyChanged(nameof(CanEditFulfillmentMode));
                     OnPropertyChanged(nameof(CanEditExtraProductionQty));
                 }
@@ -236,13 +241,52 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
             set => SetProperty(ref _extraProductionQtyText, value);
         }
 
-        public bool CanEditExtraProductionQty => SelectedProductionPolicy == "ALLOW_STOCK_BUILD";
+        public bool CanEditFulfillmentPlan =>
+            IsInProgressTab &&
+            SelectedItem != null &&
+            !SelectedItem.DecisionMade &&
+            SelectedItem.Status == "OPEN" &&
+            !SelectedItem.HasLot;
+
+        public bool CanEditFulfillmentMode =>
+            CanEditFulfillmentPlan &&
+            SelectedProductionPolicy != "INVENTORY_ONLY_CLOSE";
+
+        public bool CanEditExtraProductionQty =>
+            CanEditFulfillmentPlan &&
+            SelectedProductionPolicy == "ALLOW_STOCK_BUILD";
+
+        public bool CanCreateBaseLot
+        {
+            get => _canCreateBaseLot;
+            set => SetProperty(ref _canCreateBaseLot, value);
+        }
+
+        public bool CanShortClose
+        {
+            get => _canShortClose;
+            set => SetProperty(ref _canShortClose, value);
+        }
 
         public string AvailableInventoryQtyText => $"{SelectedItem?.AvailableInventoryQty ?? 0:N0}";
+        public string TargetShipQtyText => $"{SelectedItem?.TargetShipQty ?? 0:N0}";
         public string RecommendedFulfillmentModeText => SelectedItem?.RecommendedFulfillmentModeDisplay ?? "-";
         public string RecommendedProductionQtyText => $"{SelectedItem?.RecommendedProductionQty ?? 0:N0}";
         public string PlannedProductionQtyText => $"{SelectedItem?.PlannedProductionQty ?? 0:N0}";
         public string DecisionStatusText => SelectedItem == null ? "-" : (SelectedItem.DecisionMade ? "결정완료" : "결정필요");
+
+        public string ExpectedShipQtyText => $"{SelectedItem?.ExpectedShipQty ?? 0:N0}";
+        public string ExpectedShortQtyText => $"{SelectedItem?.ExpectedShortQty ?? 0:N0}";
+
+        public string ShipTargetQtyText => $"{SelectedItem?.ShipTargetQty ?? 0:N0}";
+        public string AlreadyShippedQtyText => $"{SelectedItem?.AlreadyShippedQty ?? 0:N0}";
+        public string RemainingShipQtyText => $"{SelectedItem?.RemainingShipQty ?? 0:N0}";
+        public string ShortageStatusText => SelectedItem?.ShortageStatusDisplay ?? "-";
+
+        public bool IsShortageSectionVisible =>
+            IsInProgressTab &&
+            SelectedItem != null &&
+            (SelectedItem.NeedsShortageAction || SelectedItem.ShortageClosed);
 
         public async Task InitializeAsync()
         {
@@ -256,6 +300,10 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
 
             if (!result.Success || result.Data == null)
             {
+                Items.Clear();
+                Total = 0;
+                CanGoPreviousPage = false;
+                CanGoNextPage = false;
                 _messageService.ShowError(result.Message ?? "수주 리스트 조회 중 오류가 발생했습니다.");
                 return;
             }
@@ -270,6 +318,7 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
             Page = result.Data.Page;
             Size = result.Data.Size;
             Total = result.Data.Total;
+
             CanGoPreviousPage = Page > 1;
             CanGoNextPage = Page * Size < Total;
 
@@ -282,19 +331,26 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
             SearchKeyword = string.Empty;
             OrderDateFrom = null;
             OrderDateTo = null;
+
             Page = 1;
             Size = 20;
             Total = 0;
+
             CanGoPreviousPage = false;
             CanGoNextPage = false;
+
             SelectedItem = null;
 
             SelectedFulfillmentMode = "INVENTORY_FIRST";
             SelectedProductionPolicy = "ORDER_ONLY";
             ExtraProductionQtyText = "0";
 
+            CanCreateBaseLot = false;
+            CanShortClose = false;
+
             OnPropertyChanged(nameof(PageInfoText));
             OnPropertyChanged(nameof(TotalCountText));
+
             RaisePlanningPropertiesChanged();
         }
 
@@ -308,8 +364,39 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
             OnPropertyChanged(nameof(IsPlanningSectionVisible));
 
             SyncPlanningEditorFromSelectedItem(item);
+            RefreshActionStates(item);
             RaisePlanningPropertiesChanged();
+        }
 
+        private void SyncPlanningEditorFromSelectedItem(OrderLineListItemDto? item)
+        {
+            if (item == null)
+            {
+                SelectedFulfillmentMode = "INVENTORY_FIRST";
+                SelectedProductionPolicy = "ORDER_ONLY";
+                ExtraProductionQtyText = "0";
+                return;
+            }
+
+            SelectedFulfillmentMode = string.IsNullOrWhiteSpace(item.FulfillmentMode)
+                ? (string.IsNullOrWhiteSpace(item.RecommendedFulfillmentMode) ? "INVENTORY_FIRST" : item.RecommendedFulfillmentMode!)
+                : item.FulfillmentMode!;
+
+            SelectedProductionPolicy = string.IsNullOrWhiteSpace(item.ProductionPolicy)
+                ? "ORDER_ONLY"
+                : item.ProductionPolicy!;
+
+            ExtraProductionQtyText = (item.ExtraProductionQty < 0 ? 0 : item.ExtraProductionQty).ToString();
+
+            if (SelectedProductionPolicy == "INVENTORY_ONLY_CLOSE")
+            {
+                SelectedFulfillmentMode = "INVENTORY_FIRST";
+                ExtraProductionQtyText = "0";
+            }
+        }
+
+        private void RefreshActionStates(OrderLineListItemDto? item)
+        {
             CanCreateBaseLot =
                 IsInProgressTab &&
                 item != null &&
@@ -319,7 +406,42 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
                 !item.HasLot &&
                 item.Status == "OPEN";
 
+            CanShortClose =
+                IsInProgressTab &&
+                item != null &&
+                item.NeedsShortageAction &&
+                item.Status == "CLOSED";
+
             OnPropertyChanged(nameof(CanCreateBaseLot));
+            OnPropertyChanged(nameof(CanShortClose));
+            OnPropertyChanged(nameof(CanEditFulfillmentPlan));
+            OnPropertyChanged(nameof(CanEditFulfillmentMode));
+            OnPropertyChanged(nameof(CanEditExtraProductionQty));
+        }
+
+        private void RaisePlanningPropertiesChanged()
+        {
+            OnPropertyChanged(nameof(IsPlanningSectionVisible));
+
+            OnPropertyChanged(nameof(CanEditFulfillmentPlan));
+            OnPropertyChanged(nameof(CanEditFulfillmentMode));
+            OnPropertyChanged(nameof(CanEditExtraProductionQty));
+
+            OnPropertyChanged(nameof(AvailableInventoryQtyText));
+            OnPropertyChanged(nameof(TargetShipQtyText));
+            OnPropertyChanged(nameof(RecommendedFulfillmentModeText));
+            OnPropertyChanged(nameof(RecommendedProductionQtyText));
+            OnPropertyChanged(nameof(PlannedProductionQtyText));
+            OnPropertyChanged(nameof(DecisionStatusText));
+
+            OnPropertyChanged(nameof(ExpectedShipQtyText));
+            OnPropertyChanged(nameof(ExpectedShortQtyText));
+
+            OnPropertyChanged(nameof(ShipTargetQtyText));
+            OnPropertyChanged(nameof(AlreadyShippedQtyText));
+            OnPropertyChanged(nameof(RemainingShipQtyText));
+            OnPropertyChanged(nameof(ShortageStatusText));
+            OnPropertyChanged(nameof(IsShortageSectionVisible));
         }
 
         private async Task ChangeProductionTabAsync(string targetTab)
@@ -345,6 +467,10 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
             }
 
             SelectedItem = null;
+            CanCreateBaseLot = false;
+            CanShortClose = false;
+
+            RaisePlanningPropertiesChanged();
 
             await SearchAsync();
         }
@@ -354,6 +480,12 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
             if (SelectedItem == null)
             {
                 _messageService.ShowWarning("처리계획을 저장할 발주를 먼저 선택하세요.");
+                return;
+            }
+
+            if (!CanEditFulfillmentPlan)
+            {
+                _messageService.ShowWarning("이미 결정완료된 발주이거나 처리계획을 수정할 수 없는 상태입니다.");
                 return;
             }
 
@@ -371,7 +503,9 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
 
             var request = new OrderLineFulfillmentPlanUpdateRequest
             {
-                FulfillmentMode = SelectedFulfillmentMode,
+                FulfillmentMode = SelectedProductionPolicy == "INVENTORY_ONLY_CLOSE"
+                    ? "INVENTORY_FIRST"
+                    : SelectedFulfillmentMode,
                 ProductionPolicy = SelectedProductionPolicy,
                 ExtraProductionQty = SelectedProductionPolicy == "ALLOW_STOCK_BUILD" ? extraProductionQty : 0
             };
@@ -387,7 +521,6 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
 
             var targetId = SelectedItem.OrderLineId;
 
-            Page = Math.Max(Page, 1);
             await SearchAsync();
 
             var refreshed = Items.FirstOrDefault(x => x.OrderLineId == targetId);
@@ -418,47 +551,82 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
             return extraProductionQty >= 0;
         }
 
-        private void SyncPlanningEditorFromSelectedItem(OrderLineListItemDto? item)
+        private async Task CreateBaseLotAsync()
         {
-            if (item == null)
+            if (SelectedItem == null)
             {
-                SelectedFulfillmentMode = "INVENTORY_FIRST";
-                SelectedProductionPolicy = "ORDER_ONLY";
-                ExtraProductionQtyText = "0";
+                _messageService.ShowWarning("기본 LOT를 생성할 발주를 먼저 선택하세요.");
                 return;
             }
 
-            SelectedFulfillmentMode = string.IsNullOrWhiteSpace(item.FulfillmentMode)
-                ? (string.IsNullOrWhiteSpace(item.RecommendedFulfillmentMode) ? "INVENTORY_FIRST" : item.RecommendedFulfillmentMode!)
-                : item.FulfillmentMode!;
-
-            SelectedProductionPolicy = string.IsNullOrWhiteSpace(item.ProductionPolicy)
-                ? "ORDER_ONLY"
-                : item.ProductionPolicy!;
-
-            ExtraProductionQtyText = (item.ExtraProductionQty < 0 ? 0 : item.ExtraProductionQty).ToString();
-
-            if (SelectedProductionPolicy == "INVENTORY_ONLY_CLOSE")
+            if (!CanCreateBaseLot)
             {
-                SelectedFulfillmentMode = "INVENTORY_FIRST";
-                ExtraProductionQtyText = "0";
+                _messageService.ShowWarning("현재 선택된 발주는 기본 LOT 생성 조건을 만족하지 않습니다.");
+                return;
             }
+
+            var route = $"{ApiRoutes.OrderLines}/{SelectedItem.OrderLineId}/base-lot";
+
+            var result = await _apiClient.PostAsync<OrderLineBaseLotCreateRequest, object>(
+                route,
+                new OrderLineBaseLotCreateRequest());
+
+            if (!result.Success)
+            {
+                _messageService.ShowError(result.Message ?? "기본 LOT 생성 중 오류가 발생했습니다.");
+                return;
+            }
+
+            var targetId = SelectedItem.OrderLineId;
+
+            await SearchAsync();
+
+            var refreshed = Items.FirstOrDefault(x => x.OrderLineId == targetId);
+            if (refreshed != null)
+            {
+                SelectedItem = refreshed;
+            }
+
+            _messageService.ShowInfo("기본 LOT가 생성되었습니다.");
         }
 
-        private void RaisePlanningPropertiesChanged()
+        private async Task ShortCloseAsync()
         {
-            OnPropertyChanged(nameof(IsPlanningSectionVisible));
-            OnPropertyChanged(nameof(CanEditExtraProductionQty));
-            OnPropertyChanged(nameof(AvailableInventoryQtyText));
-            OnPropertyChanged(nameof(RecommendedFulfillmentModeText));
-            OnPropertyChanged(nameof(RecommendedProductionQtyText));
-            OnPropertyChanged(nameof(PlannedProductionQtyText));
-            OnPropertyChanged(nameof(DecisionStatusText));
-            OnPropertyChanged(nameof(TargetShipQtyText));
-            OnPropertyChanged(nameof(CanCreateBaseLot));
-            OnPropertyChanged(nameof(CanEditFulfillmentMode));
-            OnPropertyChanged(nameof(ExpectedShipQtyText));
-            OnPropertyChanged(nameof(ExpectedShortQtyText));
+            if (SelectedItem == null)
+            {
+                _messageService.ShowWarning("부족종료할 발주를 먼저 선택하세요.");
+                return;
+            }
+
+            if (!CanShortClose)
+            {
+                _messageService.ShowWarning("현재 선택된 발주는 부족종료 대상이 아닙니다.");
+                return;
+            }
+
+            var route = $"{ApiRoutes.OrderLines}/{SelectedItem.OrderLineId}/short-close";
+
+            var result = await _apiClient.PatchAsync<OrderLineShortCloseRequest, OrderLineListItemDto>(
+                route,
+                new OrderLineShortCloseRequest());
+
+            if (!result.Success || result.Data == null)
+            {
+                _messageService.ShowError(result.Message ?? "부족종료 처리 중 오류가 발생했습니다.");
+                return;
+            }
+
+            var targetId = SelectedItem.OrderLineId;
+
+            await SearchAsync();
+
+            var refreshed = Items.FirstOrDefault(x => x.OrderLineId == targetId);
+            if (refreshed != null)
+            {
+                SelectedItem = refreshed;
+            }
+
+            _messageService.ShowInfo("부족종료 처리되었습니다.");
         }
 
         private async Task OpenOrderDetailAsync()
@@ -517,7 +685,7 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
                 queryParts.Add($"q={Uri.EscapeDataString(SearchKeyword.Trim())}");
             }
 
-            var statusGroup = IsCompletedTab ? "COMPLETED" : "IN_PROGRESS";
+            var statusGroup = IsCompletedTab ? ProductionTabCompleted : ProductionTabInProgress;
             queryParts.Add($"status_group={Uri.EscapeDataString(statusGroup)}");
 
             if (IsCompletedTab)
@@ -534,43 +702,6 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
             }
 
             return $"{ApiRoutes.OrderLines}?{string.Join("&", queryParts)}";
-        }
-
-        private async Task CreateBaseLotAsync()
-        {
-            if (SelectedItem == null)
-            {
-                _messageService.ShowWarning("기본 LOT를 생성할 발주를 먼저 선택하세요.");
-                return;
-            }
-
-            if (!CanCreateBaseLot)
-            {
-                _messageService.ShowWarning("현재 선택된 발주는 기본 LOT 생성 조건을 만족하지 않습니다.");
-                return;
-            }
-
-            var route = $"{ApiRoutes.OrderLines}/{SelectedItem.OrderLineId}/base-lot";
-            var result = await _apiClient.PostAsync<OrderLineBaseLotCreateRequest, object>(
-                route,
-                new OrderLineBaseLotCreateRequest());
-
-            if (!result.Success)
-            {
-                _messageService.ShowError(result.Message ?? "기본 LOT 생성 중 오류가 발생했습니다.");
-                return;
-            }
-
-            var targetId = SelectedItem.OrderLineId;
-            await SearchAsync();
-
-            var refreshed = Items.FirstOrDefault(x => x.OrderLineId == targetId);
-            if (refreshed != null)
-            {
-                SelectedItem = refreshed;
-            }
-
-            _messageService.ShowInfo("기본 LOT가 생성되었습니다.");
         }
 
         private async Task GoPreviousPageAsync()
@@ -594,7 +725,5 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
             Page++;
             await SearchAsync();
         }
-
-
     }
 }

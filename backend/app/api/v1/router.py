@@ -15,6 +15,7 @@ from app.api.v1.defect_types import router as defect_type_router
 from app.api.v1.outsource_work_instructions import router as outsource_work_instruction_router
 from app.api.v1.dashboard import router as dashboard_router
 from app.api.v1.inventories import router as inventory_router
+from app.api.v1.shipments import router as shipment_router
 
 router = APIRouter()
 router.include_router(health_router)
@@ -33,3 +34,4 @@ router.include_router(defect_type_router)
 router.include_router(outsource_work_instruction_router)
 router.include_router(dashboard_router)
 router.include_router(inventory_router)
+router.include_router(shipment_router)

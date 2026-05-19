@@ -104,6 +104,21 @@ namespace Mes.Wpf.Modules.OrderLineList.Dtos
         [JsonPropertyName("expected_short_qty")]
         public int ExpectedShortQty { get; set; }
 
+        [JsonPropertyName("ship_target_qty")]
+        public int ShipTargetQty { get; set; }
+
+        [JsonPropertyName("already_shipped_qty")]
+        public int AlreadyShippedQty { get; set; }
+
+        [JsonPropertyName("remaining_ship_qty")]
+        public int RemainingShipQty { get; set; }
+
+        [JsonPropertyName("needs_shortage_action")]
+        public bool NeedsShortageAction { get; set; }
+
+        [JsonPropertyName("shortage_closed")]
+        public bool ShortageClosed { get; set; }
+
         public string StatusDisplay => Status switch
         {
             "OPEN" => "LOT 생성대기",
@@ -136,6 +151,24 @@ namespace Mes.Wpf.Modules.OrderLineList.Dtos
             "HYBRID" => "혼합",
             _ => "-"
         };
+
+        public string ShortageStatusDisplay
+        {
+            get
+            {
+                if (ShortageClosed)
+                {
+                    return "부족종료";
+                }
+
+                if (NeedsShortageAction)
+                {
+                    return "부족처리필요";
+                }
+
+                return "-";
+            }
+        }
 
 
     }

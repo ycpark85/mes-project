@@ -20,6 +20,7 @@ from sqlalchemy import func
 from app.models.partner import Partner
 from app.models.product_inventory import ProductInventory
 from app.models.product_inventory_movement import ProductInventoryMovement
+from app.models.shipment_line import ShipmentLine
 from app.services.ship_qty_policy import calculate_ship_qty, is_stock_replenishment_partner
 
 
@@ -160,7 +161,9 @@ def upsert_inspection_result(
             result_ship_qty=result_ship_qty,
             stock_in_qty=stock_in_qty,
         )
+        
         db.flush()
+        
 
     return result, sch.status, created_next_id
 
@@ -276,8 +279,34 @@ def _sync_order_line_status_from_lot(db: Session, *, lot: Lot) -> None:
         return
 
     order_line = db.get(OrderLine, lot.order_line_id)
-    if order_line and order_line.status != "CANCELED":
+    if not order_line or order_line.status == "CANCELED":
+        return
+
+    partner = db.get(Partner, order_line.partner_id)
+    partner_name = partner.name if partner else ""
+    partner_business_no = partner.business_no if partner else ""
+
+    if is_stock_replenishment_partner(partner_name, partner_business_no):
         order_line.status = "DONE"
+        db.flush()
+        return
+
+    ship_target_qty = calculate_ship_qty(partner_name, int(order_line.order_qty or 0))
+
+    already_shipped_qty = int(
+        db.execute(
+            select(func.coalesce(func.sum(-ProductInventoryMovement.qty), 0)).where(
+                ProductInventoryMovement.order_line_id == order_line.order_line_id,
+                ProductInventoryMovement.movement_type == "SHIP_OUT",
+            )
+        ).scalar_one()
+        or 0
+    )
+
+    if already_shipped_qty >= ship_target_qty:
+        order_line.status = "DONE"
+    else:
+        order_line.status = "CLOSED"
 
     db.flush()
 
@@ -337,12 +366,6 @@ def _apply_inventory_for_result(
     result_ship_qty: int,
     stock_in_qty: int,
 ) -> None:
-    source_types = (
-        "INSPECTION_RESULT_STOCK_SHIP",
-        "INSPECTION_RESULT_RESULT_SHIP",
-        "INSPECTION_RESULT_STOCK_IN",
-    )
-
     lot = db.execute(
         select(Lot)
         .where(Lot.lot_id == schedule.lot_id)
@@ -361,12 +384,19 @@ def _apply_inventory_for_result(
 
     partner = db.get(Partner, order_line.partner_id)
     partner_name = partner.name if partner else ""
+    partner_business_no = partner.business_no if partner else ""
+
+    is_stock_replenishment = is_stock_replenishment_partner(
+        partner_name,
+        partner_business_no,
+    )
 
     inventory = db.execute(
         select(ProductInventory)
         .where(ProductInventory.product_id == lot.product_id)
         .with_for_update()
     ).scalar_one_or_none()
+
     if inventory is None:
         inventory = ProductInventory(
             product_id=lot.product_id,
@@ -378,51 +408,42 @@ def _apply_inventory_for_result(
     existing_movements = db.execute(
         select(ProductInventoryMovement)
         .where(
-            ProductInventoryMovement.source_id == result.inspection_result_id,
-            ProductInventoryMovement.source_type.in_(source_types),
+            ProductInventoryMovement.inspection_result_id == result.inspection_result_id,
+            ProductInventoryMovement.source_type.in_(("INSPECTION_RESULT", "INSPECTION_RESULT_IN")),
         )
-        .order_by(ProductInventoryMovement.inventory_movement_id.asc())
+        .with_for_update()
     ).scalars().all()
 
-    # 기존 결과 수정 저장 대비: 현재 결과 movement를 되돌린 뒤 재적용
     for mv in existing_movements:
-        if mv.source_type == "INSPECTION_RESULT_STOCK_IN":
+        if mv.movement_type == "INSPECTION_IN":
             inventory.current_qty -= int(mv.qty or 0)
-        elif mv.source_type == "INSPECTION_RESULT_STOCK_SHIP":
-            inventory.current_qty -= int(mv.qty or 0)  # qty가 음수라 재고 복구 효과
+        elif mv.movement_type == "SHIP_OUT":
+            inventory.current_qty -= int(mv.qty or 0)
+
         db.delete(mv)
+
+    existing_shipment_lines = db.execute(
+        select(ShipmentLine)
+        .where(
+            ShipmentLine.inspection_result_id == result.inspection_result_id,
+            ShipmentLine.status != "CANCELED",
+        )
+        .with_for_update()
+    ).scalars().all()
+
+    if any(line.status == "DONE" for line in existing_shipment_lines):
+        raise HTTPException(
+            status_code=409,
+            detail="이미 출하 완료된 출하대기 건이 있어 검수실적을 수정할 수 없습니다.",
+        )
+
+    for line in existing_shipment_lines:
+        db.delete(line)
 
     db.flush()
 
-    ship_target_qty = calculate_ship_qty(partner_name, int(order_line.order_qty))
-
-    shipped_query = (
-        select(func.coalesce(func.sum(-ProductInventoryMovement.qty), 0))
-        .where(
-            ProductInventoryMovement.order_line_id == order_line.order_line_id,
-            ProductInventoryMovement.movement_type == "SHIP_OUT",
-        )
-    )
-
-    shipped_query = shipped_query.where(
-        or_(
-            ProductInventoryMovement.inspection_result_id.is_(None),
-            ProductInventoryMovement.inspection_result_id != result.inspection_result_id,
-        )
-    )
-
-    already_shipped_qty = db.execute(shipped_query).scalar_one()
-    remaining_ship_qty = max(ship_target_qty - int(already_shipped_qty or 0), 0)
-
-    current_stock_qty = int(inventory.current_qty or 0)
+    current_stock_qty_before_result_in = int(inventory.current_qty or 0)
     sellable_qty = int(result.good_qty or 0) + int(result.defect_ship_qty or 0)
-    actual_ship_qty = int(stock_ship_qty or 0) + int(result_ship_qty or 0)
-
-    if stock_ship_qty > current_stock_qty:
-        raise HTTPException(
-            status_code=422,
-            detail=f"stock_ship_qty exceeds current stock. current_stock_qty={current_stock_qty}",
-        )
 
     if result_ship_qty + stock_in_qty != sellable_qty:
         raise HTTPException(
@@ -430,71 +451,92 @@ def _apply_inventory_for_result(
             detail="result_ship_qty + stock_in_qty must equal sellable_qty",
         )
 
-    if actual_ship_qty > remaining_ship_qty:
+    if stock_ship_qty > current_stock_qty_before_result_in:
         raise HTTPException(
             status_code=422,
-            detail=f"actual_ship_qty exceeds remaining ship target. remaining_ship_qty={remaining_ship_qty}",
+            detail=f"stock_ship_qty exceeds current stock. current_stock_qty={current_stock_qty_before_result_in}",
         )
 
-    if not result.is_partial:
-        if order_line.production_policy == "INVENTORY_ONLY_CLOSE":
-            # 부족 허용 종료
-            pass
-        else:
-            if actual_ship_qty != remaining_ship_qty:
-                raise HTTPException(
-                    status_code=422,
-                    detail=f"actual_ship_qty must match remaining ship target. remaining_ship_qty={remaining_ship_qty}",
+    if is_stock_replenishment:
+        ship_target_qty = 0
+        remaining_ship_qty = 0
+    else:
+        ship_target_qty = calculate_ship_qty(
+            partner_name,
+            int(order_line.order_qty or 0),
+        )
+
+        already_shipped_qty = int(
+            db.execute(
+                select(func.coalesce(func.sum(-ProductInventoryMovement.qty), 0)).where(
+                    ProductInventoryMovement.order_line_id == order_line.order_line_id,
+                    ProductInventoryMovement.movement_type == "SHIP_OUT",
                 )
-
-    if stock_ship_qty > 0:
-        inventory.current_qty -= stock_ship_qty
-        db.add(
-            ProductInventoryMovement(
-                product_id=lot.product_id,
-                movement_type="SHIP_OUT",
-                qty=-stock_ship_qty,
-                balance_after=inventory.current_qty,
-                source_type="INSPECTION_RESULT_STOCK_SHIP",
-                source_id=result.inspection_result_id,
-                order_line_id=order_line.order_line_id,
-                inspection_schedule_id=schedule.inspection_schedule_id,
-                inspection_result_id=result.inspection_result_id,
-                memo=f"검수 실적 재고 출하 / 목표 {ship_target_qty}",
-            )
+            ).scalar_one()
+            or 0
         )
 
-    if stock_in_qty > 0:
-        inventory.current_qty += stock_in_qty
+        remaining_ship_qty = max(ship_target_qty - already_shipped_qty, 0)
+
+    if not is_stock_replenishment:
+        requested_ship_waiting_qty = int(stock_ship_qty or 0) + int(result_ship_qty or 0)
+
+        if requested_ship_waiting_qty > remaining_ship_qty:
+            raise HTTPException(
+                status_code=422,
+                detail=f"shipment waiting qty exceeds remaining ship target. remaining_ship_qty={remaining_ship_qty}",
+            )
+
+    if sellable_qty > 0:
+        inventory.current_qty += sellable_qty
         db.add(
             ProductInventoryMovement(
                 product_id=lot.product_id,
                 movement_type="INSPECTION_IN",
-                qty=stock_in_qty,
+                qty=sellable_qty,
                 balance_after=inventory.current_qty,
-                source_type="INSPECTION_RESULT_STOCK_IN",
+                source_type="INSPECTION_RESULT_IN",
                 source_id=result.inspection_result_id,
                 order_line_id=order_line.order_line_id,
                 inspection_schedule_id=schedule.inspection_schedule_id,
                 inspection_result_id=result.inspection_result_id,
-                memo="검수 실적 재고 편입",
+                memo="검수 실적 재고 입고",
+            )
+        )
+
+    if stock_ship_qty > 0:
+        db.add(
+            ShipmentLine(
+                order_line_id=order_line.order_line_id,
+                product_id=lot.product_id,
+                lot_id=None,
+                inspection_result_id=result.inspection_result_id,
+                source_type="STOCK",
+                status="WAITING",
+                ship_qty=stock_ship_qty,
+                shipped_qty=0,
+                memo="검수 실적 저장 시 기존 재고 출하대기 생성",
             )
         )
 
     if result_ship_qty > 0:
         db.add(
-            ProductInventoryMovement(
-                product_id=lot.product_id,
-                movement_type="SHIP_OUT",
-                qty=-result_ship_qty,
-                balance_after=inventory.current_qty,
-                source_type="INSPECTION_RESULT_RESULT_SHIP",
-                source_id=result.inspection_result_id,
+            ShipmentLine(
                 order_line_id=order_line.order_line_id,
-                inspection_schedule_id=schedule.inspection_schedule_id,
+                product_id=lot.product_id,
+                lot_id=lot.lot_id,
                 inspection_result_id=result.inspection_result_id,
-                memo=f"검수 실적 검수분 출하 / 목표 {ship_target_qty}",
+                source_type="INSPECTION_RESULT",
+                status="WAITING",
+                ship_qty=result_ship_qty,
+                shipped_qty=0,
+                memo="검수 실적 저장 시 검수분 출하대기 생성",
             )
         )
+
+    if is_stock_replenishment:
+        order_line.status = "DONE"
+    else:
+        order_line.status = "CLOSED"
 
     db.flush()   

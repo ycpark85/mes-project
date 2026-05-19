@@ -31,7 +31,7 @@ class InspectionResultUpsertIn(BaseModel):
     stock_ship_qty: int = Field(0, ge=0)
     result_ship_qty: int = Field(0, ge=0)
     stock_in_qty: int = Field(0, ge=0)
-
+    
     is_partial: bool = False
     next_inspection_date: Optional[date] = None
     partial_reason: Optional[str] = None
@@ -98,6 +98,10 @@ class InspectionAccumulatedSummaryOut(BaseModel):
     defect_qty: int = 0
     defect_ship_qty: int = 0
     inspected_qty: int = 0
+    
+    current_result_stock_ship_qty: int = 0
+    current_result_result_ship_qty: int = 0
+    current_result_stock_in_qty: int = 0
 
 
 class InspectionInventorySummaryOut(BaseModel):

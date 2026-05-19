@@ -25,7 +25,7 @@ from .outsource_work_group_item import OutsourceWorkGroupItem
 from .outsource_purchase_order_group import OutsourcePurchaseOrderGroup
 from .product_inventory import ProductInventory
 from .product_inventory_movement import ProductInventoryMovement
-
+from .shipment_line import ShipmentLine
 
 __all__ = [
     "Process", 
@@ -54,7 +54,7 @@ __all__ = [
     "OutsourceWorkGroupItem",
     "OutsourcePurchaseOrderGroup",
     "ProductInventory",
-    "ProductInventoryMovement"
-
+    "ProductInventoryMovement",
+    "ShipmentLine"
 
     ]

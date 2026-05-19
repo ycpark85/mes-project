@@ -93,6 +93,12 @@ class OrderLineOut(OrderLineBase):
     planned_production_qty: int = 0
     decision_required: bool = False
 
+    ship_target_qty: int = 0
+    already_shipped_qty: int = 0
+    remaining_ship_qty: int = 0
+    needs_shortage_action: bool = False
+    shortage_closed: bool = False
+
     class Config:
         from_attributes = True
 
@@ -231,3 +237,8 @@ class OrderLineBaseLotCreateResult(BaseModel):
     created_lot_no: str
     created_lot_qty: int
     order_status: str
+
+class OrderLineShortCloseRequest(BaseModel):
+    memo: Optional[str] = None
+
+    

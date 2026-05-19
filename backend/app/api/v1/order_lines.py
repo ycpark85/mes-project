@@ -8,7 +8,7 @@ from app.models.drawing_revision import DrawingRevision
 from app.models.drawing_rivision_file import DrawingRevisionFile
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status as http_status
-from sqlalchemy import and_, desc, exists, select, update
+from sqlalchemy import and_, desc, exists, select, update, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 from collections import defaultdict
@@ -23,6 +23,7 @@ from app.models.partner import Partner
 from app.models.process import Process
 from app.models.product import Product
 from app.models.product_inventory import ProductInventory
+from app.models.shipment_line import ShipmentLine
 from app.models.product_inventory_movement import ProductInventoryMovement
 from app.services.ship_qty_policy import calculate_ship_qty, is_stock_replenishment_partner
 from app.services.bulk.order_line_bulk_service import order_line_bulk_service
@@ -44,6 +45,7 @@ from app.schemas.order_line import (
     OrderLineProductionPolicy,
     OrderLineFulfillmentPlanUpdate,
     OrderLineBaseLotCreateResult,
+    OrderLineShortCloseRequest,
 )
 from app.schemas.order_line_detail import (
     OrderLineDetailDto,
@@ -352,6 +354,73 @@ def _get_available_inventory_qty(db: Session, product_id: int) -> int:
 def _get_target_ship_qty(order_line: OrderLine, partner_name: str) -> int:
     return int(calculate_ship_qty(partner_name or "", int(order_line.order_qty or 0)) or 0)
 
+def _get_already_shipped_qty(db: Session, order_line_id: int) -> int:
+    shipped_qty = db.execute(
+        select(func.coalesce(func.sum(-ProductInventoryMovement.qty), 0)).where(
+            ProductInventoryMovement.order_line_id == order_line_id,
+            ProductInventoryMovement.movement_type == "SHIP_OUT",
+        )
+    ).scalar_one()
+
+    return int(shipped_qty or 0)
+
+
+def _create_stock_shipment_waiting_if_needed(
+    db: Session,
+    order_line: OrderLine,
+    partner_name: str,
+) -> None:
+    existing = db.execute(
+        select(ShipmentLine)
+        .where(
+            ShipmentLine.order_line_id == order_line.order_line_id,
+            ShipmentLine.status != "CANCELED",
+            ShipmentLine.source_type == "STOCK",
+            ShipmentLine.inspection_result_id.is_(None),
+        )
+        .limit(1)
+    ).scalar_one_or_none()
+
+    if existing is not None:
+        return
+
+    inventory = (
+        db.execute(
+            select(ProductInventory)
+            .where(ProductInventory.product_id == order_line.product_id)
+            .with_for_update()
+        )
+        .scalar_one_or_none()
+    )
+
+    available_inventory_qty = int(inventory.current_qty or 0) if inventory else 0
+
+    ship_target_qty = int(calculate_ship_qty(partner_name, int(order_line.order_qty or 0)) or 0)
+    already_shipped_qty = _get_already_shipped_qty(db, order_line.order_line_id)
+    remaining_ship_qty = max(ship_target_qty - already_shipped_qty, 0)
+
+    ship_qty = min(available_inventory_qty, remaining_ship_qty)
+
+    if ship_qty <= 0:
+        return
+
+    db.add(
+        ShipmentLine(
+            order_line_id=order_line.order_line_id,
+            product_id=order_line.product_id,
+            lot_id=None,
+            inspection_result_id=None,
+            source_type="STOCK",
+            status="WAITING",
+            ship_qty=ship_qty,
+            shipped_qty=0,
+            memo="처리계획 저장 시 재고 출하대기 생성",
+        )
+    )
+
+    if order_line.status == OrderLineStatus.OPEN.value:
+        order_line.status = OrderLineStatus.CLOSED.value
+
 
 def _get_planned_production_qty(
     db: Session,
@@ -374,6 +443,28 @@ def _get_planned_production_qty(
         extra_production_qty = 0
 
     return base_planned_production_qty + extra_production_qty
+
+
+
+
+
+def _get_remaining_ship_qty(db: Session, order_line: OrderLine) -> int:
+    partner = db.get(Partner, order_line.partner_id)
+    partner_name = partner.name if partner else ""
+
+    ship_target_qty = int(calculate_ship_qty(partner_name, int(order_line.order_qty or 0)) or 0)
+
+    already_shipped_qty = int(
+        db.execute(
+            select(func.coalesce(func.sum(-ProductInventoryMovement.qty), 0)).where(
+                ProductInventoryMovement.order_line_id == order_line.order_line_id,
+                ProductInventoryMovement.movement_type == "SHIP_OUT",
+            )
+        ).scalar_one()
+        or 0
+    )
+
+    return max(ship_target_qty - already_shipped_qty, 0)
 
 
         
@@ -579,6 +670,19 @@ def update_order_line_fulfillment_plan(
     data["decision_made_at"] = datetime.now(timezone.utc)
 
     order_line_crud.update(db, obj, data)
+
+    partner = db.get(Partner, obj.partner_id)
+    partner_name = partner.name if partner else ""
+
+    planned_production_qty = _get_planned_production_qty(db, obj, partner_name)
+
+    if planned_production_qty <= 0:
+        _create_stock_shipment_waiting_if_needed(
+            db,
+            obj,
+            partner_name,
+        )
+
     db.commit()
     db.refresh(obj)
 
@@ -1224,6 +1328,41 @@ def update_order_line_detail(
         lots=lot_items,
         timeline=timeline,
     )
+
+@router.patch("/{order_line_id}/short-close", response_model=OrderLineOut)
+def short_close_order_line(
+    order_line_id: int,
+    payload: OrderLineShortCloseRequest,
+    db: Session = Depends(get_db),
+):
+    obj = order_line_crud.get(db, order_line_id)
+    if not obj or not obj.is_active:
+        raise HTTPException(status_code=404, detail="OrderLine not found")
+
+    if obj.status != OrderLineStatus.CLOSED.value:
+        raise HTTPException(status_code=409, detail="부족종료는 CLOSED 상태 수주에서만 가능합니다.")
+
+    remaining_ship_qty = _get_remaining_ship_qty(db, obj)
+    if remaining_ship_qty <= 0:
+        raise HTTPException(status_code=409, detail="부족수량이 없어 부족종료 대상이 아닙니다.")
+
+    memo_suffix = f"[SHORT_CLOSE] remaining_ship_qty={remaining_ship_qty}"
+    if payload.memo and payload.memo.strip():
+        memo_suffix = f"{memo_suffix} / {payload.memo.strip()}"
+
+    if obj.memo and obj.memo.strip():
+        obj.memo = f"{obj.memo}\n{memo_suffix}"
+    else:
+        obj.memo = memo_suffix
+
+    obj.status = OrderLineStatus.DONE.value
+
+    db.flush()
+    db.commit()
+    db.refresh(obj)
+
+    return OrderLineOut.model_validate(obj, from_attributes=True)
+
 
 @router.post("/{order_line_id}/cancel", response_model=OrderLineDetailDto)
 def cancel_order_line(
