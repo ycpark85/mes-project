@@ -119,6 +119,14 @@ namespace Mes.Wpf.Modules.OrderLineList.Dtos
         [JsonPropertyName("shortage_closed")]
         public bool ShortageClosed { get; set; }
 
+        [JsonPropertyName("plan_type")]
+        public string? PlanType { get; set; }
+
+        [JsonPropertyName("plan_type_display")]
+        public string? PlanTypeDisplay { get; set; }
+
+
+
         public string StatusDisplay => Status switch
         {
             "OPEN" => "LOT 생성대기",
@@ -170,6 +178,15 @@ namespace Mes.Wpf.Modules.OrderLineList.Dtos
             }
         }
 
-
+       
     }
+    public class OrderLinePlanConfirmRequest
+    {
+        [JsonPropertyName("plan_type")]
+        public string PlanType { get; set; } = string.Empty;
+
+        [JsonPropertyName("memo")]
+        public string? Memo { get; set; }
+    }
+
 }

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.ObjectModel;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
@@ -61,6 +62,9 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
         private bool _isRecalculatingInventoryPreview;
         private InspectionResultDefectEditModel? _selectedDefect;
 
+        private ObservableCollection<InspectionStockLotDto> _stockLots = new();
+        private bool _isAutoShipmentPreviewUpdating;
+
         private int _expectedShipQty;
         private int _shortageQty;
         public int ShipmentWaitingQty => ExpectedShipQty;
@@ -86,6 +90,15 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
             SaveCommand = new AsyncRelayCommand(SaveAsync, () => !IsLoading);
             CancelCommand = new RelayCommand(_ => CloseRequested?.Invoke(false));
         }
+        public ObservableCollection<InspectionStockLotDto> StockLots
+        {
+            get => _stockLots;
+            set => SetProperty(ref _stockLots, value);
+        }
+
+        public int StockLotTotalQty => StockLots.Sum(x => x.StockQty);
+
+        public int StockLotAllocatedQty => StockLots.Sum(x => x.AllocatedShipQty);
 
         public long InspectionScheduleId
         {
@@ -482,6 +495,10 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                     Memo = string.Empty;
                     Defects.Clear();
 
+                    await LoadStockLotsAsync();
+                    ApplyAutoShipmentPreview();
+                    AllocateStockLotsByFifo();
+
                     RecalculateTotals();
                     return;
                 }
@@ -529,13 +546,65 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
 
                         Defects.Add(edit);
                     }
+
+                    await LoadDefectTypeDisplayValuesAsync();
                 }
+
+                await LoadStockLotsAsync();
+                AllocateStockLotsByFifo();
 
                 RecalculateTotals();
             }
             finally
             {
                 IsLoading = false;
+            }
+        }
+
+        private async Task LoadDefectTypeDisplayValuesAsync()
+        {
+            var defectTypeIds = Defects
+                .Where(x => x.DefectTypeId.HasValue)
+                .Select(x => x.DefectTypeId!.Value)
+                .Distinct()
+                .ToList();
+
+            if (defectTypeIds.Count == 0)
+            {
+                return;
+            }
+
+            var lookupMap = new Dictionary<int, InspectionResultDefectTypeLookupDto>();
+
+            foreach (var defectTypeId in defectTypeIds)
+            {
+                var result = await _apiClient.GetAsync<InspectionResultDefectTypeLookupDto>(
+                    $"{ApiRoutes.DefectTypes}/{defectTypeId}");
+
+                if (!result.Success || result.Data == null)
+                {
+                    continue;
+                }
+
+                lookupMap[defectTypeId] = result.Data;
+            }
+
+            foreach (var defect in Defects)
+            {
+                if (!defect.DefectTypeId.HasValue)
+                {
+                    continue;
+                }
+
+                if (!lookupMap.TryGetValue(defect.DefectTypeId.Value, out var defectType))
+                {
+                    continue;
+                }
+
+                defect.DefectCode = defectType.DefectCode?.Trim().ToUpperInvariant() ?? string.Empty;
+                defect.Category1Name = defectType.Category1Name?.Trim() ?? string.Empty;
+                defect.Category2Name = defectType.Category2Name?.Trim() ?? string.Empty;
+                defect.DefectTypeMemo = defectType.Memo?.Trim() ?? string.Empty;
             }
         }
 
@@ -612,6 +681,8 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                 OnPropertyChanged(nameof(ExpectedShipQty));
                 OnPropertyChanged(nameof(ShipmentWaitingQty));
                 OnPropertyChanged(nameof(ShortageQty));
+
+                AllocateStockLotsByFifo();
             }
             finally
             {
@@ -820,6 +891,69 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
             {
                 IsLoading = false;
             }
+        }
+        private async Task LoadStockLotsAsync()
+        {
+            var route = $"{ApiRoutes.InspectionSchedules}/{InspectionScheduleId}/stock-lots";
+
+            var result = await _apiClient.GetAsync<InspectionStockLotListDto>(route);
+
+            if (!result.Success || result.Data == null)
+            {
+                StockLots.Clear();
+                OnPropertyChanged(nameof(StockLotTotalQty));
+                OnPropertyChanged(nameof(StockLotAllocatedQty));
+                return;
+            }
+
+            StockLots = result.Data.Items ?? new ObservableCollection<InspectionStockLotDto>();
+
+            OnPropertyChanged(nameof(StockLotTotalQty));
+            OnPropertyChanged(nameof(StockLotAllocatedQty));
+        }
+        private void ApplyAutoShipmentPreview()
+        {
+            if (_isAutoShipmentPreviewUpdating)
+            {
+                return;
+            }
+
+            try
+            {
+                _isAutoShipmentPreviewUpdating = true;
+
+                var sellableQty = Math.Max(GoodQty - DefectShipQty, 0);
+                var remainingTargetQty = Math.Max(RemainingShipTargetQty, 0);
+                var currentStockQty = Math.Max(CurrentStockQty, 0);
+
+                var stockShipQty = Math.Min(currentStockQty, remainingTargetQty);
+                var resultShipQty = Math.Min(sellableQty, Math.Max(remainingTargetQty - stockShipQty, 0));
+                var stockInQty = Math.Max(sellableQty - resultShipQty, 0);
+
+                StockShipQty = stockShipQty;
+                ResultShipQty = resultShipQty;
+                StockInQty = stockInQty;
+            }
+            finally
+            {
+                _isAutoShipmentPreviewUpdating = false;
+            }
+
+            AllocateStockLotsByFifo();
+        }
+        private void AllocateStockLotsByFifo()
+        {
+            var remainingQty = Math.Max(StockShipQty, 0);
+
+            foreach (var lot in StockLots)
+            {
+                var allocatedQty = Math.Min(lot.StockQty, remainingQty);
+                lot.AllocatedShipQty = allocatedQty;
+                remainingQty -= allocatedQty;
+            }
+
+            OnPropertyChanged(nameof(StockLotTotalQty));
+            OnPropertyChanged(nameof(StockLotAllocatedQty));
         }
     }
 }

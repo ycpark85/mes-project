@@ -45,28 +45,14 @@ def _get_already_shipped_qty(db: Session, order_line_id: int) -> int:
 
 
 def _sync_order_line_status_after_shipment(db: Session, order_line: OrderLine) -> None:
-    if order_line.status == "CANCELED":
+    if order_line.status in {"CANCELED", "DONE"}:
         return
 
     ship_target_qty = _get_ship_target_qty(db, order_line)
     already_shipped_qty = _get_already_shipped_qty(db, order_line.order_line_id)
-    remaining_ship_qty = max(ship_target_qty - already_shipped_qty, 0)
 
-    has_waiting_shipment = db.execute(
-        select(ShipmentLine.shipment_line_id)
-        .where(
-            ShipmentLine.order_line_id == order_line.order_line_id,
-            ShipmentLine.status == "WAITING",
-        )
-        .limit(1)
-    ).scalar_one_or_none()
-
-    if remaining_ship_qty <= 0:
+    if already_shipped_qty >= ship_target_qty:
         order_line.status = "DONE"
-    elif order_line.production_policy == "INVENTORY_ONLY_CLOSE" and has_waiting_shipment is None:
-        order_line.status = "DONE"
-    else:
-        order_line.status = "CLOSED"
 
 
 @router.get("", response_model=ShipmentLineListOut)

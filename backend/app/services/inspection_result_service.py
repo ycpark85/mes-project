@@ -111,6 +111,7 @@ def upsert_inspection_result(
             is_partial=is_partial,
             next_inspection_date=next_inspection_date,
             partial_reason=partial_reason,
+            memo=memo,
             created_by=actor,
         )
         db.add(result)
@@ -123,6 +124,7 @@ def upsert_inspection_result(
         result.is_partial = is_partial
         result.next_inspection_date = next_inspection_date
         result.partial_reason = partial_reason
+        result.memo = memo
         db.flush()
 
     _replace_defects_and_attachments(
@@ -279,35 +281,11 @@ def _sync_order_line_status_from_lot(db: Session, *, lot: Lot) -> None:
         return
 
     order_line = db.get(OrderLine, lot.order_line_id)
+
     if not order_line or order_line.status == "CANCELED":
         return
 
-    partner = db.get(Partner, order_line.partner_id)
-    partner_name = partner.name if partner else ""
-    partner_business_no = partner.business_no if partner else ""
-
-    if is_stock_replenishment_partner(partner_name, partner_business_no):
-        order_line.status = "DONE"
-        db.flush()
-        return
-
-    ship_target_qty = calculate_ship_qty(partner_name, int(order_line.order_qty or 0))
-
-    already_shipped_qty = int(
-        db.execute(
-            select(func.coalesce(func.sum(-ProductInventoryMovement.qty), 0)).where(
-                ProductInventoryMovement.order_line_id == order_line.order_line_id,
-                ProductInventoryMovement.movement_type == "SHIP_OUT",
-            )
-        ).scalar_one()
-        or 0
-    )
-
-    if already_shipped_qty >= ship_target_qty:
-        order_line.status = "DONE"
-    else:
-        order_line.status = "CLOSED"
-
+    order_line.status = "DONE"
     db.flush()
 
 
@@ -356,6 +334,142 @@ def _sync_lot_status_from_inspection_schedules(
 
     if next_status == "DONE":
         _sync_order_line_status_from_lot(db, lot=lot)
+
+def _get_fifo_stock_lot_allocations(
+    db: Session,
+    *,
+    product_id: int,
+    current_lot_id: int,
+    inspection_result_id: int,
+    stock_ship_qty: int,
+) -> list[tuple[int, int]]:
+    if stock_ship_qty <= 0:
+        return []
+
+    stock_in_rows = (
+        db.execute(
+            select(
+                Lot.lot_id,
+                Lot.created_date,
+                func.coalesce(func.sum(ProductInventoryMovement.qty), 0).label("stock_in_qty"),
+            )
+            .select_from(ProductInventoryMovement)
+            .join(
+                InspectionResult,
+                InspectionResult.inspection_result_id
+                == ProductInventoryMovement.inspection_result_id,
+            )
+            .join(
+                InspectionSchedule,
+                InspectionSchedule.inspection_schedule_id
+                == InspectionResult.inspection_schedule_id,
+            )
+            .join(Lot, Lot.lot_id == InspectionSchedule.lot_id)
+            .where(
+                ProductInventoryMovement.product_id == product_id,
+                ProductInventoryMovement.movement_type == "INSPECTION_IN",
+                ProductInventoryMovement.qty > 0,
+                Lot.lot_id != current_lot_id,
+            )
+            .group_by(
+                Lot.lot_id,
+                Lot.created_date,
+            )
+            .order_by(
+                Lot.created_date.asc(),
+                Lot.lot_id.asc(),
+            )
+        )
+        .mappings()
+        .all()
+    )
+
+    allocated_rows = (
+        db.execute(
+            select(
+                ShipmentLine.lot_id,
+                func.coalesce(func.sum(ShipmentLine.ship_qty), 0).label("allocated_qty"),
+            )
+            .where(
+                ShipmentLine.product_id == product_id,
+                ShipmentLine.status.in_(("WAITING", "DONE")),
+                ShipmentLine.lot_id.is_not(None),
+                ShipmentLine.lot_id != current_lot_id,
+                (ShipmentLine.inspection_result_id.is_(None))
+                | (ShipmentLine.inspection_result_id != inspection_result_id),
+            )
+            .group_by(ShipmentLine.lot_id)
+        )
+        .mappings()
+        .all()
+    )
+
+    allocated_map = {
+        int(row["lot_id"]): int(row["allocated_qty"] or 0)
+        for row in allocated_rows
+    }
+
+    remaining_qty = stock_ship_qty
+    allocations: list[tuple[int, int]] = []
+
+    for row in stock_in_rows:
+        lot_id = int(row["lot_id"])
+        stock_in_qty = int(row["stock_in_qty"] or 0)
+        allocated_qty = allocated_map.get(lot_id, 0)
+        available_qty = max(stock_in_qty - allocated_qty, 0)
+
+        if available_qty <= 0:
+            continue
+
+        ship_qty = min(available_qty, remaining_qty)
+
+        if ship_qty > 0:
+            allocations.append((lot_id, ship_qty))
+            remaining_qty -= ship_qty
+
+        if remaining_qty <= 0:
+            break
+
+    if remaining_qty > 0:
+        raise HTTPException(
+            status_code=422,
+            detail="기존재고 출하대기 수량을 FIFO LOT 재고로 배정할 수 없습니다.",
+        )
+
+    return allocations
+
+
+def _create_stock_shipment_lines_by_fifo(
+    db: Session,
+    *,
+    order_line: OrderLine,
+    product_id: int,
+    current_lot_id: int,
+    inspection_result_id: int,
+    stock_ship_qty: int,
+) -> None:
+    allocations = _get_fifo_stock_lot_allocations(
+        db,
+        product_id=product_id,
+        current_lot_id=current_lot_id,
+        inspection_result_id=inspection_result_id,
+        stock_ship_qty=stock_ship_qty,
+    )
+
+    for lot_id, ship_qty in allocations:
+        db.add(
+            ShipmentLine(
+                order_line_id=order_line.order_line_id,
+                product_id=product_id,
+                lot_id=lot_id,
+                inspection_result_id=inspection_result_id,
+                source_type="STOCK",
+                status="WAITING",
+                ship_qty=ship_qty,
+                shipped_qty=0,
+                memo="검수 실적 저장 시 기존 재고 출하대기 FIFO LOT 생성",
+            )
+        )
 
 def _apply_inventory_for_result(
     db: Session,
@@ -505,18 +619,13 @@ def _apply_inventory_for_result(
         )
 
     if stock_ship_qty > 0:
-        db.add(
-            ShipmentLine(
-                order_line_id=order_line.order_line_id,
-                product_id=lot.product_id,
-                lot_id=None,
-                inspection_result_id=result.inspection_result_id,
-                source_type="STOCK",
-                status="WAITING",
-                ship_qty=stock_ship_qty,
-                shipped_qty=0,
-                memo="검수 실적 저장 시 기존 재고 출하대기 생성",
-            )
+        _create_stock_shipment_lines_by_fifo(
+            db,
+            order_line=order_line,
+            product_id=lot.product_id,
+            current_lot_id=lot.lot_id,
+            inspection_result_id=result.inspection_result_id,
+            stock_ship_qty=stock_ship_qty,
         )
 
     if result_ship_qty > 0:
@@ -534,9 +643,6 @@ def _apply_inventory_for_result(
             )
         )
 
-    if is_stock_replenishment:
-        order_line.status = "DONE"
-    else:
-        order_line.status = "CLOSED"
+    order_line.status = "DONE"
 
     db.flush()   

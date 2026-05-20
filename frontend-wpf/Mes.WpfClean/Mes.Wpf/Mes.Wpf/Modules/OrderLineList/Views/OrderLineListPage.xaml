@@ -6,7 +6,7 @@
              mc:Ignorable="d">
 
     <UserControl.Resources>
-        <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+        <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
 
         <Style x:Key="SectionBorderStyle" TargetType="Border">
             <Setter Property="Background" Value="White"/>
@@ -14,6 +14,7 @@
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="10"/>
             <Setter Property="Padding" Value="16"/>
+            <Setter Property="Margin" Value="0,0,0,12"/>
         </Style>
 
         <Style x:Key="SubSectionBorderStyle" TargetType="Border">
@@ -26,7 +27,7 @@
 
         <Style x:Key="PrimaryButtonStyle" TargetType="Button">
             <Setter Property="Height" Value="34"/>
-            <Setter Property="MinWidth" Value="90"/>
+            <Setter Property="MinWidth" Value="88"/>
             <Setter Property="Padding" Value="14,0"/>
             <Setter Property="Margin" Value="0"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
@@ -48,19 +49,19 @@
             <Setter Property="TextAlignment" Value="Center"/>
         </Style>
 
-        <Style x:Key="InfoLabelStyle" TargetType="TextBlock">
+        <Style x:Key="LabelTextStyle" TargetType="TextBlock">
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Foreground" Value="#374151"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
 
-        <Style x:Key="InfoValueStyle" TargetType="TextBlock">
+        <Style x:Key="ValueTextStyle" TargetType="TextBlock">
             <Setter Property="Foreground" Value="#111827"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
 
-        <Style x:Key="SubSectionTitleStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="14"/>
+        <Style x:Key="SectionTitleStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="15"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Foreground" Value="#111827"/>
         </Style>
@@ -88,556 +89,453 @@
         </Style>
     </UserControl.Resources>
 
-    <Grid Background="#F5F7FA" Margin="16">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="12"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="12"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="12"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="8"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
+    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled">
+        <Grid Background="#F5F7FA"
+              Margin="16">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="12"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="12"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="12"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
 
-        <!-- 상단 검색/탭 영역 -->
-        <Border Grid.Row="0" Style="{StaticResource SectionBorderStyle}">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="12"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
+            <!-- 검색 영역 -->
+            <Border Grid.Row="0"
+                    Style="{StaticResource SectionBorderStyle}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="10"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
 
-                <StackPanel Grid.Row="0" Orientation="Horizontal">
-                    <Button Content="생산중"
-                            Command="{Binding ShowInProgressCommand}">
-                        <Button.Style>
-                            <Style TargetType="Button" BasedOn="{StaticResource TabButtonStyle}">
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsInProgressTab}" Value="True">
-                                        <Setter Property="Background" Value="#2563EB"/>
-                                        <Setter Property="Foreground" Value="White"/>
-                                        <Setter Property="BorderBrush" Value="#2563EB"/>
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Button.Style>
-                    </Button>
+                    <DockPanel Grid.Row="0">
+                        <StackPanel DockPanel.Dock="Left"
+                                    Orientation="Horizontal">
+                            <Button Style="{StaticResource TabButtonStyle}"
+                                    Margin="0,0,8,0"
+                                    Content="생산중"
+                                    Command="{Binding ShowInProgressCommand}"/>
 
-                    <Button Content="생산완료"
-                            Margin="8,0,0,0"
-                            Command="{Binding ShowCompletedCommand}">
-                        <Button.Style>
-                            <Style TargetType="Button" BasedOn="{StaticResource TabButtonStyle}">
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsCompletedTab}" Value="True">
-                                        <Setter Property="Background" Value="#059669"/>
-                                        <Setter Property="Foreground" Value="White"/>
-                                        <Setter Property="BorderBrush" Value="#059669"/>
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Button.Style>
-                    </Button>
-                </StackPanel>
+                            <Button Style="{StaticResource TabButtonStyle}"
+                                    Content="생산완료"
+                                    Command="{Binding ShowCompletedCommand}"/>
+                        </StackPanel>
 
-                <Grid Grid.Row="2">
+                        <TextBlock DockPanel.Dock="Right"
+                                   VerticalAlignment="Center"
+                                   Foreground="#6B7280"
+                                   Text="{Binding TotalCountText}"/>
+                    </DockPanel>
+
+                    <Grid Grid.Row="2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="80"/>
+                            <ColumnDefinition Width="150"/>
+                            <ColumnDefinition Width="24"/>
+                            <ColumnDefinition Width="150"/>
+                            <ColumnDefinition Width="24"/>
+                            <ColumnDefinition Width="70"/>
+                            <ColumnDefinition Width="220"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="100"/>
+                            <ColumnDefinition Width="12"/>
+                            <ColumnDefinition Width="100"/>
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Grid.Column="0"
+                                   Style="{StaticResource LabelTextStyle}"
+                                   Text="수주일자"
+                                   Visibility="{Binding IsDateFilterVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+                        <DatePicker Grid.Column="1"
+                                    Height="32"
+                                    SelectedDate="{Binding OrderDateFrom}"
+                                    Visibility="{Binding IsDateFilterVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+                        <TextBlock Grid.Column="2"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   Text="~"
+                                   Visibility="{Binding IsDateFilterVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+                        <DatePicker Grid.Column="3"
+                                    Height="32"
+                                    SelectedDate="{Binding OrderDateTo}"
+                                    Visibility="{Binding IsDateFilterVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+                        <TextBlock Grid.Column="5"
+                                   Style="{StaticResource LabelTextStyle}"
+                                   Text="검색어"/>
+
+                        <TextBox Grid.Column="6"
+                                 Height="32"
+                                 VerticalContentAlignment="Center"
+                                 Text="{Binding SearchKeyword, UpdateSourceTrigger=PropertyChanged}"/>
+
+                        <Button Grid.Column="8"
+                                Style="{StaticResource PrimaryButtonStyle}"
+                                Content="조회"
+                                Command="{Binding SearchCommand}"/>
+
+                        <Button Grid.Column="10"
+                                Style="{StaticResource PrimaryButtonStyle}"
+                                Content="초기화"
+                                Command="{Binding ResetCommand}"/>
+                    </Grid>
+                </Grid>
+            </Border>
+
+            <!-- 리스트 영역 -->
+            <Border Grid.Row="2"
+                    Style="{StaticResource SectionBorderStyle}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="10"/>
+                        <RowDefinition Height="360"/>
+                        <RowDefinition Height="10"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <DockPanel Grid.Row="0">
+                        <TextBlock DockPanel.Dock="Left"
+                                   Style="{StaticResource SectionTitleStyle}"
+                                   Text="{Binding CurrentTabTitle}"/>
+
+                        <TextBlock DockPanel.Dock="Right"
+                                   VerticalAlignment="Center"
+                                   Foreground="#6B7280"
+                                   Text="{Binding PageInfoText}"/>
+                    </DockPanel>
+
+                    <DataGrid Grid.Row="2"
+                              ItemsSource="{Binding Items}"
+                              SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
+                              AutoGenerateColumns="False"
+                              IsReadOnly="True"
+                              CanUserAddRows="False"
+                              CanUserDeleteRows="False"
+                              SelectionMode="Single"
+                              SelectionUnit="FullRow"
+                              HeadersVisibility="Column"
+                              RowHeaderWidth="0"
+                              GridLinesVisibility="Horizontal"
+                              Background="White"
+                              ScrollViewer.VerticalScrollBarVisibility="Auto"
+                              ScrollViewer.HorizontalScrollBarVisibility="Auto">
+
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="수주번호"
+                                                Binding="{Binding OrderNo}"
+                                                Width="130"
+                                                ElementStyle="{StaticResource GridTextStyle}"/>
+
+                            <DataGridTextColumn Header="라인"
+                                                Binding="{Binding LineNo}"
+                                                Width="70"
+                                                ElementStyle="{StaticResource GridTextStyle}"/>
+
+                            <DataGridTextColumn Header="거래처"
+                                                Binding="{Binding PartnerName}"
+                                                Width="160"
+                                                ElementStyle="{StaticResource GridTextStyle}"/>
+
+                            <DataGridTextColumn Header="품목코드"
+                                                Binding="{Binding ProductCode}"
+                                                Width="120"
+                                                ElementStyle="{StaticResource GridTextStyle}"/>
+
+                            <DataGridTextColumn Header="품목명"
+                                                Binding="{Binding ProductName}"
+                                                Width="180"
+                                                ElementStyle="{StaticResource GridTextStyle}"/>
+
+                            <DataGridTextColumn Header="수주수량"
+                                                Binding="{Binding OrderQty, StringFormat={}{0:N0}}"
+                                                Width="100"
+                                                ElementStyle="{StaticResource GridTextStyle}"/>
+
+                            <DataGridTextColumn Header="출고목표"
+                                                Binding="{Binding ShipTargetQty, StringFormat={}{0:N0}}"
+                                                Width="100"
+                                                ElementStyle="{StaticResource GridTextStyle}"/>
+
+                            <DataGridTextColumn Header="현재고"
+                                                Binding="{Binding AvailableInventoryQty, StringFormat={}{0:N0}}"
+                                                Width="100"
+                                                ElementStyle="{StaticResource GridTextStyle}"/>
+
+                            <DataGridTextColumn Header="생산필요"
+                                                Binding="{Binding PlannedProductionQty, StringFormat={}{0:N0}}"
+                                                Width="100"
+                                                ElementStyle="{StaticResource GridTextStyle}"/>
+
+                            <DataGridTextColumn Header="처리구분"
+                                                Binding="{Binding PlanTypeDisplay}"
+                                                Width="150"
+                                                ElementStyle="{StaticResource GridTextStyle}"/>
+
+                            <DataGridTextColumn Header="상태"
+                                                Binding="{Binding Status}"
+                                                Width="90"
+                                                ElementStyle="{StaticResource GridTextStyle}"/>
+
+                            <DataGridTextColumn Header="결정"
+                                                Binding="{Binding DecisionStatusDisplay}"
+                                                Width="90"
+                                                ElementStyle="{StaticResource GridTextStyle}"/>
+
+                            <DataGridTextColumn Header="LOT"
+                                                Binding="{Binding HasLot}"
+                                                Width="70"
+                                                ElementStyle="{StaticResource GridTextStyle}"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <StackPanel Grid.Row="4"
+                                Orientation="Horizontal"
+                                HorizontalAlignment="Right">
+                        <Button Style="{StaticResource PrimaryButtonStyle}"
+                                Margin="0,0,8,0"
+                                Content="이전"
+                                IsEnabled="{Binding CanGoPreviousPage}"
+                                Command="{Binding PreviousPageCommand}"/>
+
+                        <Button Style="{StaticResource PrimaryButtonStyle}"
+                                Content="다음"
+                                IsEnabled="{Binding CanGoNextPage}"
+                                Command="{Binding NextPageCommand}"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- 액션 영역 -->
+            <Border Grid.Row="4"
+                    Style="{StaticResource SectionBorderStyle}">
+                <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="70"/>
-                        <ColumnDefinition Width="135"/>
-                        <ColumnDefinition Width="24"/>
-                        <ColumnDefinition Width="135"/>
-                        <ColumnDefinition Width="24"/>
-                        <ColumnDefinition Width="55"/>
-                        <ColumnDefinition Width="180"/>
                         <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="100"/>
-                        <ColumnDefinition Width="12"/>
-                        <ColumnDefinition Width="100"/>
+                        <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
                     <TextBlock Grid.Column="0"
                                VerticalAlignment="Center"
-                               FontWeight="SemiBold"
-                               Text="수주일자"
-                               Visibility="{Binding IsDateFilterVisible, Converter={StaticResource BoolToVisibilityConverter}}" />
-
-                    <DatePicker Grid.Column="1"
-                                Height="32"
-                                VerticalAlignment="Center"
-                                SelectedDate="{Binding OrderDateFrom, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                Visibility="{Binding IsDateFilterVisible, Converter={StaticResource BoolToVisibilityConverter}}" />
-
-                    <TextBlock Grid.Column="2"
-                               VerticalAlignment="Center"
-                               HorizontalAlignment="Center"
-                               Text="~"
-                               Visibility="{Binding IsDateFilterVisible, Converter={StaticResource BoolToVisibilityConverter}}" />
-
-                    <DatePicker Grid.Column="3"
-                                Height="32"
-                                VerticalAlignment="Center"
-                                SelectedDate="{Binding OrderDateTo, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                Visibility="{Binding IsDateFilterVisible, Converter={StaticResource BoolToVisibilityConverter}}" />
-
-                    <TextBlock Grid.Column="5"
-                               VerticalAlignment="Center"
-                               FontWeight="SemiBold"
-                               Text="검색어" />
-
-                    <TextBox Grid.Column="6"
-                             Height="32"
-                             VerticalAlignment="Center"
-                             VerticalContentAlignment="Center"
-                             Text="{Binding SearchKeyword, UpdateSourceTrigger=PropertyChanged}" />
-
-                    <Button Grid.Column="8"
-                            Style="{StaticResource PrimaryButtonStyle}"
-                            Content="조회"
-                            Command="{Binding SearchCommand}" />
-
-                    <Button Grid.Column="10"
-                            Style="{StaticResource PrimaryButtonStyle}"
-                            Content="초기화"
-                            Command="{Binding ResetCommand}" />
-                </Grid>
-            </Grid>
-        </Border>
-
-        <!-- 리스트 -->
-        <Border Grid.Row="2" Style="{StaticResource SectionBorderStyle}">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="12"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
-
-                <DockPanel Grid.Row="0">
-                    <TextBlock DockPanel.Dock="Left"
-                               FontSize="15"
-                               FontWeight="SemiBold"
-                               Text="{Binding CurrentTabTitle}" />
-
-                    <TextBlock DockPanel.Dock="Right"
-                               VerticalAlignment="Center"
                                Foreground="#6B7280"
-                               Text="{Binding PageInfoText}" />
-                </DockPanel>
+                               Text="선택한 발주의 상세 확인, 기본 LOT 생성, 재작업 LOT 생성을 진행할 수 있습니다."/>
 
-                <DataGrid Grid.Row="2"
-                          ItemsSource="{Binding Items}"
-                          SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
-                          AutoGenerateColumns="False"
-                          IsReadOnly="True"
-                          SelectionMode="Single"
-                          SelectionUnit="FullRow"
-                          HeadersVisibility="Column"
-                          CanUserAddRows="False"
-                          CanUserDeleteRows="False"
-                          CanUserResizeRows="False"
-                          GridLinesVisibility="Horizontal"
-                          RowHeaderWidth="0"
-                          BorderThickness="0"
-                          Background="White"
-                          RowHeight="34"
-                          ColumnHeaderHeight="38"
-                          ScrollViewer.VerticalScrollBarVisibility="Visible"
-                          ScrollViewer.HorizontalScrollBarVisibility="Auto">
+                    <StackPanel Grid.Column="1"
+                                Orientation="Horizontal">
+                        <Button Style="{StaticResource PrimaryButtonStyle}"
+                                Margin="0,0,8,0"
+                                Content="수주상세"
+                                Command="{Binding OpenOrderDetailCommand}"/>
 
-                    <DataGrid.Columns>
-                        <DataGridTextColumn Header="발주번호"
-                                            Binding="{Binding OrderNo}"
-                                            Width="120"
-                                            ElementStyle="{StaticResource GridTextStyle}" />
+                        <Button Style="{StaticResource PrimaryButtonStyle}"
+                                Margin="0,0,8,0"
+                                Content="기본 LOT 생성"
+                                IsEnabled="{Binding CanCreateBaseLot}"
+                                Command="{Binding CreateBaseLotCommand}"/>
 
-                        <DataGridTextColumn Header="거래처"
-                                            Binding="{Binding PartnerName}"
-                                            Width="160"
-                                            ElementStyle="{StaticResource GridTextStyle}" />
+                        <Button Style="{StaticResource PrimaryButtonStyle}"
+                                Content="{Binding LotActionButtonText}"
+                                Command="{Binding OpenLotActionCommand}"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
 
-                        <DataGridTextColumn Header="품목코드"
-                                            Binding="{Binding ProductCode}"
-                                            Width="140"
-                                            ElementStyle="{StaticResource GridTextStyle}" />
+            <!-- 자동 처리계획 -->
+            <Border Grid.Row="6"
+                    Style="{StaticResource SectionBorderStyle}"
+                    Visibility="{Binding IsPlanningSectionVisible, Converter={StaticResource BoolToVisibilityConverter}}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="10"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="10"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="10"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
 
-                        <DataGridTextColumn Header="품목명"
-                                            Binding="{Binding ProductName}"
-                                            Width="*"
-                                            ElementStyle="{StaticResource GridTextStyle}" />
+                    <TextBlock Grid.Row="0"
+                               Style="{StaticResource SectionTitleStyle}"
+                               Text="자동 처리계획"/>
 
-                        <DataGridTextColumn Header="수주일"
-                                            Binding="{Binding OrderDate, StringFormat=yyyy-MM-dd}"
-                                            Width="100"
-                                            ElementStyle="{StaticResource GridTextStyle}" />
+                    <!-- 수량 요약 -->
+                    <UniformGrid Grid.Row="2"
+                                 Columns="4">
+                        <Border Margin="0,0,8,0"
+                                Style="{StaticResource SubSectionBorderStyle}">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource LabelTextStyle}"
+                                           Text="출고목표수량"/>
+                                <TextBlock Margin="0,6,0,0"
+                                           FontSize="17"
+                                           FontWeight="SemiBold"
+                                           Text="{Binding ShipTargetQtyText}"/>
+                            </StackPanel>
+                        </Border>
 
-                        <DataGridTextColumn Header="납기일"
-                                            Binding="{Binding DueDate, StringFormat=yyyy-MM-dd}"
-                                            Width="100"
-                                            ElementStyle="{StaticResource GridTextStyle}" />
+                        <Border Margin="0,0,8,0"
+                                Style="{StaticResource SubSectionBorderStyle}">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource LabelTextStyle}"
+                                           Text="현재고수량"/>
+                                <TextBlock Margin="0,6,0,0"
+                                           FontSize="17"
+                                           FontWeight="SemiBold"
+                                           Text="{Binding AvailableInventoryQtyText}"/>
+                            </StackPanel>
+                        </Border>
 
-                        <DataGridTextColumn Header="수주수량"
-                                            Binding="{Binding OrderQty, StringFormat={}{0:N0}}"
-                                            Width="100"
-                                            ElementStyle="{StaticResource GridTextStyle}" />
+                        <Border Margin="0,0,8,0"
+                                Style="{StaticResource SubSectionBorderStyle}">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource LabelTextStyle}"
+                                           Text="재고사용예정"/>
+                                <TextBlock Margin="0,6,0,0"
+                                           FontSize="17"
+                                           FontWeight="SemiBold"
+                                           Text="{Binding StockUsePlanQtyText}"/>
+                            </StackPanel>
+                        </Border>
 
-                        <DataGridTextColumn Header="단위"
-                                            Binding="{Binding Uom}"
-                                            Width="70"
-                                            ElementStyle="{StaticResource GridTextStyle}" />
+                        <Border Style="{StaticResource SubSectionBorderStyle}">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource LabelTextStyle}"
+                                           Text="생산필요수량"/>
+                                <TextBlock Margin="0,6,0,0"
+                                           FontSize="17"
+                                           FontWeight="SemiBold"
+                                           Text="{Binding PlannedProductionQtyText}"/>
+                            </StackPanel>
+                        </Border>
+                    </UniformGrid>
 
-                        <DataGridTextColumn Header="상태"
-                                            Binding="{Binding StatusDisplay}"
-                                            Width="100"
-                                            ElementStyle="{StaticResource GridTextStyle}" />
-
-                        <DataGridTextColumn Header="LOT 수"
-                                            Binding="{Binding LotCount}"
-                                            Width="70"
-                                            ElementStyle="{StaticResource GridTextStyle}" />
-                    </DataGrid.Columns>
-                </DataGrid>
-            </Grid>
-        </Border>
-
-        <!-- 처리계획 / 부족수량 처리 통합 영역 -->
-        <Border Grid.Row="4"
-                Style="{StaticResource SectionBorderStyle}"
-                Visibility="{Binding IsPlanningSectionVisible, Converter={StaticResource BoolToVisibilityConverter}}">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="16"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
-
-                <TextBlock Grid.Row="0"
-                           FontSize="15"
-                           FontWeight="SemiBold"
-                           Text="처리계획 결정 / 부족수량 처리" />
-
-                <Grid Grid.Row="2">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="16"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="16"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-
-                    <!-- 1. 생산수량 관련 -->
-                    <Border Grid.Column="0" Style="{StaticResource SubSectionBorderStyle}">
+                    <!-- 처리 상태 -->
+                    <Border Grid.Row="4"
+                            Style="{StaticResource SubSectionBorderStyle}">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="14"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="10"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="10"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="10"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="10"/>
+                                <RowDefinition Height="8"/>
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
 
-                            <TextBlock Grid.Row="0"
-                                       Style="{StaticResource SubSectionTitleStyle}"
-                                       Text="생산수량 관련" />
-
-                            <Grid Grid.Row="2">
+                            <Grid Grid.Row="0">
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="130"/>
+                                    <ColumnDefinition Width="90"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="90"/>
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Style="{StaticResource InfoLabelStyle}" Text="가용재고수량" />
-                                <TextBlock Grid.Column="1" Style="{StaticResource InfoValueStyle}" Text="{Binding AvailableInventoryQtyText}" />
-                            </Grid>
 
-                            <Grid Grid.Row="4">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="130"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Style="{StaticResource InfoLabelStyle}" Text="출고목표수량" />
-                                <TextBlock Grid.Column="1" Style="{StaticResource InfoValueStyle}" Text="{Binding TargetShipQtyText}" />
-                            </Grid>
-
-                            <Grid Grid.Row="6">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="130"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Style="{StaticResource InfoLabelStyle}" Text="추천 생산수량" />
-                                <TextBlock Grid.Column="1" Style="{StaticResource InfoValueStyle}" Text="{Binding RecommendedProductionQtyText}" />
-                            </Grid>
-
-                            <Grid Grid.Row="8">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="130"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Style="{StaticResource InfoLabelStyle}" Text="계획 생산수량" />
-                                <TextBlock Grid.Column="1" Style="{StaticResource InfoValueStyle}" Text="{Binding PlannedProductionQtyText}" />
-                            </Grid>
-
-                            <Grid Grid.Row="10">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="130"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Style="{StaticResource InfoLabelStyle}" Text="결정상태" />
-                                <TextBlock Grid.Column="1" Style="{StaticResource InfoValueStyle}" Text="{Binding DecisionStatusText}" />
-                            </Grid>
-                        </Grid>
-                    </Border>
-
-                    <!-- 2. 충당주문방식 -->
-                    <Border Grid.Column="2" Style="{StaticResource SubSectionBorderStyle}">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="14"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="10"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="10"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="10"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="16"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-
-                            <TextBlock Grid.Row="0"
-                                       Style="{StaticResource SubSectionTitleStyle}"
-                                       Text="충당주문방식" />
-
-                            <Grid Grid.Row="2">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="130"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
                                 <TextBlock Grid.Column="0"
-                                           Style="{StaticResource InfoLabelStyle}"
-                                           Text="추천 충당방식" />
+                                           Style="{StaticResource LabelTextStyle}"
+                                           Text="처리구분"/>
+
                                 <TextBlock Grid.Column="1"
-                                           Style="{StaticResource InfoValueStyle}"
-                                           Text="{Binding RecommendedFulfillmentModeText}" />
+                                           Style="{StaticResource ValueTextStyle}"
+                                           Text="{Binding PlanTypeDisplayText}"/>
+
+                                <TextBlock Grid.Column="2"
+                                           Style="{StaticResource LabelTextStyle}"
+                                           Text="결정상태"/>
+
+                                <TextBlock Grid.Column="3"
+                                           Style="{StaticResource ValueTextStyle}"
+                                           Text="{Binding DecisionStatusText}"/>
                             </Grid>
 
-                            <Grid Grid.Row="4">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="130"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-
-                                <TextBlock Grid.Column="0"
-                                           Style="{StaticResource InfoLabelStyle}"
-                                           Text="주문충당방식" />
-
-                                <ComboBox Grid.Column="1"
-                                          Height="32"
-                                          SelectedValue="{Binding SelectedFulfillmentMode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                          SelectedValuePath="Tag"
-                                          IsEnabled="{Binding CanEditFulfillmentMode}">
-                                    <ComboBoxItem Content="재고 우선" Tag="INVENTORY_FIRST" />
-                                    <ComboBoxItem Content="생산 우선" Tag="PRODUCTION_FIRST" />
-                                    <ComboBoxItem Content="혼합" Tag="HYBRID" />
-                                </ComboBox>
-                            </Grid>
-
-                            <Grid Grid.Row="6">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="130"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-
-                                <TextBlock Grid.Column="0"
-                                           Style="{StaticResource InfoLabelStyle}"
-                                           Text="생산정책" />
-
-                                <ComboBox Grid.Column="1"
-                                          Height="32"
-                                          SelectedValue="{Binding SelectedProductionPolicy, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                          SelectedValuePath="Tag">
-                                    <ComboBoxItem Content="주문분만 생산" Tag="ORDER_ONLY" />
-                                    <ComboBoxItem Content="추가 생산 허용" Tag="ALLOW_STOCK_BUILD" />
-                                    <ComboBoxItem Content="재고만 출고 후 종료" Tag="INVENTORY_ONLY_CLOSE" />
-                                </ComboBox>
-                            </Grid>
-
-                            <Grid Grid.Row="8">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="130"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-
-                                <TextBlock Grid.Column="0"
-                                           Style="{StaticResource InfoLabelStyle}"
-                                           Text="추가생산수량" />
-
-                                <TextBox Grid.Column="1"
-                                         Height="32"
-                                         VerticalContentAlignment="Center"
-                                         Text="{Binding ExtraProductionQtyText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                         IsEnabled="{Binding CanEditExtraProductionQty}" />
-                            </Grid>
-
-                            <StackPanel Grid.Row="10"
-                                        Orientation="Horizontal"
-                                        HorizontalAlignment="Right">
-                                <Button Style="{StaticResource PrimaryButtonStyle}"
-                                        MinWidth="120"
-                                        Content="처리계획 저장"
-                                        Command="{Binding SaveFulfillmentPlanCommand}" />
-                            </StackPanel>
+                            <TextBlock Grid.Row="2"
+                                       Foreground="#6B7280"
+                                       TextWrapping="Wrap"
+                                       Text="{Binding AutoPlanGuideText}"/>
                         </Grid>
                     </Border>
 
-                    <!-- 3. 부족수량 처리 -->
-                    <Border Grid.Column="4" Style="{StaticResource SubSectionBorderStyle}">
+                    <!-- 부분재고 처리방식 -->
+                    <Border Grid.Row="6"
+                            Style="{StaticResource SubSectionBorderStyle}"
+                            Visibility="{Binding IsPartialStockDecisionVisible, Converter={StaticResource BoolToVisibilityConverter}}">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="14"/>
-                                <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="10"/>
                                 <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="10"/>
+                                <RowDefinition Height="8"/>
                                 <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="10"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="16"/>
+                                <RowDefinition Height="8"/>
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
 
                             <TextBlock Grid.Row="0"
-                                       Style="{StaticResource SubSectionTitleStyle}"
-                                       Text="부족수량 처리" />
+                                       FontWeight="SemiBold"
+                                       Foreground="#111827"
+                                       Text="부분재고 처리방식"/>
 
-                            <Grid Grid.Row="2">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="130"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Style="{StaticResource InfoLabelStyle}" Text="출고목표수량" />
-                                <TextBlock Grid.Column="1" Style="{StaticResource InfoValueStyle}" Text="{Binding ShipTargetQtyText}" />
-                            </Grid>
+                            <TextBlock Grid.Row="2"
+                                       Foreground="#6B7280"
+                                       TextWrapping="Wrap"
+                                       Text="현재고가 출고목표수량보다 부족합니다. 재고만 출고하고 종료할지, 부족분을 생산하여 목표수량을 맞출지 선택하세요."/>
 
                             <Grid Grid.Row="4">
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="130"/>
+                                    <ColumnDefinition Width="90"/>
+                                    <ColumnDefinition Width="280"/>
+                                    <ColumnDefinition Width="70"/>
                                     <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="110"/>
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Style="{StaticResource InfoLabelStyle}" Text="기출하수량" />
-                                <TextBlock Grid.Column="1" Style="{StaticResource InfoValueStyle}" Text="{Binding AlreadyShippedQtyText}" />
+
+                                <TextBlock Grid.Column="0"
+                                           Style="{StaticResource LabelTextStyle}"
+                                           Text="처리방식"/>
+
+                                <ComboBox Grid.Column="1"
+                                          Height="30"
+                                          SelectedValue="{Binding SelectedPartialStockPlanType, Mode=TwoWay}"
+                                          SelectedValuePath="Tag">
+                                    <ComboBoxItem Tag="PARTIAL_STOCK_PLUS_PRODUCTION"
+                                                  Content="부족분 생산 후 목표수량 출고"/>
+                                    <ComboBoxItem Tag="PARTIAL_STOCK_ONLY_CLOSE"
+                                                  Content="재고만 출고 후 종료"/>
+                                </ComboBox>
+
+                                <TextBlock Grid.Column="2"
+                                           Margin="12,0,0,0"
+                                           Style="{StaticResource LabelTextStyle}"
+                                           Text="메모"/>
+
+                                <TextBox Grid.Column="3"
+                                         Height="30"
+                                         Padding="6,0"
+                                         VerticalContentAlignment="Center"
+                                         Text="{Binding PartialStockPlanMemo, UpdateSourceTrigger=PropertyChanged}"/>
+
+                                <Button Grid.Column="4"
+                                        Margin="10,0,0,0"
+                                        Height="30"
+                                        MinWidth="90"
+                                        Content="처리 확정"
+                                        IsEnabled="{Binding CanConfirmPartialStockPlan}"
+                                        Command="{Binding ConfirmPartialStockPlanCommand}"/>
                             </Grid>
 
-                            <Grid Grid.Row="6">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="130"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Style="{StaticResource InfoLabelStyle}" Text="남은부족수량" />
-                                <TextBlock Grid.Column="1" Style="{StaticResource InfoValueStyle}" Text="{Binding RemainingShipQtyText}" />
-                            </Grid>
-
-                            <Grid Grid.Row="8">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="130"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Style="{StaticResource InfoLabelStyle}" Text="부족처리상태" />
-                                <TextBlock Grid.Column="1" Style="{StaticResource InfoValueStyle}" Text="{Binding ShortageStatusText}" />
-                            </Grid>
-
-                            <StackPanel Grid.Row="10"
-                                        Orientation="Horizontal"
-                                        HorizontalAlignment="Right">
-                                <Button Style="{StaticResource PrimaryButtonStyle}"
-                                        MinWidth="110"
-                                        Content="부족종료"
-                                        Command="{Binding ShortCloseCommand}"
-                                        IsEnabled="{Binding CanShortClose}" />
-                            </StackPanel>
+                            <TextBlock Grid.Row="6"
+                                       Foreground="#6B7280"
+                                       TextWrapping="Wrap"
+                                       Text="재고만 출고 후 종료를 선택하면 LOT와 검수실적등록 없이 재고 출하대기가 생성됩니다. 부족분 생산을 선택하면 기존재고분과 검수분 출하대기는 검수실적등록에서 함께 처리됩니다."/>
                         </Grid>
                     </Border>
                 </Grid>
-            </Grid>
-        </Border>
-
-        <!-- 페이지네이션 -->
-        <Grid Grid.Row="6">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-
-            <StackPanel Grid.Column="0"
-                        Orientation="Horizontal"
-                        VerticalAlignment="Center">
-                <TextBlock Foreground="#6B7280"
-                           FontWeight="SemiBold"
-                           Text="{Binding TotalCountText}" />
-                <TextBlock Margin="16,0,0,0"
-                           Foreground="#6B7280"
-                           Text="{Binding PageInfoText}" />
-            </StackPanel>
-
-            <StackPanel Grid.Column="1" Orientation="Horizontal">
-                <Button Style="{StaticResource PrimaryButtonStyle}"
-                        MinWidth="80"
-                        Content="이전"
-                        Command="{Binding PreviousPageCommand}"
-                        IsEnabled="{Binding CanGoPreviousPage}" />
-
-                <Button Style="{StaticResource PrimaryButtonStyle}"
-                        Margin="8,0,0,0"
-                        MinWidth="80"
-                        Content="다음"
-                        Command="{Binding NextPageCommand}"
-                        IsEnabled="{Binding CanGoNextPage}" />
-            </StackPanel>
+            </Border>
         </Grid>
-
-        <!-- 하단 액션 -->
-        <Grid Grid.Row="8">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="12" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="12" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-
-            <TextBlock Grid.Column="0"
-                       VerticalAlignment="Center"
-                       Foreground="#6B7280"
-                       Text="항목을 선택한 후 발주상세, 기본 LOT 생성, 재작업 LOT 기능을 사용할 수 있습니다." />
-
-            <Button Grid.Column="1"
-                    Style="{StaticResource PrimaryButtonStyle}"
-                    MinWidth="110"
-                    Content="발주상세"
-                    Command="{Binding OpenOrderDetailCommand}" />
-
-            <Button Grid.Column="3"
-                    Style="{StaticResource PrimaryButtonStyle}"
-                    MinWidth="120"
-                    Content="기본 LOT 생성"
-                    Command="{Binding CreateBaseLotCommand}"
-                    IsEnabled="{Binding CanCreateBaseLot}" />
-
-            <Button Grid.Column="5"
-                    Style="{StaticResource PrimaryButtonStyle}"
-                    MinWidth="130"
-                    Content="{Binding LotActionButtonText}"
-                    Command="{Binding OpenLotActionCommand}" />
-        </Grid>
-    </Grid>
+    </ScrollViewer>
 </UserControl>

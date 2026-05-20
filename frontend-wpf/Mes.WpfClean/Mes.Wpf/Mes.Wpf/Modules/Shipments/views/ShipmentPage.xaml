@@ -225,35 +225,30 @@
                                             Width="260"
                                             ElementStyle="{StaticResource GridTextStyle}"/>
 
-                        <DataGridTextColumn Header="LOT"
-                                            Binding="{Binding LotNo}"
-                                            IsReadOnly="True"
+                        <DataGridTextColumn Header="재고 LOT"
+                                            Binding="{Binding StockLotNos}"
                                             Width="120"
-                                            ElementStyle="{StaticResource GridTextStyle}"/>
+                                            ElementStyle="{StaticResource GridTextStyle}"/>     
 
-                        <DataGridTextColumn Header="출하구분"
-                                            Binding="{Binding SourceTypeDisplay}"
-                                            IsReadOnly="True"
-                                            Width="100"
-                                            ElementStyle="{StaticResource GridTextStyle}"/>
-
-                        <DataGridTextColumn Header="출고목표"
-                                            Binding="{Binding ShipTargetQty, StringFormat={}{0:N0}}"
-                                            IsReadOnly="True"
-                                            Width="100"
-                                            ElementStyle="{StaticResource GridTextStyle}"/>
+                        <DataGridTextColumn Header="생산 LOT"
+                                            Binding="{Binding ProductionLotNos}"
+                                            Width="120"
+                                            ElementStyle="{StaticResource GridTextStyle}"/>     
 
                         <DataGridTextColumn Header="출하수량"
-                                            Binding="{Binding ShipmentQtyDisplay, StringFormat={}{0:N0}}"
-                                            IsReadOnly="True"
+                                            Binding="{Binding ShipQty, StringFormat={}{0:N0}}"
                                             Width="100"
-                                            ElementStyle="{StaticResource GridTextStyle}"/>
+                                            ElementStyle="{StaticResource GridTextStyle}"/>     
 
                         <DataGridTextColumn Header="재고수량"
-                                            Binding="{Binding StockAfterShipQty, StringFormat={}{0:N0}}"
-                                            IsReadOnly="True"
-                                            Width="110"
-                                            ElementStyle="{StaticResource GridTextStyle}"/>
+                                            Binding="{Binding StockShipQty, StringFormat={}{0:N0}}"
+                                            Width="100"
+                                            ElementStyle="{StaticResource GridTextStyle}"/> 
+
+                        <DataGridTextColumn Header="생산수량"
+                                            Binding="{Binding ProductionShipQty, StringFormat={}{0:N0}}"
+                                            Width="100"
+                                            ElementStyle="{StaticResource GridTextStyle}"/> 
 
                         <DataGridTextColumn Header="상태"
                                             Binding="{Binding StatusDisplay}"
@@ -261,14 +256,8 @@
                                             Width="90"
                                             ElementStyle="{StaticResource GridTextStyle}"/>
 
-                        <DataGridTextColumn Header="등록일"
-                                            Binding="{Binding CreatedAt, StringFormat=yyyy-MM-dd HH:mm}"
-                                            IsReadOnly="True"
-                                            Width="140"
-                                            ElementStyle="{StaticResource GridTextStyle}"/>
-
                         <DataGridTextColumn Header="출하일"
-                                            Binding="{Binding ShippedAt, StringFormat=yyyy-MM-dd HH:mm}"
+                                            Binding="{Binding ShippedDate, StringFormat=yyyy-MM-dd HH:mm}"
                                             IsReadOnly="True"
                                             Width="140"
                                             ElementStyle="{StaticResource GridTextStyle}"/>

@@ -109,6 +109,66 @@ namespace Mes.Wpf.Modules.Shipments.Dtos
         };
 
         [JsonIgnore]
+        public string StockLotNo => SourceType == "STOCK"
+            ? LotNo ?? string.Empty
+            : string.Empty;
+
+        [JsonIgnore]
+        public string ProductionLotNo => SourceType == "INSPECTION_RESULT"
+            ? LotNo ?? string.Empty
+            : string.Empty;
+
+        [JsonIgnore]
+        public string StatusDisplay => Status switch
+        {
+            "WAITING" => "출하대기",
+            "DONE" => "출하완료",
+            "CANCELED" => "취소",
+            _ => Status
+        };
+
+        
+
+    }
+
+    public class ShipmentDisplayItemDto : ViewModelBase
+    {
+        private bool _isSelected;
+
+        [JsonIgnore]
+        public bool IsSelected
+        {
+            get => _isSelected;
+            set => SetProperty(ref _isSelected, value);
+        }
+
+        [JsonIgnore]
+        public ObservableCollection<ShipmentLineDto> Lines { get; set; } = new();
+
+        public int OrderLineId { get; set; }
+
+        public string OrderNo { get; set; } = string.Empty;
+
+        public string? PartnerName { get; set; }
+
+        public string? ProductCode { get; set; }
+
+        public string? ProductName { get; set; }
+
+        public string Status { get; set; } = string.Empty;
+
+        public int StockShipQty { get; set; }
+
+        public int ProductionShipQty { get; set; }
+
+        public int ShipQty => StockShipQty + ProductionShipQty;
+
+        public string StockLotNos { get; set; } = string.Empty;
+
+        public string ProductionLotNos { get; set; } = string.Empty;
+
+        public DateTime? ShippedDate { get; set; }
+
         public string StatusDisplay => Status switch
         {
             "WAITING" => "출하대기",
@@ -117,6 +177,7 @@ namespace Mes.Wpf.Modules.Shipments.Dtos
             _ => Status
         };
     }
+
 
     public class ShipmentConfirmRequest
     {

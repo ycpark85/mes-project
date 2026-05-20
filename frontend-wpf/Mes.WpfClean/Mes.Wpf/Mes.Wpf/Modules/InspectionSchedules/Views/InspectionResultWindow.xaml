@@ -168,6 +168,8 @@
                             <TextBlock Grid.Column="1" Style="{StaticResource ValueTextStyle}" Text="{Binding InspectionDate, StringFormat=yyyy-MM-dd}"/>
                         </Grid>
                     </Grid>
+                    
+                    
                 </Border>
 
                 <!-- 수량 / 납기 정보 -->
@@ -242,6 +244,8 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="8"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
 
                         <TextBlock Grid.Row="0"
@@ -291,6 +295,44 @@
                             </Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0" Style="{StaticResource LabelTextStyle}" Text="출하대기합계"/>
                             <TextBlock Grid.Column="1" Style="{StaticResource ValueTextStyle}" Text="{Binding ExpectedShipQty, StringFormat={}{0:N0}}"/>
+                        </Grid>
+                        <Grid Grid.Row="10">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="8"/>
+                                <RowDefinition Height="120"/>
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0"
+               FontWeight="SemiBold"
+               Foreground="#374151"
+               Text="FIFO 기존재고 LOT"/>
+
+                            <DataGrid Grid.Row="2"
+              ItemsSource="{Binding StockLots}"
+              AutoGenerateColumns="False"
+              IsReadOnly="True"
+              CanUserAddRows="False"
+              CanUserDeleteRows="False"
+              HeadersVisibility="Column"
+              RowHeaderWidth="0"
+              GridLinesVisibility="Horizontal"
+              Background="White"
+              ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="LOT 번호"
+                                Binding="{Binding LotNo}"
+                                Width="*"/>
+
+                                    <DataGridTextColumn Header="재고수량"
+                                Binding="{Binding StockQty, StringFormat={}{0:N0}}"
+                                Width="90"/>
+
+                                    <DataGridTextColumn Header="출하대기 예정"
+                                Binding="{Binding AllocatedShipQty, StringFormat={}{0:N0}}"
+                                Width="110"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
                         </Grid>
                     </Grid>
                 </Border>
@@ -517,76 +559,99 @@
 
                     <DockPanel Grid.Row="0">
                         <StackPanel DockPanel.Dock="Left"
-                        Orientation="Horizontal"
-                        VerticalAlignment="Center">
+                                    Orientation="Horizontal"
+                                    VerticalAlignment="Center">     
                             <TextBlock Style="{StaticResource SectionTitleStyle}"
-                           Margin="0,0,12,0"
-                           VerticalAlignment="Center"
-                           Text="불량 내역"/>
+                                       Margin="0,0,12,0"
+                                       VerticalAlignment="Center"
+                                       Text="불량 내역"/>   
 
                             <Button Style="{StaticResource PrimaryButtonStyle}"
-                        MinWidth="90"
-                        Content="불량추가"
-                        Command="{Binding AddDefectCommand}"/>
+                                    MinWidth="90"
+                                    Content="불량추가"
+                                    Command="{Binding AddDefectCommand}"/>  
                         </StackPanel>
                     </DockPanel>
 
                     <DataGrid Grid.Row="2"
-                  ItemsSource="{Binding Defects}"
-                  SelectedItem="{Binding SelectedDefect, Mode=TwoWay}"
-                  AutoGenerateColumns="False"
-                  CanUserAddRows="False"
-                  CanUserDeleteRows="False"
-                  HeadersVisibility="Column"
-                  SelectionMode="Single"
-                  SelectionUnit="FullRow"
-                  RowHeaderWidth="0"
-                  GridLinesVisibility="Horizontal"
-                  Background="White"
-                  ScrollViewer.VerticalScrollBarVisibility="Auto"
-                  ScrollViewer.HorizontalScrollBarVisibility="Auto">
+                              ItemsSource="{Binding Defects}"
+                              SelectedItem="{Binding SelectedDefect, Mode=TwoWay}"
+                              AutoGenerateColumns="False"
+                              CanUserAddRows="False"
+                              CanUserDeleteRows="False"
+                              HeadersVisibility="Column"
+                              SelectionMode="Single"
+                              SelectionUnit="FullRow"
+                              RowHeaderWidth="0"
+                              
+                              GridLinesVisibility="Horizontal"
+                              Background="White"
+                              ScrollViewer.VerticalScrollBarVisibility="Auto"
+                              ScrollViewer.HorizontalScrollBarVisibility="Auto">        
 
                         <DataGrid.Columns>
                             <DataGridTemplateColumn Header="불량유형 검색" Width="130">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <TextBox Height="26"
-                                     Padding="4,0"
-                                     VerticalContentAlignment="Center"
-                                     Text="{Binding DefectCode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                     Tag="{Binding}"
-                                     KeyDown="DefectTypeIdTextBox_KeyDown"/>
+                                                 Padding="4,0"
+                                                 VerticalContentAlignment="Center"
+                                                 Text="{Binding DefectCode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                 Tag="{Binding}"
+                                                 KeyDown="DefectTypeIdTextBox_KeyDown"/>    
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
 
                             <DataGridTextColumn Header="불량유형ID"
-                                    Binding="{Binding DefectTypeId}"
-                                    IsReadOnly="True"
-                                    Width="90"
-                                    ElementStyle="{StaticResource GridTextStyle}"/>
+                                                Binding="{Binding DefectTypeId}"
+                                                IsReadOnly="True"
+                                                Width="90"
+                                                ElementStyle="{StaticResource GridTextStyle}"/> 
 
                             <DataGridTextColumn Header="불량코드"
-                                    Binding="{Binding DefectCode}"
-                                    IsReadOnly="True"
-                                    Width="120"
-                                    ElementStyle="{StaticResource GridTextStyle}"/>
+                                                Binding="{Binding DefectCode}"
+                                                IsReadOnly="True"
+                                                Width="120"
+                                                ElementStyle="{StaticResource GridTextStyle}"/> 
 
                             <DataGridTextColumn Header="대분류"
-                                    Binding="{Binding Category1Name}"
-                                    IsReadOnly="True"
-                                    Width="140"
-                                    ElementStyle="{StaticResource GridTextStyle}"/>
+                                                Binding="{Binding Category1Name}"
+                                                IsReadOnly="True"
+                                                Width="140"
+                                                ElementStyle="{StaticResource GridTextStyle}"/> 
 
                             <DataGridTextColumn Header="소분류"
-                                    Binding="{Binding Category2Name}"
-                                    IsReadOnly="True"
-                                    Width="140"
-                                    ElementStyle="{StaticResource GridTextStyle}"/>
+                                                Binding="{Binding Category2Name}"
+                                                IsReadOnly="True"
+                                                Width="140"
+                                                ElementStyle="{StaticResource GridTextStyle}"/>     
 
-                            <DataGridTextColumn Header="메모"
-                                    Binding="{Binding Memo, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                    Width="*"/>
+                            <DataGridTemplateColumn Header="메모" Width="260">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Border Padding="6,4">
+                                            <TextBlock Text="{Binding DefectTypeMemo}"
+                                                       TextWrapping="Wrap"
+                                                       VerticalAlignment="Center"
+                                                       Foreground="#111827"/>       
+                                        </Border>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+
+                                <DataGridTemplateColumn.CellEditingTemplate>
+                                    <DataTemplate>
+                                        <TextBox MinHeight="52"
+                                                 Padding="6,4"
+                                                 VerticalContentAlignment="Top"
+                                                 AcceptsReturn="True"
+                                                 TextWrapping="Wrap"
+                                                 VerticalScrollBarVisibility="Auto"
+                                                 HorizontalScrollBarVisibility="Disabled"
+                                                 Text="{Binding DefectTypeMemo, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>    
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellEditingTemplate>
+                            </DataGridTemplateColumn>
 
                             <DataGridTemplateColumn Header="사진" Width="90">
                                 <DataGridTemplateColumn.CellTemplate>
@@ -652,82 +717,115 @@
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="12"/>
+                        <RowDefinition Height="14"/>
                         <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="12"/>
+                        <RowDefinition Height="14"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="14"/>
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
-                    <Grid Grid.Row="0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="90"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
+                    <!-- 특이사항 -->
+                    <Border Grid.Row="0" Style="{StaticResource SubSectionBorderStyle}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="10"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
 
-                        <TextBlock Grid.Column="0"
-                                   Style="{StaticResource LabelTextStyle}"
-                                   Text="특이사항"/>
+                            <TextBlock Grid.Row="0"
+                           FontWeight="SemiBold"
+                           Text="특이사항"/>
 
-                        <TextBox Grid.Column="1"
-                                 Height="54"
-                                 AcceptsReturn="True"
-                                 TextWrapping="Wrap"
-                                 VerticalScrollBarVisibility="Auto"
-                                 Text="{Binding Memo, UpdateSourceTrigger=PropertyChanged}"/>
-                    </Grid>
+                            <Grid Grid.Row="2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="90"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
 
-                    <Grid Grid.Row="2">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="110"/>
-                            <ColumnDefinition Width="160"/>
-                            <ColumnDefinition Width="120"/>
-                            <ColumnDefinition Width="160"/>
-                            <ColumnDefinition Width="90"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0"
+                               Style="{StaticResource LabelTextStyle}"
+                               Text="메모"/>
 
-                        <CheckBox Grid.Column="0"
-                                  VerticalAlignment="Center"
-                                  Content="분할검수"
-                                  IsChecked="{Binding IsPartial, Mode=TwoWay}"/>
+                                <TextBox Grid.Column="1"
+                             MinHeight="78"
+                             Padding="8,6"
+                             VerticalContentAlignment="Top"
+                             AcceptsReturn="True"
+                             TextWrapping="Wrap"
+                             VerticalScrollBarVisibility="Auto"
+                             Text="{Binding Memo, UpdateSourceTrigger=PropertyChanged}"/>
+                            </Grid>
+                        </Grid>
+                    </Border>
 
-                        <TextBlock Grid.Column="2"
-                                   Style="{StaticResource LabelTextStyle}"
-                                   Text="다음 검수일"/>
+                    <!-- 분할검수 -->
+                    <Border Grid.Row="2" Style="{StaticResource SubSectionBorderStyle}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="12"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="10"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
 
-                        <DatePicker Grid.Column="3"
-                                    Height="30"
-                                    SelectedDate="{Binding NextInspectionDate, Mode=TwoWay}"/>
+                            <TextBlock Grid.Row="0"
+                           FontWeight="SemiBold"
+                           Text="분할검수"/>
 
-                        <TextBlock Grid.Column="4"
-                                   Style="{StaticResource LabelTextStyle}"
-                                   Text="사유"/>
+                            <CheckBox Grid.Row="2"
+                          VerticalAlignment="Center"
+                          Content="분할검수 사용"
+                          IsChecked="{Binding IsPartial, Mode=TwoWay}"/>
 
-                        <TextBox Grid.Column="5"
-                                 Height="30"
-                                 VerticalContentAlignment="Center"
-                                 Text="{Binding PartialReason, UpdateSourceTrigger=PropertyChanged}"/>
-                    </Grid>
+                            <Grid Grid.Row="4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="100"/>
+                                    <ColumnDefinition Width="190"/>
+                                    <ColumnDefinition Width="80"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock Grid.Column="0"
+                               Style="{StaticResource LabelTextStyle}"
+                               Text="다음 검수일"/>
+
+                                <DatePicker Grid.Column="1"
+                                Height="30"
+                                SelectedDate="{Binding NextInspectionDate, Mode=TwoWay}"/>
+
+                                <TextBlock Grid.Column="2"
+                               Margin="16,0,0,0"
+                               Style="{StaticResource LabelTextStyle}"
+                               Text="사유"/>
+
+                                <TextBox Grid.Column="3"
+                             Margin="8,0,0,0"
+                             Height="30"
+                             Padding="6,0"
+                             VerticalContentAlignment="Center"
+                             Text="{Binding PartialReason, UpdateSourceTrigger=PropertyChanged}"/>
+                            </Grid>
+                        </Grid>
+                    </Border>
 
                     <TextBlock Grid.Row="4"
-                               Foreground="#6B7280"
-                               Text="저장 시 판매가능수량은 재고로 입고되고, 입력한 수량만큼 출하대기가 생성됩니다. 실제 재고 차감은 출하관리에서 진행됩니다."/>
+                   Foreground="#6B7280"
+                   Text="저장 시 판매가능수량은 재고로 입고되고, 입력한 수량만큼 출하대기가 생성됩니다. 실제 재고 차감은 출하관리에서 진행됩니다."/>
 
                     <StackPanel Grid.Row="6"
-                                Orientation="Horizontal"
-                                HorizontalAlignment="Right">
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right">
                         <Button Style="{StaticResource PrimaryButtonStyle}"
-                                MinWidth="170"
-                                Content="검수실적 및 출하대기 저장"
-                                Command="{Binding SaveCommand}"/>
+                    Margin="0,0,8,0"
+                    Content="검수실적 및 출하대기 저장"
+                    Command="{Binding SaveCommand}"/>
 
                         <Button Style="{StaticResource PrimaryButtonStyle}"
-                                MinWidth="90"
-                                Margin="8,0,0,0"
-                                Content="취소"
-                                Command="{Binding CancelCommand}"/>
+                    Content="취소"
+                    Command="{Binding CancelCommand}"/>
                     </StackPanel>
                 </Grid>
             </Border>

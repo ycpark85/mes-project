@@ -94,3 +94,15 @@ class InspectionWorkInstructionTargetOut(BaseModel):
 
 class InspectionWorkInstructionTargetListOut(BaseModel):
     items: List[InspectionWorkInstructionTargetOut] = Field(default_factory=list)        
+
+class InspectionStockLotOut(BaseModel):
+    lot_id: int
+    lot_no: str
+    stock_qty: int
+    allocated_ship_qty: int = 0
+    created_date: Optional[datetime] = None
+
+
+class InspectionStockLotListOut(BaseModel):
+    items: List[InspectionStockLotOut] = Field(default_factory=list)
+    total_stock_qty: int = 0    

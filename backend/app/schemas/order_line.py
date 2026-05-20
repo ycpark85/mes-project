@@ -14,6 +14,13 @@ class OrderLineStatus(str, Enum):
     DONE = "DONE"
     CANCELED = "CANCELED"
 
+class OrderLinePlanType(str, Enum):
+    AUTO_PRODUCTION = "AUTO_PRODUCTION"
+    AUTO_STOCK_SHIP = "AUTO_STOCK_SHIP"
+    PARTIAL_STOCK_ONLY_CLOSE = "PARTIAL_STOCK_ONLY_CLOSE"
+    PARTIAL_STOCK_PLUS_PRODUCTION = "PARTIAL_STOCK_PLUS_PRODUCTION"
+    STOCK_REPLENISHMENT = "STOCK_REPLENISHMENT"    
+
 
 class OrderLineBase(BaseModel):
     order_no: str = Field(..., max_length=40)
@@ -93,11 +100,16 @@ class OrderLineOut(OrderLineBase):
     planned_production_qty: int = 0
     decision_required: bool = False
 
+    plan_type: Optional[OrderLinePlanType] = None
+    plan_type_display: Optional[str] = None
+
     ship_target_qty: int = 0
     already_shipped_qty: int = 0
     remaining_ship_qty: int = 0
     needs_shortage_action: bool = False
     shortage_closed: bool = False
+
+    
 
     class Config:
         from_attributes = True
@@ -229,6 +241,28 @@ class OrderLineFulfillmentPlanUpdate(BaseModel):
     production_policy: OrderLineProductionPolicy
     extra_production_qty: int = Field(0, ge=0)    
 
+class OrderLinePlanConfirmRequest(BaseModel):
+    plan_type: OrderLinePlanType
+    memo: Optional[str] = None    
+
+
+class OrderLinePlanHistoryOut(BaseModel):
+    plan_history_id: int
+    order_line_id: int
+    plan_type: OrderLinePlanType
+
+    ship_target_qty: int
+    available_inventory_qty: int
+    stock_ship_qty: int
+    production_qty: int
+
+    is_short_close: bool
+    memo: Optional[str] = None
+    created_by: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
 
 class OrderLineBaseLotCreateResult(BaseModel):
     order_line_id: int
@@ -240,5 +274,7 @@ class OrderLineBaseLotCreateResult(BaseModel):
 
 class OrderLineShortCloseRequest(BaseModel):
     memo: Optional[str] = None
+
+
 
     

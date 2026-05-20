@@ -7,6 +7,7 @@ from .product import Product
 from .partner import Partner
 from .defect_type import DefectType
 from .order_line import OrderLine
+from app.models.order_line_plan_history import OrderLinePlanHistory
 from .lot import Lot
 from .lot_step import LotStep
 from .inspection_schedule import InspectionSchedule
@@ -37,6 +38,7 @@ __all__ = [
     "Partner",
     "DefectType",
     "OrderLine",
+    "OrderLinePlanHistory",
     "Lot",
     "LotStep",
     "InspectionSchedule",
@@ -56,5 +58,6 @@ __all__ = [
     "ProductInventory",
     "ProductInventoryMovement",
     "ShipmentLine"
+    
 
     ]

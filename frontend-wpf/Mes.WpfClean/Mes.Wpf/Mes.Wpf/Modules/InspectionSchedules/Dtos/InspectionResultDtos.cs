@@ -323,4 +323,36 @@ namespace Mes.Wpf.Modules.InspectionSchedules.Dtos
             set => SetProperty(ref _memo, value);
         }
     }
+    public class InspectionStockLotListDto
+    {
+        [JsonPropertyName("items")]
+        public ObservableCollection<InspectionStockLotDto> Items { get; set; } = new();
+
+        [JsonPropertyName("total_stock_qty")]
+        public int TotalStockQty { get; set; }
+    }
+
+    public class InspectionStockLotDto : ViewModelBase
+    {
+        private int _allocatedShipQty;
+
+        [JsonPropertyName("lot_id")]
+        public int LotId { get; set; }
+
+        [JsonPropertyName("lot_no")]
+        public string LotNo { get; set; } = string.Empty;
+
+        [JsonPropertyName("stock_qty")]
+        public int StockQty { get; set; }
+
+        [JsonPropertyName("allocated_ship_qty")]
+        public int AllocatedShipQty
+        {
+            get => _allocatedShipQty;
+            set => SetProperty(ref _allocatedShipQty, value);
+        }
+
+        [JsonPropertyName("created_date")]
+        public DateTime? CreatedDate { get; set; }
+    }
 }

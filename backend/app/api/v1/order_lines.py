@@ -18,6 +18,7 @@ from app.db.session import get_db  # 너희 프로젝트의 get_db 경로에 맞
 from app.models.lot import Lot
 from app.models.lot_step import LotStep
 from app.models.order_line import OrderLine
+from app.models.order_line_plan_history import OrderLinePlanHistory
 from app.models.routing_template_step import RoutingTemplateStep
 from app.models.partner import Partner
 from app.models.process import Process
@@ -44,6 +45,9 @@ from app.schemas.order_line import (
     OrderLineFulfillmentMode,
     OrderLineProductionPolicy,
     OrderLineFulfillmentPlanUpdate,
+    OrderLinePlanType,
+    OrderLinePlanConfirmRequest,
+    OrderLinePlanHistoryOut,
     OrderLineBaseLotCreateResult,
     OrderLineShortCloseRequest,
 )
@@ -266,32 +270,146 @@ def _create_order_line_with_policy(db: Session, payload: OrderLineCreate) -> Ord
     data["uom"] = product.uom
 
     obj = OrderLine(**data)
+
     order_line_crud.create(db, obj)
     db.flush()
 
-    if is_stock_replenishment_partner(partner.name, partner.business_no):
+    actor = "system"
+
+    available_inventory_qty = _get_available_inventory_qty(
+        db,
+        obj.product_id,
+    )
+
+    is_stock_replenishment = is_stock_replenishment_partner(
+        partner.name,
+        partner.business_no,
+    )
+
+    if is_stock_replenishment:
+        production_qty = int(obj.order_qty or 0)
+
+        _create_plan_history(
+            db,
+            order_line=obj,
+            plan_type=OrderLinePlanType.STOCK_REPLENISHMENT,
+            ship_target_qty=0,
+            available_inventory_qty=available_inventory_qty,
+            stock_ship_qty=0,
+            production_qty=production_qty,
+            is_short_close=False,
+            memo="발주 등록 자동 처리: 재고비축 생산",
+            actor=actor,
+        )
+
+        obj.fulfillment_mode = OrderLineFulfillmentMode.PRODUCTION_FIRST.value
+        obj.production_policy = OrderLineProductionPolicy.ALLOW_STOCK_BUILD.value
+        obj.extra_production_qty = 0
+        obj.decision_made = True
+        obj.decision_made_at = datetime.now(timezone.utc)
+        obj.decision_made_by = actor
+
         _create_primary_lot_for_order_line(
             db,
             obj,
             product,
-            lot_qty=int(obj.order_qty),
-        )
-    else:
-        shortage_qty = _apply_stock_fulfillment_for_order_line(
-            db=db,
-            order_line=obj,
-            partner=partner,
+            lot_qty=production_qty,
         )
 
-        if shortage_qty > 0:
-            _create_primary_lot_for_order_line(
-                db,
-                obj,
-                product,
-                lot_qty=shortage_qty,
-            )
-        else:
-            obj.status = OrderLineStatus.DONE.value
+        db.flush()
+        return obj
+
+    ship_target_qty = calculate_ship_qty(
+        partner.name,
+        int(obj.order_qty or 0),
+    )
+
+    if ship_target_qty <= 0:
+        obj.decision_made = False
+        obj.decision_made_at = None
+        obj.decision_made_by = None
+        db.flush()
+        return obj
+
+    if available_inventory_qty <= 0:
+        production_qty = ship_target_qty
+
+        _create_plan_history(
+            db,
+            order_line=obj,
+            plan_type=OrderLinePlanType.AUTO_PRODUCTION,
+            ship_target_qty=ship_target_qty,
+            available_inventory_qty=available_inventory_qty,
+            stock_ship_qty=0,
+            production_qty=production_qty,
+            is_short_close=False,
+            memo="발주 등록 자동 처리: 현재고 없음, 생산 진행",
+            actor=actor,
+        )
+
+        obj.fulfillment_mode = OrderLineFulfillmentMode.PRODUCTION_FIRST.value
+        obj.production_policy = OrderLineProductionPolicy.ORDER_ONLY.value
+        obj.extra_production_qty = 0
+        obj.decision_made = True
+        obj.decision_made_at = datetime.now(timezone.utc)
+        obj.decision_made_by = actor
+
+        _create_primary_lot_for_order_line(
+            db,
+            obj,
+            product,
+            lot_qty=production_qty,
+        )
+
+        db.flush()
+        return obj
+
+    if available_inventory_qty >= ship_target_qty:
+        stock_ship_qty = ship_target_qty
+
+        _create_stock_shipment_waiting_for_plan(
+            db,
+            order_line=obj,
+            ship_qty=stock_ship_qty,
+            memo="발주 등록 자동 처리: 재고 출하대기 생성",
+        )
+
+        _create_plan_history(
+            db,
+            order_line=obj,
+            plan_type=OrderLinePlanType.AUTO_STOCK_SHIP,
+            ship_target_qty=ship_target_qty,
+            available_inventory_qty=available_inventory_qty,
+            stock_ship_qty=stock_ship_qty,
+            production_qty=0,
+            is_short_close=False,
+            memo="발주 등록 자동 처리: 재고 충분, LOT 없이 출하대기 생성",
+            actor=actor,
+        )
+
+        obj.fulfillment_mode = OrderLineFulfillmentMode.INVENTORY_FIRST.value
+        obj.production_policy = OrderLineProductionPolicy.INVENTORY_ONLY_CLOSE.value
+        obj.extra_production_qty = 0
+        obj.decision_made = True
+        obj.decision_made_at = datetime.now(timezone.utc)
+        obj.decision_made_by = actor
+        obj.status = OrderLineStatus.DONE.value
+
+        db.flush()
+        return obj
+
+    # 부분재고:
+    # 이 케이스는 사용자 선택이 필요하므로 자동으로 LOT나 출하대기를 만들지 않는다.
+    # 이후 발주리스트에서
+    # 1) 재고만 출고 후 종료
+    # 2) 부족분 생산 후 목표수량 출고
+    # 중 하나를 확정한다.
+    obj.fulfillment_mode = OrderLineFulfillmentMode.HYBRID.value
+    obj.production_policy = OrderLineProductionPolicy.ORDER_ONLY.value
+    obj.extra_production_qty = 0
+    obj.decision_made = False
+    obj.decision_made_at = None
+    obj.decision_made_by = None
 
     db.flush()
     return obj
@@ -420,6 +538,126 @@ def _create_stock_shipment_waiting_if_needed(
 
     if order_line.status == OrderLineStatus.OPEN.value:
         order_line.status = OrderLineStatus.CLOSED.value
+
+
+def _to_plan_type_display(plan_type: str | None) -> str | None:
+    if not plan_type:
+        return None
+
+    mapping = {
+        OrderLinePlanType.AUTO_PRODUCTION.value: "자동 생산",
+        OrderLinePlanType.AUTO_STOCK_SHIP.value: "재고 출고",
+        OrderLinePlanType.PARTIAL_STOCK_ONLY_CLOSE.value: "재고만 출고 후 종료",
+        OrderLinePlanType.PARTIAL_STOCK_PLUS_PRODUCTION.value: "부분재고 + 부족분 생산",
+        OrderLinePlanType.STOCK_REPLENISHMENT.value: "재고비축 생산",
+    }
+
+    return mapping.get(plan_type, plan_type)
+
+
+def _get_latest_plan_history(
+    db: Session,
+    order_line_id: int,
+) -> OrderLinePlanHistory | None:
+    return (
+        db.execute(
+            select(OrderLinePlanHistory)
+            .where(OrderLinePlanHistory.order_line_id == order_line_id)
+            .order_by(
+                OrderLinePlanHistory.created_at.desc(),
+                OrderLinePlanHistory.plan_history_id.desc(),
+            )
+            .limit(1)
+        )
+        .scalar_one_or_none()
+    )
+
+
+def _apply_plan_summary_to_out(
+    out: OrderLineOut,
+    history: OrderLinePlanHistory | None,
+) -> OrderLineOut:
+    if history is None:
+        return out
+
+    out.plan_type = history.plan_type
+    out.plan_type_display = _to_plan_type_display(history.plan_type)
+    return out
+
+
+def _create_plan_history(
+    db: Session,
+    *,
+    order_line: OrderLine,
+    plan_type: OrderLinePlanType,
+    ship_target_qty: int,
+    available_inventory_qty: int,
+    stock_ship_qty: int,
+    production_qty: int,
+    is_short_close: bool,
+    memo: str | None,
+    actor: str | None,
+) -> OrderLinePlanHistory:
+    history = OrderLinePlanHistory(
+        order_line_id=order_line.order_line_id,
+        plan_type=plan_type.value,
+        ship_target_qty=ship_target_qty,
+        available_inventory_qty=available_inventory_qty,
+        stock_ship_qty=stock_ship_qty,
+        production_qty=production_qty,
+        is_short_close=is_short_close,
+        memo=memo.strip() if memo and memo.strip() else None,
+        created_by=actor,
+    )
+
+    db.add(history)
+    db.flush()
+    return history
+
+
+def _create_stock_shipment_waiting_for_plan(
+    db: Session,
+    *,
+    order_line: OrderLine,
+    ship_qty: int,
+    memo: str,
+) -> None:
+    if ship_qty <= 0:
+        return
+
+    existing = (
+        db.execute(
+            select(ShipmentLine)
+            .where(
+                ShipmentLine.order_line_id == order_line.order_line_id,
+                ShipmentLine.status != "CANCELED",
+                ShipmentLine.source_type == "STOCK",
+                ShipmentLine.inspection_result_id.is_(None),
+            )
+            .limit(1)
+        )
+        .scalar_one_or_none()
+    )
+
+    if existing is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="이미 생성된 재고 출하대기가 있습니다.",
+        )
+
+    db.add(
+        ShipmentLine(
+            order_line_id=order_line.order_line_id,
+            product_id=order_line.product_id,
+            lot_id=None,
+            inspection_result_id=None,
+            source_type="STOCK",
+            status="WAITING",
+            ship_qty=ship_qty,
+            shipped_qty=0,
+            memo=memo,
+        )
+    )
 
 
 def _get_planned_production_qty(
@@ -603,49 +841,217 @@ def validate_order_lines_bulk(
 
 @router.post("", response_model=OrderLineOut, status_code=http_status.HTTP_201_CREATED)
 def create_order_line(payload: OrderLineCreate, db: Session = Depends(get_db)):
-    partner = _ensure_partner_active(db, payload.partner_id)
-    product = _ensure_product_active(db, payload.product_id)
-
-    data = payload.model_dump()
-    data["uom"] = product.uom
-
-    inventory = (
-        db.execute(
-            select(ProductInventory)
-            .where(ProductInventory.product_id == payload.product_id)
-        )
-        .scalar_one_or_none()
-    )
-    available_inventory_qty = int(inventory.current_qty or 0) if inventory else 0
-
-    if available_inventory_qty <= 0:
-        recommended_mode = OrderLineFulfillmentMode.PRODUCTION_FIRST.value
-    elif available_inventory_qty >= int(payload.order_qty):
-        recommended_mode = OrderLineFulfillmentMode.INVENTORY_FIRST.value
-    else:
-        recommended_mode = OrderLineFulfillmentMode.HYBRID.value
-
-    data["fulfillment_mode"] = recommended_mode
-    data["production_policy"] = OrderLineProductionPolicy.ORDER_ONLY.value
-    data["extra_production_qty"] = 0
-    data["decision_made"] = False
-    data["decision_made_at"] = None
-    data["decision_made_by"] = None
-
-    obj = OrderLine(**data)
-
     try:
-        order_line_crud.create(db, obj)
+        obj = _create_order_line_with_policy(db, payload)
+
         db.commit()
         db.refresh(obj)
+
+    except HTTPException:
+        db.rollback()
+        raise
+
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Duplicate order_no+line_no or integrity error",
+        )
+
+    partner = db.get(Partner, obj.partner_id)
+    product = db.get(Product, obj.product_id)
+    latest_plan_history = _get_latest_plan_history(db, obj.order_line_id)
+
+    out = OrderLineOut.model_validate(obj, from_attributes=True)
+    out.partner_name = partner.name if partner else None
+    out.product_code = product.product_code if product else None
+    out.product_name = product.product_name if product else None
+
+    return _apply_plan_summary_to_out(out, latest_plan_history)
+
+@router.post("/{order_line_id}/plan/confirm", response_model=OrderLineOut)
+def confirm_order_line_plan(
+    order_line_id: int,
+    payload: OrderLinePlanConfirmRequest,
+    db: Session = Depends(get_db),
+):
+    order_line = order_line_crud.get(db, order_line_id)
+
+    if not order_line or not order_line.is_active:
+        raise HTTPException(status_code=404, detail="OrderLine not found")
+
+    if order_line.status in {OrderLineStatus.DONE.value, OrderLineStatus.CANCELED.value}:
+        raise HTTPException(
+            status_code=409,
+            detail="DONE 또는 CANCELED 상태의 수주는 처리계획을 확정할 수 없습니다.",
+        )
+
+    if order_line.decision_made:
+        raise HTTPException(
+            status_code=409,
+            detail="이미 처리계획이 확정된 수주입니다.",
+        )
+
+    partner = db.get(Partner, order_line.partner_id)
+    if not partner:
+        raise HTTPException(status_code=404, detail="Partner not found")
+
+    product = db.get(Product, order_line.product_id)
+    if not product or not product.is_active:
+        raise HTTPException(status_code=404, detail="Product not found or inactive")
+
+    actor = "system"
+    plan_type = payload.plan_type
+
+    available_inventory_qty = _get_available_inventory_qty(
+        db,
+        order_line.product_id,
+    )
+
+    is_stock_replenishment = is_stock_replenishment_partner(
+        partner.name,
+        partner.business_no,
+    )
+
+    if is_stock_replenishment:
+        ship_target_qty = 0
+        remaining_ship_qty = 0
+
+        if plan_type != OrderLinePlanType.STOCK_REPLENISHMENT:
+            raise HTTPException(
+                status_code=409,
+                detail="재고비축 거래처는 재고비축 생산 처리만 가능합니다.",
+            )
+
+        stock_ship_qty = 0
+        production_qty = int(order_line.order_qty or 0)
+        is_short_close = False
+
+        order_line.fulfillment_mode = OrderLineFulfillmentMode.PRODUCTION_FIRST.value
+        order_line.production_policy = OrderLineProductionPolicy.ALLOW_STOCK_BUILD.value
+        order_line.extra_production_qty = production_qty
+
+    else:
+        ship_target_qty = _get_target_ship_qty(order_line, partner.name)
+        already_shipped_qty = _get_already_shipped_qty(db, order_line.order_line_id)
+        remaining_ship_qty = max(ship_target_qty - already_shipped_qty, 0)
+
+        if remaining_ship_qty <= 0:
+            raise HTTPException(
+                status_code=409,
+                detail="이미 출고목표수량이 충족된 수주입니다.",
+            )
+
+        stock_ship_qty = 0
+        production_qty = 0
+        is_short_close = False
+
+        if available_inventory_qty <= 0:
+            if plan_type != OrderLinePlanType.AUTO_PRODUCTION:
+                raise HTTPException(
+                    status_code=409,
+                    detail="현재고가 없는 수주는 자동 생산 처리만 가능합니다.",
+                )
+
+            production_qty = remaining_ship_qty
+
+            order_line.fulfillment_mode = OrderLineFulfillmentMode.PRODUCTION_FIRST.value
+            order_line.production_policy = OrderLineProductionPolicy.ORDER_ONLY.value
+            order_line.extra_production_qty = 0
+
+        elif available_inventory_qty >= remaining_ship_qty:
+            if plan_type != OrderLinePlanType.AUTO_STOCK_SHIP:
+                raise HTTPException(
+                    status_code=409,
+                    detail="현재고가 출고목표수량 이상인 수주는 재고 출고 처리만 가능합니다.",
+                )
+
+            stock_ship_qty = remaining_ship_qty
+
+            _create_stock_shipment_waiting_for_plan(
+                db,
+                order_line=order_line,
+                ship_qty=stock_ship_qty,
+                memo="처리계획 확정: 재고 출고",
+            )
+
+            order_line.fulfillment_mode = OrderLineFulfillmentMode.INVENTORY_FIRST.value
+            order_line.production_policy = OrderLineProductionPolicy.INVENTORY_ONLY_CLOSE.value
+            order_line.extra_production_qty = 0
+            order_line.status = OrderLineStatus.DONE.value
+
+        else:
+            if plan_type == OrderLinePlanType.PARTIAL_STOCK_ONLY_CLOSE:
+                stock_ship_qty = available_inventory_qty
+                production_qty = 0
+                is_short_close = True
+
+                _create_stock_shipment_waiting_for_plan(
+                    db,
+                    order_line=order_line,
+                    ship_qty=stock_ship_qty,
+                    memo="처리계획 확정: 부분재고만 출고 후 종료",
+                )
+
+                order_line.fulfillment_mode = OrderLineFulfillmentMode.INVENTORY_FIRST.value
+                order_line.production_policy = OrderLineProductionPolicy.INVENTORY_ONLY_CLOSE.value
+                order_line.extra_production_qty = 0
+                order_line.status = OrderLineStatus.DONE.value
+
+            elif plan_type == OrderLinePlanType.PARTIAL_STOCK_PLUS_PRODUCTION:
+                stock_ship_qty = available_inventory_qty
+                production_qty = remaining_ship_qty - available_inventory_qty
+                is_short_close = False
+
+                # 중요:
+                # 부분재고 + 부족분 생산 케이스에서는 여기서 STOCK 출하대기를 만들지 않는다.
+                # 기존재고분 출하대기와 검수분 출하대기는 검수실적등록 저장 시 함께 생성한다.
+                order_line.fulfillment_mode = OrderLineFulfillmentMode.INVENTORY_FIRST.value
+                order_line.production_policy = OrderLineProductionPolicy.ORDER_ONLY.value
+                order_line.extra_production_qty = 0
+
+            else:
+                raise HTTPException(
+                    status_code=409,
+                    detail="부분재고 수주는 재고만 출고 후 종료 또는 부족분 생산 처리만 가능합니다.",
+                )
+
+    order_line.decision_made = True
+    order_line.decision_made_at = datetime.now(timezone.utc)
+    order_line.decision_made_by = actor
+
+    history = _create_plan_history(
+        db,
+        order_line=order_line,
+        plan_type=plan_type,
+        ship_target_qty=ship_target_qty,
+        available_inventory_qty=available_inventory_qty,
+        stock_ship_qty=stock_ship_qty,
+        production_qty=production_qty,
+        is_short_close=is_short_close,
+        memo=payload.memo,
+        actor=actor,
+    )
+
+    try:
+        db.commit()
+        db.refresh(order_line)
     except HTTPException:
         db.rollback()
         raise
     except IntegrityError:
         db.rollback()
-        raise HTTPException(status_code=409, detail="Duplicate order_no+line_no or integrity error")
+        raise HTTPException(
+            status_code=409,
+            detail="처리계획 확정 중 무결성 오류가 발생했습니다.",
+        )
 
-    return OrderLineOut.model_validate(obj, from_attributes=True)
+    out = OrderLineOut.model_validate(order_line, from_attributes=True)
+    out.partner_name = partner.name
+    out.product_code = product.product_code
+    out.product_name = product.product_name
+
+    return _apply_plan_summary_to_out(out, history)
 
 
 @router.patch("/{order_line_id}/fulfillment-plan", response_model=OrderLineOut)
@@ -840,6 +1246,19 @@ def get_order_line_detail(order_line_id: int, db: Session = Depends(get_db)):
         .all()
     )
 
+    plan_histories = (
+        db.execute(
+            select(OrderLinePlanHistory)
+            .where(OrderLinePlanHistory.order_line_id == order_line_id)
+            .order_by(
+                OrderLinePlanHistory.created_at.asc(),
+                OrderLinePlanHistory.plan_history_id.asc(),
+            )
+        )
+        .scalars()
+        .all()
+    )
+
     has_any_lot = len(lots) > 0
     has_base_lot = any(l.parent_lot_id is None for l in lots)
 
@@ -889,6 +1308,8 @@ def get_order_line_detail(order_line_id: int, db: Session = Depends(get_db)):
         )
 
     timeline = _build_detail_timeline(order_line, lots)
+    timeline.extend(_build_plan_history_timeline_items(plan_histories))
+    timeline.sort(key=lambda x: x.event_at)
 
     return OrderLineDetailDto(
         order_line_id=order_line.order_line_id,
@@ -953,9 +1374,18 @@ def create_base_lot_from_fulfillment_plan(
     if not product or not product.is_active:
         raise HTTPException(status_code=404, detail="Product not found or inactive")
 
-    planned_production_qty = _get_planned_production_qty(db, order_line, partner.name)
+    latest_plan_history = _get_latest_plan_history(db, order_line.order_line_id)
+
+    if latest_plan_history is not None:
+        planned_production_qty = int(latest_plan_history.production_qty or 0)
+    else:
+        planned_production_qty = _get_planned_production_qty(db, order_line, partner.name)
+
     if planned_production_qty <= 0:
-        raise HTTPException(status_code=409, detail="계획 생산수량이 0이어서 기본 LOT를 생성할 수 없습니다.")
+        raise HTTPException(
+            status_code=409,
+            detail="계획 생산수량이 0이어서 기본 LOT를 생성할 수 없습니다.",
+        )
 
     try:
         lot = _create_primary_lot_for_order_line(
@@ -1129,6 +1559,72 @@ def _get_lot_current_process_name(lot: Lot) -> Optional[str]:
 
     return None
 
+def _to_plan_timeline_message(history: OrderLinePlanHistory) -> str:
+    plan_type = history.plan_type
+
+    ship_target_qty = int(history.ship_target_qty or 0)
+    available_inventory_qty = int(history.available_inventory_qty or 0)
+    stock_ship_qty = int(history.stock_ship_qty or 0)
+    production_qty = int(history.production_qty or 0)
+
+    if plan_type == "AUTO_PRODUCTION":
+        return (
+            f"처리계획 확정: 현재고 없음, "
+            f"출고목표수량 {ship_target_qty:,}개 기준으로 "
+            f"생산필요수량 {production_qty:,}개 생산을 진행합니다."
+        )
+
+    if plan_type == "AUTO_STOCK_SHIP":
+        return (
+            f"처리계획 확정: 현재고 {available_inventory_qty:,}개 중 "
+            f"{stock_ship_qty:,}개를 재고 출하대기로 생성했습니다."
+        )
+
+    if plan_type == "PARTIAL_STOCK_ONLY_CLOSE":
+        return (
+            f"처리계획 확정: 현재고 {available_inventory_qty:,}개 중 "
+            f"{stock_ship_qty:,}개만 출하하고 부족분 생산 없이 종료합니다."
+        )
+
+    if plan_type == "PARTIAL_STOCK_PLUS_PRODUCTION":
+        return (
+            f"처리계획 확정: 현재고 {available_inventory_qty:,}개 사용 예정, "
+            f"부족분 {production_qty:,}개 생산 후 출고목표수량 "
+            f"{ship_target_qty:,}개를 맞춥니다."
+        )
+
+    if plan_type == "STOCK_REPLENISHMENT":
+        return (
+            f"처리계획 확정: 재고비축 목적 발주로 "
+            f"{production_qty:,}개 생산 후 재고로 입고합니다."
+        )
+
+    return "처리계획이 확정되었습니다."
+
+
+def _build_plan_history_timeline_items(
+    plan_histories: list[OrderLinePlanHistory],
+) -> list[OrderLineTimelineItemDto]:
+    items: list[OrderLineTimelineItemDto] = []
+
+    for history in plan_histories:
+        message = _to_plan_timeline_message(history)
+
+        if history.memo:
+            message = f"{message} 메모: {history.memo}"
+
+        items.append(
+            OrderLineTimelineItemDto(
+                event_type="PLAN_CONFIRMED",
+                event_label="처리계획 확정",
+                event_at=history.created_at,
+                message=message,
+                ref_type="ORDER_LINE_PLAN_HISTORY",
+                ref_id=history.plan_history_id,
+            )
+        )
+
+    return items
 
 def _build_detail_timeline(
     order_line: OrderLine,

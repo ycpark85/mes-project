@@ -34,7 +34,7 @@ namespace Mes.Wpf.Modules.Shipments.ViewModels
             _apiClient = apiClient;
             _messageService = messageService;
 
-            Items = new ObservableCollection<ShipmentLineDto>();
+            Items = new ObservableCollection<ShipmentDisplayItemDto>();
 
             ShowWaitingCommand = new AsyncRelayCommand(async () =>
             {
@@ -53,7 +53,7 @@ namespace Mes.Wpf.Modules.Shipments.ViewModels
             NextPageCommand = new AsyncRelayCommand(GoNextPageAsync);
         }
 
-        public ObservableCollection<ShipmentLineDto> Items { get; }
+        public ObservableCollection<ShipmentDisplayItemDto> Items { get; }
 
         public AsyncRelayCommand ShowWaitingCommand { get; }
         public AsyncRelayCommand ShowDoneCommand { get; }
@@ -166,11 +166,61 @@ namespace Mes.Wpf.Modules.Shipments.ViewModels
 
             Items.Clear();
 
-            foreach (var item in result.Data.Items)
+            var groupedItems = result.Data.Items
+                .GroupBy(x => x.OrderLineId)
+                .Select(group =>
+                {
+                    var first = group.First();
+
+                    var stockLines = group
+                        .Where(x => x.SourceType == "STOCK")
+                        .ToList();
+
+                    var productionLines = group
+                        .Where(x => x.SourceType == "INSPECTION_RESULT")
+                        .ToList();
+
+                    var display = new ShipmentDisplayItemDto
+                    {
+                        OrderLineId = first.OrderLineId,
+                        OrderNo = first.OrderNo,
+                        PartnerName = first.PartnerName,
+                        ProductCode = first.ProductCode,
+                        ProductName = first.ProductName,
+                        Status = first.Status,
+                        ShippedDate = group
+                            .Where(x => x.ShippedAt.HasValue)
+                            .OrderByDescending(x => x.ShippedAt)
+                            .Select(x => x.ShippedAt)
+                            .FirstOrDefault(),
+
+                        StockShipQty = stockLines.Sum(x => x.Status == "DONE" ? x.ShippedQty : x.ShipQty),
+                        ProductionShipQty = productionLines.Sum(x => x.Status == "DONE" ? x.ShippedQty : x.ShipQty),
+
+                        StockLotNos = string.Join(", ",
+                            stockLines
+                                .Select(x => x.LotNo)
+                                .Where(x => !string.IsNullOrWhiteSpace(x))
+                                .Distinct()),
+
+                        ProductionLotNos = string.Join(", ",
+                            productionLines
+                                .Select(x => x.LotNo)
+                                .Where(x => !string.IsNullOrWhiteSpace(x))
+                                .Distinct()),
+
+                        Lines = new ObservableCollection<ShipmentLineDto>(group)
+                    };
+
+                    return display;
+                })
+                .ToList();
+
+            foreach (var item in groupedItems)
             {
                 item.PropertyChanged += (_, e) =>
                 {
-                    if (e.PropertyName == nameof(ShipmentLineDto.IsSelected))
+                    if (e.PropertyName == nameof(ShipmentDisplayItemDto.IsSelected))
                     {
                         RaiseSelectionPropertiesChanged();
                     }
@@ -235,6 +285,7 @@ namespace Mes.Wpf.Modules.Shipments.ViewModels
 
             var selectedIds = Items
                 .Where(x => x.IsSelected)
+                .SelectMany(x => x.Lines)
                 .Select(x => x.ShipmentLineId)
                 .Distinct()
                 .ToList();
