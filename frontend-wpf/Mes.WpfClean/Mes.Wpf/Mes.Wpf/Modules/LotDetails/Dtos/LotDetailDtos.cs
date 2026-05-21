@@ -126,6 +126,27 @@ namespace Mes.Wpf.Modules.LotDetails.Dtos
 
         [JsonPropertyName("memo")]
         public string? Memo { get; set; }
+
+        [JsonPropertyName("plan_type")]
+        public string? PlanType { get; set; }
+
+        [JsonPropertyName("plan_type_display")]
+        public string? PlanTypeDisplay { get; set; }
+
+        [JsonPropertyName("plan_ship_target_qty")]
+        public int? PlanShipTargetQty { get; set; }
+
+        [JsonPropertyName("plan_available_inventory_qty")]
+        public int? PlanAvailableInventoryQty { get; set; }
+
+        [JsonPropertyName("plan_stock_ship_qty")]
+        public int? PlanStockShipQty { get; set; }
+
+        [JsonPropertyName("plan_production_qty")]
+        public int? PlanProductionQty { get; set; }
+
+        [JsonPropertyName("plan_is_short_close")]
+        public bool? PlanIsShortClose { get; set; }
     }
 
     public class LotTraceOutsourceWorkDto
@@ -293,7 +314,9 @@ namespace Mes.Wpf.Modules.LotDetails.Dtos
         public bool HasAttachment => !string.IsNullOrWhiteSpace(FirstAttachmentImageUrl);
 
         [JsonIgnore]
-        public string AttachmentDisplayText => HasAttachment ? "이미지" : "없음";
+        public string AttachmentDisplayText => HasAttachment
+            ? "이미지 첨부됨"
+            : "이미지 없음";
     }
 
     public class LotTraceDefectAttachmentDto

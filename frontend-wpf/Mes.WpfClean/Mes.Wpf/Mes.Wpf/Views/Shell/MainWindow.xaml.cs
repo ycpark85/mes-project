@@ -4,11 +4,17 @@ using Mes.Wpf.Infrastructure.Api;
 using Mes.Wpf.Infrastructure.Dialogs;
 using Mes.Wpf.Modules.BohyunOutsourceManagement.ViewModels;
 using Mes.Wpf.Modules.BohyunOutsourceManagement.Views;
+using Mes.Wpf.Modules.Dashboard.ViewModels;
+using Mes.Wpf.Modules.Dashboard.Views;
 using Mes.Wpf.Modules.DefectTypes.ViewModels;
 using Mes.Wpf.Modules.Drawings.ViewModels;
 using Mes.Wpf.Modules.Drawings.Views;
 using Mes.Wpf.Modules.InspectionSchedules.ViewModels;
 using Mes.Wpf.Modules.InspectionSchedules.Views;
+using Mes.Wpf.Modules.Inventories.ViewModels;
+using Mes.Wpf.Modules.Inventories.Views;
+using Mes.Wpf.Modules.LotDetails.ViewModels;
+using Mes.Wpf.Modules.LotDetails.Views;
 using Mes.Wpf.Modules.Lots.ViewModels;
 using Mes.Wpf.Modules.Lots.Views;
 using Mes.Wpf.Modules.OrderLineList.Dtos;
@@ -26,10 +32,7 @@ using Mes.Wpf.Modules.Products.ViewModels;
 using Mes.Wpf.Modules.Products.Views;
 using Mes.Wpf.Modules.RoutingTemplates.ViewModels;
 using Mes.Wpf.Modules.RoutingTemplates.Views;
-using Mes.Wpf.Modules.Dashboard.ViewModels;
-using Mes.Wpf.Modules.Dashboard.Views;
-using Mes.Wpf.Modules.Inventories.ViewModels;
-using Mes.Wpf.Modules.Inventories.Views;
+using Mes.Wpf.Modules.Shipments.Dtos;
 using Mes.Wpf.Modules.Shipments.ViewModels;
 using Mes.Wpf.Modules.Shipments.Views;
 using System.Threading.Tasks;
@@ -320,7 +323,7 @@ namespace Mes.Wpf.Views.Shell
             var vm = new OrderLineListPageViewModel(
                 _apiClient,
                 _messageService,
-                async orderLineId => await OpenOrderLineDetailAsync(orderLineId),
+                async orderLineId => await OpenOrderLineDetailWindowAsync(orderLineId),
                 async item => await OpenLotCreateWindowAsync(item));
 
             page.DataContext = vm;
@@ -553,16 +556,88 @@ namespace Mes.Wpf.Views.Shell
         private async void Shipment_Click(object sender, RoutedEventArgs e)
         {
             var page = new ShipmentPage();
-            var viewModel = new ShipmentPageViewModel(_apiClient, _messageService);
+
+            var viewModel = new ShipmentPageViewModel(
+                _apiClient,
+                _messageService,
+                async orderLineId => await OpenOrderLineDetailWindowAsync(orderLineId),
+                async lotId => await OpenLotCertificateWindowAsync(lotId),
+                async item => await OpenShipmentCoaAsync(item));
 
             page.DataContext = viewModel;
             MainContent.Content = page;
             MainContent.Visibility = Visibility.Visible;
-
             HeaderTitle.Text = "출하 관리";
             HeaderSubtitle.Text = "출하대기 / 출하완료 조회 및 선택출하 처리";
 
             await viewModel.InitializeAsync();
         }
+
+        private Task OpenShipmentInspectionReportAsync(ShipmentDisplayItemDto item)
+        {
+            // 성적서 출력은 LOT 관리에서 사용하는 공통 성적서 화면/서비스가 이미 있다면
+            // 여기에서 그 기존 진입 메서드만 연결하세요.
+            //
+            // 현재 ShipmentDisplayItemDto는 그룹 행이라 생산 LOT가 여러 개일 수 있습니다.
+            // 성적서가 LOT 단위라면 item.Lines 중 INSPECTION_RESULT 라인의 LotId를 사용해야 합니다.
+
+            var productionLot = item.Lines
+                .FirstOrDefault(x => x.SourceType == "INSPECTION_RESULT" && x.LotId.HasValue);
+
+            if (productionLot == null)
+            {
+                _messageService.ShowWarning("성적서를 출력할 생산 LOT가 없습니다.");
+                return Task.CompletedTask;
+            }
+
+            _messageService.ShowInfo("성적서 출력 연결은 LOT 관리의 기존 성적서 공통 진입 메서드에 연결하세요.");
+            return Task.CompletedTask;
+        }
+
+        private Task OpenShipmentCoaAsync(ShipmentDisplayItemDto item)
+        {
+            _messageService.ShowInfo("COA 기능은 아직 미구현입니다.");
+            return Task.CompletedTask;
+        }
+        private async Task OpenOrderLineDetailWindowAsync(long orderLineId)
+        {
+            var page = new OrderLineDetailPage();
+
+            var vm = new OrderLineDetailPageViewModel(
+                _apiClient,
+                _messageService,
+                null);
+
+            page.DataContext = vm;
+
+            var window = new OrderLineDetailWindow(page)
+            {
+                Owner = this
+            };
+
+            await vm.InitializeAsync(orderLineId);
+
+            window.ShowDialog();
+        }
+        private async Task OpenLotCertificateWindowAsync(long lotId)
+        {
+            if (lotId <= 0)
+            {
+                _messageService.ShowWarning("LOT 정보가 없습니다.");
+                return;
+            }
+
+            var windowVm = new LotCertificateWindowViewModel(_apiClient, _messageService);
+            await windowVm.InitializeAsync(lotId);
+
+            var window = new LotCertificateWindow(windowVm)
+            {
+                Owner = this
+            };
+
+            window.ShowDialog();
+        }
+
+
     }
 }

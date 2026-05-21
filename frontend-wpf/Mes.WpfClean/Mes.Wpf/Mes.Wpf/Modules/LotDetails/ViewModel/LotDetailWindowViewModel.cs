@@ -2,6 +2,8 @@
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
 using System.Windows.Input;
+using System.Diagnostics;
+using System.IO;
 using Mes.Wpf.Core.Common;
 using Mes.Wpf.Core.Constants;
 using Mes.Wpf.Core.Interfaces;
@@ -28,6 +30,14 @@ namespace Mes.Wpf.Modules.LotDetails.ViewModels
             Defects = new ObservableCollection<LotTraceInspectionDefectDto>();
 
             CloseCommand = new RelayCommand(_ => RequestClose?.Invoke());
+
+            OpenDefectImageCommand = new RelayCommand(async parameter =>
+            {
+                if (parameter is LotTraceInspectionDefectDto defect)
+                {
+                    await OpenDefectImageAsync(defect);
+                }
+            });
         }
 
         public event Action? RequestClose;
@@ -37,6 +47,7 @@ namespace Mes.Wpf.Modules.LotDetails.ViewModels
         public ObservableCollection<LotTraceInspectionDefectDto> Defects { get; }
 
         public ICommand CloseCommand { get; }
+        public ICommand OpenDefectImageCommand { get; }
 
         public bool IsLoading
         {
@@ -76,6 +87,28 @@ namespace Mes.Wpf.Modules.LotDetails.ViewModels
         public string OrderMemoText => string.IsNullOrWhiteSpace(Detail?.ProductOrder.Memo)
             ? "-"
             : Detail.ProductOrder.Memo!;
+        public string PlanTypeDisplayText =>
+            string.IsNullOrWhiteSpace(Detail?.ProductOrder.PlanTypeDisplay)
+                ? "-"
+                : Detail.ProductOrder.PlanTypeDisplay!;
+
+        public string PlanShipTargetQtyText =>
+            FormatNullableInt(Detail?.ProductOrder.PlanShipTargetQty);
+
+        public string PlanAvailableInventoryQtyText =>
+            FormatNullableInt(Detail?.ProductOrder.PlanAvailableInventoryQty);
+
+        public string PlanStockShipQtyText =>
+            FormatNullableInt(Detail?.ProductOrder.PlanStockShipQty);
+
+        public string PlanProductionQtyText =>
+            FormatNullableInt(Detail?.ProductOrder.PlanProductionQty);
+
+        public string PlanShortCloseText =>
+            Detail?.ProductOrder.PlanIsShortClose == true
+                ? "예"
+                : "아니오";
+
 
         public string InspectionStatusText
         {
@@ -230,6 +263,105 @@ namespace Mes.Wpf.Modules.LotDetails.ViewModels
             OnPropertyChanged(nameof(IsOutsourceInstructionCreated));
             OnPropertyChanged(nameof(IsOutsourceWorkDone));
             OnPropertyChanged(nameof(IsInspectionDone));
+
+            OnPropertyChanged(nameof(PlanTypeDisplayText));
+            OnPropertyChanged(nameof(PlanShipTargetQtyText));
+            OnPropertyChanged(nameof(PlanAvailableInventoryQtyText));
+            OnPropertyChanged(nameof(PlanStockShipQtyText));
+            OnPropertyChanged(nameof(PlanProductionQtyText));
+            OnPropertyChanged(nameof(PlanShortCloseText));
+        }
+        private async Task OpenDefectImageAsync(LotTraceInspectionDefectDto defect)
+        {
+            if (defect == null || !defect.HasAttachment || defect.FirstAttachment == null)
+            {
+                _messageService.ShowWarning("첨부된 이미지가 없습니다.");
+                return;
+            }
+
+            var attachment = defect.FirstAttachment;
+            var imageUrl = attachment.ImageUrl;
+
+            if (string.IsNullOrWhiteSpace(imageUrl))
+            {
+                _messageService.ShowWarning("이미지 경로가 없습니다.");
+                return;
+            }
+
+            try
+            {
+                var requestUrl = imageUrl.Trim();
+
+                if (Uri.TryCreate(requestUrl, UriKind.Absolute, out var absoluteUri))
+                {
+                    requestUrl = absoluteUri.PathAndQuery.TrimStart('/');
+                }
+                else
+                {
+                    requestUrl = requestUrl.TrimStart('/');
+                }
+
+                var bytes = await _apiClient.GetBytesAsync(requestUrl);
+
+                if (bytes == null || bytes.Length == 0)
+                {
+                    _messageService.ShowError("이미지 다운로드에 실패했습니다.");
+                    return;
+                }
+
+                var extension = GetImageExtension(attachment.FileName, attachment.MimeType);
+                var tempDir = Path.Combine(Path.GetTempPath(), "MesWpf", "DefectImages");
+
+                Directory.CreateDirectory(tempDir);
+
+                var rawFileName = string.IsNullOrWhiteSpace(attachment.FileName)
+                    ? $"defect_{defect.InspectionDefectId}_{DateTime.Now:yyyyMMddHHmmss}{extension}"
+                    : Path.GetFileName(attachment.FileName);
+
+                var fileName = string.IsNullOrWhiteSpace(rawFileName)
+                    ? $"defect_{defect.InspectionDefectId}_{DateTime.Now:yyyyMMddHHmmss}{extension}"
+                    : rawFileName;
+
+                if (string.IsNullOrWhiteSpace(Path.GetExtension(fileName)))
+                {
+                    fileName += extension;
+                }
+
+                var tempPath = Path.Combine(tempDir, fileName);
+
+                await File.WriteAllBytesAsync(tempPath, bytes);
+
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = tempPath,
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                _messageService.ShowError($"이미지 열기 중 오류가 발생했습니다.\n{ex.Message}");
+            }
+        }
+
+        private static string GetImageExtension(string? fileName, string? mimeType)
+        {
+            var extension = Path.GetExtension(fileName);
+
+            if (!string.IsNullOrWhiteSpace(extension))
+            {
+                return extension;
+            }
+
+            return mimeType switch
+            {
+                "image/png" => ".png",
+                "image/jpeg" => ".jpg",
+                "image/jpg" => ".jpg",
+                "image/gif" => ".gif",
+                "image/bmp" => ".bmp",
+                "image/webp" => ".webp",
+                _ => ".png"
+            };
         }
     }
 }

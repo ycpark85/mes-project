@@ -176,6 +176,16 @@ namespace Mes.Wpf.Modules.Shipments.Dtos
             "CANCELED" => "취소",
             _ => Status
         };
+
+        [JsonIgnore]
+        public long? FirstStockLotId => Lines
+            .FirstOrDefault(x => x.SourceType == "STOCK" && x.LotId.HasValue)
+            ?.LotId;
+
+        [JsonIgnore]
+        public long? FirstProductionLotId => Lines
+            .FirstOrDefault(x => x.SourceType == "INSPECTION_RESULT" && x.LotId.HasValue)
+            ?.LotId;
     }
 
 

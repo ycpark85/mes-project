@@ -139,6 +139,14 @@ class LotTraceProductOrderOut(BaseModel):
     due_date: date
     memo: Optional[str] = None
 
+    plan_type: Optional[str] = None
+    plan_type_display: Optional[str] = None
+    plan_ship_target_qty: Optional[int] = None
+    plan_available_inventory_qty: Optional[int] = None
+    plan_stock_ship_qty: Optional[int] = None
+    plan_production_qty: Optional[int] = None
+    plan_is_short_close: Optional[bool] = None
+
 
 class LotTraceOutsourceWorkOut(BaseModel):
     outsource_work_group_id: int

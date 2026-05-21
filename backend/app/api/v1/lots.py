@@ -27,6 +27,7 @@ from app.models.inspection_defect_attachment import InspectionDefectAttachment
 from app.models.outsource_work_group import OutsourceWorkGroup
 from app.models.outsource_work_group_item import OutsourceWorkGroupItem
 from app.models.outsource_work_instruction import OutsourceWorkInstruction
+from app.models.order_line_plan_history import OrderLinePlanHistory
 
 from app.schemas.lot import (
     LotCreate,
@@ -306,6 +307,20 @@ def list_lots(
         meta=PageMeta(page=page, size=size, total=total),
     )
 
+def _to_plan_type_display(plan_type: str | None) -> str | None:
+    if not plan_type:
+        return None
+
+    mapping = {
+        "AUTO_PRODUCTION": "자동 생산",
+        "AUTO_STOCK_SHIP": "재고 출고",
+        "PARTIAL_STOCK_ONLY_CLOSE": "재고만 출고 후 종료",
+        "PARTIAL_STOCK_PLUS_PRODUCTION": "부분재고 + 부족분 생산",
+        "STOCK_REPLENISHMENT": "재고비축 생산",
+    }
+
+    return mapping.get(plan_type, plan_type)
+
 def _build_lot_trace_progress(
     outsource_works: list[LotTraceOutsourceWorkOut],
     inspection: LotTraceInspectionOut | None,
@@ -352,6 +367,20 @@ def get_lot_trace_detail(
         raise HTTPException(status_code=404, detail="LOT not found")
 
     lot, order_line, product, partner = row
+
+    latest_plan_history = (
+        db.execute(
+            select(OrderLinePlanHistory)
+            .where(OrderLinePlanHistory.order_line_id == order_line.order_line_id)
+            .order_by(
+                OrderLinePlanHistory.created_at.desc(),
+                OrderLinePlanHistory.plan_history_id.desc(),
+            )
+            .limit(1)
+        )
+        .scalar_one_or_none()
+    )
+
 
     current_stock_qty = db.execute(
         select(ProductInventory.current_qty)
@@ -615,7 +644,39 @@ def get_lot_trace_detail(
         order_qty=order_line.order_qty,
         order_date=order_line.order_date,
         due_date=order_line.due_date,
-    ),
+        memo=order_line.memo,
+        plan_type=latest_plan_history.plan_type if latest_plan_history else None,
+        plan_type_display=(
+            _to_plan_type_display(latest_plan_history.plan_type)
+            if latest_plan_history
+            else None
+        ),
+        plan_ship_target_qty=(
+            latest_plan_history.ship_target_qty
+            if latest_plan_history
+            else None
+        ),
+        plan_available_inventory_qty=(
+            latest_plan_history.available_inventory_qty
+            if latest_plan_history
+            else None
+        ),
+        plan_stock_ship_qty=(
+            latest_plan_history.stock_ship_qty
+            if latest_plan_history
+            else None
+        ),
+        plan_production_qty=(
+            latest_plan_history.production_qty
+            if latest_plan_history
+            else None
+        ),
+        plan_is_short_close=(
+            latest_plan_history.is_short_close
+            if latest_plan_history
+            else None
+        ),
+        ),
         outsource_works=outsource_works,
         inspection=inspection,
     )

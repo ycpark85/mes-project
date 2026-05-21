@@ -1,15 +1,21 @@
 ﻿<UserControl x:Class="Mes.Wpf.Modules.Shipments.Views.ShipmentPage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
              Background="#F5F7FA">
 
     <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+
         <Style x:Key="SectionBorderStyle" TargetType="Border">
             <Setter Property="Background" Value="White"/>
             <Setter Property="BorderBrush" Value="#E5E7EB"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="10"/>
             <Setter Property="Padding" Value="16"/>
+            <Setter Property="Margin" Value="0,0,0,12"/>
         </Style>
 
         <Style x:Key="PrimaryButtonStyle" TargetType="Button">
@@ -24,10 +30,23 @@
             <Setter Property="Height" Value="36"/>
             <Setter Property="MinWidth" Value="120"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Background" Value="#F3F4F6"/>
+        </Style>
+
+        <Style x:Key="LabelTextStyle" TargetType="TextBlock">
+            <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Foreground" Value="#374151"/>
-            <Setter Property="BorderBrush" Value="#D1D5DB"/>
-            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <Style x:Key="ValueTextStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#111827"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <Style x:Key="SectionTitleStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#111827"/>
         </Style>
 
         <Style x:Key="GridTextStyle" TargetType="TextBlock">
@@ -35,12 +54,25 @@
             <Setter Property="TextAlignment" Value="Center"/>
         </Style>
 
+        <Style x:Key="LotLinkButtonStyle" TargetType="Button">
+            <Setter Property="Height" Value="26"/>
+            <Setter Property="MinWidth" Value="80"/>
+            <Setter Property="Padding" Value="8,0"/>
+            <Setter Property="Background" Value="#EEF2FF"/>
+            <Setter Property="Foreground" Value="#1D4ED8"/>
+            <Setter Property="BorderBrush" Value="#C7D2FE"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+
         <Style TargetType="DataGridColumnHeader">
             <Setter Property="Background" Value="#F8FAFC"/>
             <Setter Property="BorderBrush" Value="#E5E7EB"/>
             <Setter Property="BorderThickness" Value="0,0,0,1"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Height" Value="38"/>
+            <Setter Property="Height" Value="36"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
         </Style>
@@ -50,276 +82,390 @@
         </Style>
 
         <Style TargetType="DataGridCell">
+            <Setter Property="Padding" Value="6,0"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
-            <Setter Property="TextBlock.TextAlignment" Value="Center"/>
-            <Setter Property="Padding" Value="6,0"/>
         </Style>
     </UserControl.Resources>
 
-    <Grid Margin="16">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="12"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="12"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
+    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled">
+        <Grid Margin="16">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="12"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="12"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
 
-        <!-- 검색 / 탭 -->
-        <Border Grid.Row="0" Style="{StaticResource SectionBorderStyle}">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="12"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
+            <!-- 검색 / 탭 -->
+            <Border Grid.Row="0"
+                    Style="{StaticResource SectionBorderStyle}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="12"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
 
-                <StackPanel Grid.Row="0" Orientation="Horizontal">
-                    <Button Content="출하대기"
-                            Command="{Binding ShowWaitingCommand}">
-                        <Button.Style>
-                            <Style TargetType="Button" BasedOn="{StaticResource TabButtonStyle}">
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsWaitingTab}" Value="True">
-                                        <Setter Property="Background" Value="#2563EB"/>
-                                        <Setter Property="Foreground" Value="White"/>
-                                        <Setter Property="BorderBrush" Value="#2563EB"/>
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Button.Style>
-                    </Button>
+                    <DockPanel Grid.Row="0">
+                        <StackPanel DockPanel.Dock="Left"
+                                    Orientation="Horizontal">
+                            <Button Style="{StaticResource TabButtonStyle}"
+                                    Margin="0,0,8,0"
+                                    Content="출하대기"
+                                    Command="{Binding ShowWaitingCommand}"/>
 
-                    <Button Content="출하완료"
-                            Margin="8,0,0,0"
-                            Command="{Binding ShowDoneCommand}">
-                        <Button.Style>
-                            <Style TargetType="Button" BasedOn="{StaticResource TabButtonStyle}">
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsDoneTab}" Value="True">
-                                        <Setter Property="Background" Value="#059669"/>
-                                        <Setter Property="Foreground" Value="White"/>
-                                        <Setter Property="BorderBrush" Value="#059669"/>
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Button.Style>
-                    </Button>
-                </StackPanel>
+                            <Button Style="{StaticResource TabButtonStyle}"
+                                    Content="출하완료"
+                                    Command="{Binding ShowDoneCommand}"/>
+                        </StackPanel>
+                    </DockPanel>
 
-                <Grid Grid.Row="2">
+                    <Grid Grid.Row="2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="24"/>
+                            <ColumnDefinition Width="70"/>
+                            <ColumnDefinition Width="220"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="90"/>
+                            <ColumnDefinition Width="8"/>
+                            <ColumnDefinition Width="90"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0"
+                                    Orientation="Horizontal"
+                                    Visibility="{Binding IsDoneDateFilterVisible, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <TextBlock Style="{StaticResource LabelTextStyle}"
+                                       Margin="0,0,8,0"
+                                       Text="출하일"/>
+
+                            <DatePicker Width="130"
+                                        Height="32"
+                                        SelectedDate="{Binding ShippedDateFrom, Mode=TwoWay}"/>
+
+                            <TextBlock Margin="8,0"
+                                       VerticalAlignment="Center"
+                                       Text="~"/>
+
+                            <DatePicker Width="130"
+                                        Height="32"
+                                        SelectedDate="{Binding ShippedDateTo, Mode=TwoWay}"/>
+                        </StackPanel>
+
+                        <TextBlock Grid.Column="2"
+                                   Style="{StaticResource LabelTextStyle}"
+                                   Text="검색어"/>
+
+                        <TextBox Grid.Column="3"
+                                 Height="32"
+                                 VerticalContentAlignment="Center"
+                                 Text="{Binding SearchKeyword, UpdateSourceTrigger=PropertyChanged}"/>
+
+                        <Button Grid.Column="5"
+                                Style="{StaticResource PrimaryButtonStyle}"
+                                Content="조회"
+                                Command="{Binding SearchCommand}"/>
+
+                        <Button Grid.Column="7"
+                                Style="{StaticResource PrimaryButtonStyle}"
+                                Content="초기화"
+                                Command="{Binding ResetCommand}"/>
+                    </Grid>
+                </Grid>
+            </Border>
+
+            <!-- 목록 -->
+            <Border Grid.Row="2"
+                    Style="{StaticResource SectionBorderStyle}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="10"/>
+                        <RowDefinition Height="430"/>
+                    </Grid.RowDefinitions>
+
+                    <DockPanel Grid.Row="0">
+                        <TextBlock DockPanel.Dock="Left"
+                                   Style="{StaticResource SectionTitleStyle}"
+                                   Text="{Binding CurrentTabTitle}"/>
+
+                        <TextBlock DockPanel.Dock="Right"
+                                   VerticalAlignment="Center"
+                                   Foreground="#6B7280"
+                                   Text="{Binding ListSummaryText}"/>
+                    </DockPanel>
+
+                    <!-- 출하대기: 선택 컬럼 있음 -->
+                    <DataGrid Grid.Row="2"
+                              ItemsSource="{Binding Items}"
+                              SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
+                              AutoGenerateColumns="False"
+                              CanUserAddRows="False"
+                              CanUserDeleteRows="False"
+                              IsReadOnly="False"
+                              SelectionMode="Single"
+                              SelectionUnit="FullRow"
+                              HeadersVisibility="Column"
+                              RowHeaderWidth="0"
+                              GridLinesVisibility="Horizontal"
+                              Background="White"
+                              ScrollViewer.VerticalScrollBarVisibility="Auto"
+                              ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                              Visibility="{Binding IsWaitingTab, Converter={StaticResource BoolToVisibilityConverter}}">
+
+                        <DataGrid.Columns>
+                            <DataGridTemplateColumn Header="선택" Width="60">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <CheckBox HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"
+                                                  IsChecked="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+
+                            <DataGridTextColumn Header="발주번호"
+                                                Binding="{Binding OrderNo}"
+                                                IsReadOnly="True"
+                                                Width="120"
+                                                ElementStyle="{StaticResource GridTextStyle}"/>
+
+                            <DataGridTextColumn Header="거래처"
+                                                Binding="{Binding PartnerName}"
+                                                IsReadOnly="True"
+                                                Width="150"
+                                                ElementStyle="{StaticResource GridTextStyle}"/>
+
+                            <DataGridTextColumn Header="품목코드"
+                                                Binding="{Binding ProductCode}"
+                                                IsReadOnly="True"
+                                                Width="130"
+                                                ElementStyle="{StaticResource GridTextStyle}"/>
+
+                            <DataGridTextColumn Header="품목명"
+                                                Binding="{Binding ProductName}"
+                                                IsReadOnly="True"
+                                                Width="190"
+                                                ElementStyle="{StaticResource GridTextStyle}"/>
+
+                            <DataGridTemplateColumn Header="재고 LOT" Width="160">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Button Style="{StaticResource LotLinkButtonStyle}"
+                                                Content="{Binding StockLotNos}"
+                                                Command="{Binding DataContext.OpenStockLotCertificateCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+
+                            <DataGridTemplateColumn Header="생산 LOT" Width="160">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Button Style="{StaticResource LotLinkButtonStyle}"
+                                                Content="{Binding ProductionLotNos}"
+                                                Command="{Binding DataContext.OpenProductionLotCertificateCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+
+                            <DataGridTextColumn Header="출하수량"
+                                                Binding="{Binding ShipQty, StringFormat={}{0:N0}}"
+                                                IsReadOnly="True"
+                                                Width="100"
+                                                ElementStyle="{StaticResource GridTextStyle}"/>
+
+                            <DataGridTextColumn Header="재고수량"
+                                                Binding="{Binding StockShipQty, StringFormat={}{0:N0}}"
+                                                IsReadOnly="True"
+                                                Width="100"
+                                                ElementStyle="{StaticResource GridTextStyle}"/>
+
+                            <DataGridTextColumn Header="생산수량"
+                                                Binding="{Binding ProductionShipQty, StringFormat={}{0:N0}}"
+                                                IsReadOnly="True"
+                                                Width="100"
+                                                ElementStyle="{StaticResource GridTextStyle}"/>
+
+                            <DataGridTextColumn Header="상태"
+                                                Binding="{Binding StatusDisplay}"
+                                                IsReadOnly="True"
+                                                Width="90"
+                                                ElementStyle="{StaticResource GridTextStyle}"/>
+
+                            <DataGridTextColumn Header="출하일"
+                                                Binding="{Binding ShippedDate, StringFormat=yyyy-MM-dd}"
+                                                IsReadOnly="True"
+                                                Width="110"
+                                                ElementStyle="{StaticResource GridTextStyle}"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <!-- 출하완료: 선택 컬럼 없음, 행 클릭 선택 -->
+                    <DataGrid Grid.Row="2"
+                              ItemsSource="{Binding Items}"
+                              SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
+                              AutoGenerateColumns="False"
+                              CanUserAddRows="False"
+                              CanUserDeleteRows="False"
+                              IsReadOnly="True"
+                              SelectionMode="Single"
+                              SelectionUnit="FullRow"
+                              HeadersVisibility="Column"
+                              RowHeaderWidth="0"
+                              GridLinesVisibility="Horizontal"
+                              Background="White"
+                              ScrollViewer.VerticalScrollBarVisibility="Auto"
+                              ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                              Visibility="{Binding IsDoneTab, Converter={StaticResource BoolToVisibilityConverter}}">
+
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="발주번호"
+                                                Binding="{Binding OrderNo}"
+                                                Width="120"
+                                                ElementStyle="{StaticResource GridTextStyle}"/>
+
+                            <DataGridTextColumn Header="거래처"
+                                                Binding="{Binding PartnerName}"
+                                                Width="150"
+                                                ElementStyle="{StaticResource GridTextStyle}"/>
+
+                            <DataGridTextColumn Header="품목코드"
+                                                Binding="{Binding ProductCode}"
+                                                Width="130"
+                                                ElementStyle="{StaticResource GridTextStyle}"/>
+
+                            <DataGridTextColumn Header="품목명"
+                                                Binding="{Binding ProductName}"
+                                                Width="190"
+                                                ElementStyle="{StaticResource GridTextStyle}"/>
+
+                            <DataGridTemplateColumn Header="재고 LOT" Width="160">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Button Style="{StaticResource LotLinkButtonStyle}"
+                                                Content="{Binding StockLotNos}"
+                                                Command="{Binding DataContext.OpenStockLotCertificateCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+
+                            <DataGridTemplateColumn Header="생산 LOT" Width="160">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Button Style="{StaticResource LotLinkButtonStyle}"
+                                                Content="{Binding ProductionLotNos}"
+                                                Command="{Binding DataContext.OpenProductionLotCertificateCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+
+                            <DataGridTextColumn Header="출하수량"
+                                                Binding="{Binding ShipQty, StringFormat={}{0:N0}}"
+                                                Width="100"
+                                                ElementStyle="{StaticResource GridTextStyle}"/>
+
+                            <DataGridTextColumn Header="재고수량"
+                                                Binding="{Binding StockShipQty, StringFormat={}{0:N0}}"
+                                                Width="100"
+                                                ElementStyle="{StaticResource GridTextStyle}"/>
+
+                            <DataGridTextColumn Header="생산수량"
+                                                Binding="{Binding ProductionShipQty, StringFormat={}{0:N0}}"
+                                                Width="100"
+                                                ElementStyle="{StaticResource GridTextStyle}"/>
+
+                            <DataGridTextColumn Header="상태"
+                                                Binding="{Binding StatusDisplay}"
+                                                Width="90"
+                                                ElementStyle="{StaticResource GridTextStyle}"/>
+
+                            <DataGridTextColumn Header="출하일"
+                                                Binding="{Binding ShippedDate, StringFormat=yyyy-MM-dd}"
+                                                Width="110"
+                                                ElementStyle="{StaticResource GridTextStyle}"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </Border>
+
+            <!-- 하단 버튼 -->
+            <Border Grid.Row="4"
+                    Style="{StaticResource SectionBorderStyle}">
+                <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="70"/>
-                        <ColumnDefinition Width="260"/>
                         <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="100"/>
-                        <ColumnDefinition Width="12"/>
-                        <ColumnDefinition Width="100"/>
+                        <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
                     <TextBlock Grid.Column="0"
                                VerticalAlignment="Center"
-                               FontWeight="SemiBold"
-                               Text="검색어"/>
+                               Foreground="#6B7280"
+                               Text="{Binding SelectedCountText}"/>
 
-                    <TextBox Grid.Column="1"
-                             Height="32"
-                             VerticalContentAlignment="Center"
-                             Text="{Binding SearchKeyword, UpdateSourceTrigger=PropertyChanged}"/>
+                    <!-- 출하대기 버튼 -->
+                    <StackPanel Grid.Column="1"
+                                Orientation="Horizontal"
+                                HorizontalAlignment="Right"
+                                Visibility="{Binding IsWaitingActionVisible, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <Button Style="{StaticResource PrimaryButtonStyle}"
+                                Margin="0,0,8,0"
+                                Content="전체선택"
+                                Command="{Binding SelectAllCommand}"/>
 
-                    <Button Grid.Column="3"
-                            Style="{StaticResource PrimaryButtonStyle}"
-                            Content="조회"
-                            Command="{Binding SearchCommand}"/>
+                        <Button Style="{StaticResource PrimaryButtonStyle}"
+                                Margin="0,0,8,0"
+                                Content="선택해제"
+                                Command="{Binding ClearSelectionCommand}"/>
 
-                    <Button Grid.Column="5"
-                            Style="{StaticResource PrimaryButtonStyle}"
-                            Content="초기화"
-                            Command="{Binding ResetCommand}"/>
-                </Grid>
-            </Grid>
-        </Border>
+                        <Button Style="{StaticResource PrimaryButtonStyle}"
+                                Margin="0,0,16,0"
+                                Content="선택출하"
+                                IsEnabled="{Binding IsConfirmEnabled}"
+                                Command="{Binding ConfirmSelectedCommand}"/>
 
-        <!-- 리스트 -->
-        <Border Grid.Row="2" Style="{StaticResource SectionBorderStyle}">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="12"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
+                        <Button Style="{StaticResource PrimaryButtonStyle}"
+                                Margin="0,0,8,0"
+                                Content="이전"
+                                IsEnabled="{Binding CanGoPreviousPage}"
+                                Command="{Binding PreviousPageCommand}"/>
 
-                <DockPanel Grid.Row="0">
-                    <TextBlock DockPanel.Dock="Left"
-                               FontSize="15"
-                               FontWeight="SemiBold"
-                               Text="{Binding CurrentTabTitle}"/>
-
-                    <StackPanel DockPanel.Dock="Right"
-                                Orientation="Horizontal">
-                        <TextBlock VerticalAlignment="Center"
-                                   Foreground="#6B7280"
-                                   Text="{Binding SelectedCountText}"/>
-
-                        <TextBlock Margin="16,0,0,0"
-                                   VerticalAlignment="Center"
-                                   Foreground="#6B7280"
-                                   Text="{Binding PageInfoText}"/>
+                        <Button Style="{StaticResource PrimaryButtonStyle}"
+                                Content="다음"
+                                IsEnabled="{Binding CanGoNextPage}"
+                                Command="{Binding NextPageCommand}"/>
                     </StackPanel>
-                </DockPanel>
 
-                <DataGrid Grid.Row="2"
-                          ItemsSource="{Binding Items}"
-                          SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
-                          AutoGenerateColumns="False"
-                          IsReadOnly="False"
-                          SelectionMode="Single"
-                          SelectionUnit="FullRow"
-                          HeadersVisibility="Column"
-                          CanUserAddRows="False"
-                          CanUserDeleteRows="False"
-                          CanUserResizeRows="False"
-                          GridLinesVisibility="Horizontal"
-                          RowHeaderWidth="0"
-                          BorderThickness="0"
-                          Background="White"
-                          RowHeight="34"
-                          ColumnHeaderHeight="38"
-                          ScrollViewer.VerticalScrollBarVisibility="Visible"
-                          ScrollViewer.HorizontalScrollBarVisibility="Visible">
+                    <!-- 출하완료 버튼 -->
+                    <StackPanel Grid.Column="1"
+                                Orientation="Horizontal"
+                                HorizontalAlignment="Right"
+                                Visibility="{Binding IsDoneActionVisible, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <Button Style="{StaticResource PrimaryButtonStyle}"
+                                Margin="0,0,8,0"
+                                Content="수주상세"
+                                Command="{Binding OpenOrderDetailCommand}"/>
 
-                    <DataGrid.Columns>
-                        <DataGridTemplateColumn Header="선택" Width="60">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <CheckBox HorizontalAlignment="Center"
-                                              VerticalAlignment="Center"
-                                              IsChecked="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                              IsEnabled="{Binding DataContext.IsWaitingTab, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
+                        <Button Style="{StaticResource PrimaryButtonStyle}"
+                                Margin="0,0,16,0"
+                                Content="COA"
+                                Command="{Binding OpenCoaCommand}"/>
 
-                        <DataGridTextColumn Header="발주번호"
-                                            Binding="{Binding OrderNo}"
-                                            IsReadOnly="True"
-                                            Width="110"
-                                            ElementStyle="{StaticResource GridTextStyle}"/>
+                        <Button Style="{StaticResource PrimaryButtonStyle}"
+                                Margin="0,0,8,0"
+                                Content="이전"
+                                IsEnabled="{Binding CanGoPreviousPage}"
+                                Command="{Binding PreviousPageCommand}"/>
 
-                        <DataGridTextColumn Header="거래처"
-                                            Binding="{Binding PartnerName}"
-                                            IsReadOnly="True"
-                                            Width="150"
-                                            ElementStyle="{StaticResource GridTextStyle}"/>
-
-                        <DataGridTextColumn Header="품목코드"
-                                            Binding="{Binding ProductCode}"
-                                            IsReadOnly="True"
-                                            Width="130"
-                                            ElementStyle="{StaticResource GridTextStyle}"/>
-
-                        <DataGridTextColumn Header="품목명"
-                                            Binding="{Binding ProductName}"
-                                            IsReadOnly="True"
-                                            Width="260"
-                                            ElementStyle="{StaticResource GridTextStyle}"/>
-
-                        <DataGridTextColumn Header="재고 LOT"
-                                            Binding="{Binding StockLotNos}"
-                                            Width="120"
-                                            ElementStyle="{StaticResource GridTextStyle}"/>     
-
-                        <DataGridTextColumn Header="생산 LOT"
-                                            Binding="{Binding ProductionLotNos}"
-                                            Width="120"
-                                            ElementStyle="{StaticResource GridTextStyle}"/>     
-
-                        <DataGridTextColumn Header="출하수량"
-                                            Binding="{Binding ShipQty, StringFormat={}{0:N0}}"
-                                            Width="100"
-                                            ElementStyle="{StaticResource GridTextStyle}"/>     
-
-                        <DataGridTextColumn Header="재고수량"
-                                            Binding="{Binding StockShipQty, StringFormat={}{0:N0}}"
-                                            Width="100"
-                                            ElementStyle="{StaticResource GridTextStyle}"/> 
-
-                        <DataGridTextColumn Header="생산수량"
-                                            Binding="{Binding ProductionShipQty, StringFormat={}{0:N0}}"
-                                            Width="100"
-                                            ElementStyle="{StaticResource GridTextStyle}"/> 
-
-                        <DataGridTextColumn Header="상태"
-                                            Binding="{Binding StatusDisplay}"
-                                            IsReadOnly="True"
-                                            Width="90"
-                                            ElementStyle="{StaticResource GridTextStyle}"/>
-
-                        <DataGridTextColumn Header="출하일"
-                                            Binding="{Binding ShippedDate, StringFormat=yyyy-MM-dd HH:mm}"
-                                            IsReadOnly="True"
-                                            Width="140"
-                                            ElementStyle="{StaticResource GridTextStyle}"/>
-                    </DataGrid.Columns>
-                </DataGrid>
-            </Grid>
-        </Border>
-
-        <!-- 하단 액션 -->
-        <Grid Grid.Row="4">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
-
-            <StackPanel Grid.Column="0"
-                        Orientation="Horizontal"
-                        VerticalAlignment="Center">
-                <TextBlock Foreground="#6B7280"
-                           FontWeight="SemiBold"
-                           Text="{Binding TotalCountText}"/>
-
-                <TextBlock Margin="16,0,0,0"
-                           Foreground="#6B7280"
-                           Text="{Binding PageInfoText}"/>
-            </StackPanel>
-
-            <StackPanel Grid.Column="1"
-                        Orientation="Horizontal">
-                <Button Style="{StaticResource PrimaryButtonStyle}"
-                        MinWidth="90"
-                        Content="전체선택"
-                        Command="{Binding SelectAllCommand}"
-                        IsEnabled="{Binding IsWaitingTab}"/>
-
-                <Button Style="{StaticResource PrimaryButtonStyle}"
-                        MinWidth="90"
-                        Margin="8,0,0,0"
-                        Content="선택해제"
-                        Command="{Binding ClearSelectionCommand}"/>
-
-                <Button Style="{StaticResource PrimaryButtonStyle}"
-                        MinWidth="110"
-                        Margin="8,0,0,0"
-                        Content="선택출하"
-                        Command="{Binding ConfirmSelectedCommand}"
-                        IsEnabled="{Binding IsConfirmEnabled}"/>
-
-                <Button Style="{StaticResource PrimaryButtonStyle}"
-                        MinWidth="80"
-                        Margin="20,0,0,0"
-                        Content="이전"
-                        Command="{Binding PreviousPageCommand}"
-                        IsEnabled="{Binding CanGoPreviousPage}"/>
-
-                <Button Style="{StaticResource PrimaryButtonStyle}"
-                        MinWidth="80"
-                        Margin="8,0,0,0"
-                        Content="다음"
-                        Command="{Binding NextPageCommand}"
-                        IsEnabled="{Binding CanGoNextPage}"/>
-            </StackPanel>
+                        <Button Style="{StaticResource PrimaryButtonStyle}"
+                                Content="다음"
+                                IsEnabled="{Binding CanGoNextPage}"
+                                Command="{Binding NextPageCommand}"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
         </Grid>
-    </Grid>
+    </ScrollViewer>
 </UserControl>

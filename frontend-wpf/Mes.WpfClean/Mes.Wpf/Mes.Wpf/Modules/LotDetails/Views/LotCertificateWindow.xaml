@@ -147,7 +147,7 @@
                         <RowDefinition Height="86"/>
                         <RowDefinition Height="78"/>
                         <RowDefinition Height="108"/>
-                        <RowDefinition Height="306"/>
+                        <RowDefinition Height="390"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
@@ -333,6 +333,7 @@
                             <RowDefinition Height="42"/>
                             <RowDefinition Height="42"/>
                             <RowDefinition Height="130"/>
+                            <RowDefinition Height="78"/>
                         </Grid.RowDefinitions>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="60"/>
@@ -432,6 +433,31 @@
                         <Border Grid.Row="4" Grid.Column="3" Style="{StaticResource CellBorderStyle}">
                             <TextBlock Style="{StaticResource LabelTextStyle}" Text="mm x mm"/>
                         </Border>
+                        <!-- 메모 -->
+                        <Border Grid.Row="5"
+                                Grid.Column="0"
+                                Style="{StaticResource CellBorderStyle}">   
+                            <TextBlock Style="{StaticResource LabelTextStyle}"
+                                      Text="5"/>
+                        </Border>
+
+                        <Border Grid.Row="5"
+                                Grid.Column="1"
+                                Style="{StaticResource HeaderCellBorderStyle}"> 
+                            <TextBlock Style="{StaticResource LabelTextStyle}"
+                                        Text="메모"/>  
+                        </Border>
+
+                        <Border Grid.Row="5"
+                                Grid.Column="2"
+                                Grid.ColumnSpan="4"
+                                Style="{StaticResource CellBorderStyle}">       
+                            <TextBlock Style="{StaticResource ValueTextStyle}"
+                                       Text="{Binding InspectionMemoText}"
+                                       TextWrapping="Wrap"
+                                       VerticalAlignment="Top"
+                                       Padding="4"/>        
+                        </Border>   
 
                         <Grid Grid.Row="4" Grid.Column="4">
                             <Grid.RowDefinitions>

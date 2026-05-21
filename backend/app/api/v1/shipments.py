@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, time, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -61,6 +61,8 @@ def list_shipments(
     page: int = Query(1, ge=1),
     size: int = Query(50, ge=1, le=200),
     q: Optional[str] = Query(None),
+    shipped_from: Optional[date] = Query(None),
+    shipped_to: Optional[date] = Query(None),
     db: Session = Depends(get_db),
 ):
     normalized_status = status.strip().upper()
@@ -106,7 +108,17 @@ def list_shipments(
         )
         base = base.where(search_cond)
         count_q = count_q.where(search_cond)
+        
+    if normalized_status == "DONE":
+        if shipped_from is not None:
+            shipped_from_dt = datetime.combine(shipped_from, time.min).replace(tzinfo=timezone.utc)
+            base = base.where(ShipmentLine.shipped_at >= shipped_from_dt)
+            count_q = count_q.where(ShipmentLine.shipped_at >= shipped_from_dt)
 
+        if shipped_to is not None:
+            shipped_to_dt = datetime.combine(shipped_to, time.max).replace(tzinfo=timezone.utc)
+            base = base.where(ShipmentLine.shipped_at <= shipped_to_dt)
+            count_q = count_q.where(ShipmentLine.shipped_at <= shipped_to_dt)
     total = int(db.execute(count_q).scalar_one() or 0)
 
     rows = (

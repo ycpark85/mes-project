@@ -40,6 +40,7 @@ namespace Mes.Wpf.Modules.LotDetails.ViewModels
         private string _dimensionSample5 = "-";
         private string _judgmentText = "P";
         private string _bindingPrintTypeText = "-";
+        private string _inspectionMemoText = "-";
 
         public LotCertificateWindowViewModel(
             IApiClient apiClient,
@@ -219,6 +220,11 @@ namespace Mes.Wpf.Modules.LotDetails.ViewModels
             get => _bindingPrintTypeText;
             set => SetProperty(ref _bindingPrintTypeText, value);
         }
+        public string InspectionMemoText
+        {
+            get => _inspectionMemoText;
+            set => SetProperty(ref _inspectionMemoText, value);
+        }
 
         public async Task InitializeAsync(long lotId)
         {
@@ -283,6 +289,10 @@ namespace Mes.Wpf.Modules.LotDetails.ViewModels
             BindingPrintTypeText = IsPrintedProduct
                 ? "PRINT (인쇄) : 인쇄품 성적서 출력"
                 : "CUT (절단) : 무지 성적서 출력";
+
+            InspectionMemoText = string.IsNullOrWhiteSpace(Detail?.Inspection?.Memo)
+                ? "-"
+                : Detail.Inspection.Memo!.Trim();
         }
 
         private static string BuildSampleLetter(int lotSize)

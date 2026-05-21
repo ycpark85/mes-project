@@ -411,11 +411,7 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
-            <Button Grid.Column="0"
-                    Style="{StaticResource SecondaryButtonStyle}"
-                    HorizontalAlignment="Left"
-                    Content="목록으로"
-                    Command="{Binding BackCommand}" />
+          
 
             <Button Grid.Column="1"
                     Style="{StaticResource SecondaryButtonStyle}"
