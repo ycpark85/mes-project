@@ -1,7 +1,9 @@
 ﻿using Mes.Wpf.Core.Configuration;
+using Mes.Wpf.Core.Constants;
 using Mes.Wpf.Core.Interfaces;
 using Mes.Wpf.Infrastructure.Api;
 using Mes.Wpf.Infrastructure.Dialogs;
+using Mes.Wpf.Modules.Auth.Dtos;
 using Mes.Wpf.Modules.BohyunOutsourceManagement.ViewModels;
 using Mes.Wpf.Modules.BohyunOutsourceManagement.Views;
 using Mes.Wpf.Modules.Dashboard.ViewModels;
@@ -30,11 +32,15 @@ using Mes.Wpf.Modules.Processes.ViewModels;
 using Mes.Wpf.Modules.Processes.Views;
 using Mes.Wpf.Modules.Products.ViewModels;
 using Mes.Wpf.Modules.Products.Views;
+using Mes.Wpf.Modules.Roles.ViewModels;
+using Mes.Wpf.Modules.Roles.Views;
 using Mes.Wpf.Modules.RoutingTemplates.ViewModels;
 using Mes.Wpf.Modules.RoutingTemplates.Views;
 using Mes.Wpf.Modules.Shipments.Dtos;
 using Mes.Wpf.Modules.Shipments.ViewModels;
 using Mes.Wpf.Modules.Shipments.Views;
+using Mes.Wpf.Modules.Users.ViewModels;
+using Mes.Wpf.Modules.Users.Views;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -45,20 +51,46 @@ namespace Mes.Wpf.Views.Shell
     {
         private readonly ApiClient _apiClient;
         private readonly MessageService _messageService;
+        private readonly AuthLoginResponse? _loginResponse;
+        private readonly HashSet<string> _permissionCodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private readonly DefectTypePageViewModel _defectTypePageViewModel;
         private readonly RoutingTemplatePageViewModel _routingTemplatePageViewModel;
         private readonly DrawingViewer _drawingViewer;
 
         public MainWindow()
+    : this(null, null, null)
+        {
+        }
+
+        public MainWindow(
+            ApiClient? apiClient,
+            MessageService? messageService,
+            AuthLoginResponse? loginResponse)
         {
             InitializeComponent();
 
-            var appSettings = AppSettings.Load();
+            if (apiClient == null)
+            {
+                var appSettings = AppSettings.Load();
+                _apiClient = new ApiClient(appSettings.Api.BaseUrl);
+            }
+            else
+            {
+                _apiClient = apiClient;
+            }
 
-            _apiClient = new ApiClient(appSettings.Api.BaseUrl);
-            _messageService = new MessageService();
+            _messageService = messageService ?? new MessageService();
+            _loginResponse = loginResponse;
+            LoadPermissions(_loginResponse);
+
+
+            if (_loginResponse?.User != null)
+            {
+                Title = $"MES - {_loginResponse.User.UserName}";
+            }
 
             var drawingFileOpener = new DrawingFileOpener(_messageService);
+
             _drawingViewer = new DrawingViewer(
                 _apiClient,
                 _messageService,
@@ -77,7 +109,17 @@ namespace Mes.Wpf.Views.Shell
 
         private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
-            await ShowDashboardAsync();
+            ApplyMenuPermissions();
+
+            if (HasPermission(PermissionCodes.DashboardView))
+            {
+                await ShowDashboardAsync();
+                return;
+            }
+
+            HeaderTitle.Text = "MES";
+            HeaderSubtitle.Text = "접근 가능한 메뉴를 선택하세요.";
+            MainContent.Content = null;
         }
 
         private void MenuExpander_Expanded(object sender, RoutedEventArgs e)
@@ -636,6 +678,108 @@ namespace Mes.Wpf.Views.Shell
             };
 
             window.ShowDialog();
+        }
+
+        private async void UserManagement_Click(object sender, RoutedEventArgs e)
+        {
+            var page = new UserPage();
+            var viewModel = new UserPageViewModel(
+                _apiClient,
+                _messageService);
+
+            page.DataContext = viewModel;
+
+            MainContent.Content = page;
+            MainContent.Visibility = Visibility.Visible;
+
+            HeaderTitle.Text = "회원 관리";
+            HeaderSubtitle.Text = "회원 등록 / 조회 / 수정 / 삭제 / 비밀번호 초기화";
+
+            await viewModel.InitializeAsync();
+        }
+
+        private async void RoleManagement_Click(object sender, RoutedEventArgs e)
+        {
+            var page = new RolePage();
+            var viewModel = new RolePageViewModel(
+                _apiClient,
+                _messageService);
+
+            page.DataContext = viewModel;
+
+            MainContent.Content = page;
+            MainContent.Visibility = Visibility.Visible;
+
+            HeaderTitle.Text = "역할 / 권한 관리";
+            HeaderSubtitle.Text = "역할 등록 / 수정 / 삭제 및 메뉴·버튼 권한 설정";
+
+            await viewModel.InitializeAsync();
+        }
+
+        private void LoadPermissions(AuthLoginResponse? loginResponse)
+        {
+            _permissionCodes.Clear();
+
+            foreach (var permissionCode in loginResponse?.Permissions ?? Enumerable.Empty<string>())
+            {
+                if (string.IsNullOrWhiteSpace(permissionCode))
+                {
+                    continue;
+                }
+
+                _permissionCodes.Add(permissionCode.Trim());
+            }
+        }
+
+        private bool HasPermission(string permissionCode)
+        {
+            if (string.IsNullOrWhiteSpace(permissionCode))
+            {
+                return false;
+            }
+
+            return _permissionCodes.Contains(permissionCode);
+        }
+
+        private void ApplyMenuPermissions()
+        {
+            SetMenuVisibility(DashboardMenuButton, PermissionCodes.DashboardView);
+
+            SetMenuVisibility(DefectTypeMenuButton, PermissionCodes.DefectTypesView);
+            SetMenuVisibility(ProcessMenuButton, PermissionCodes.ProcessesView);
+            SetMenuVisibility(PartnerMenuButton, PermissionCodes.PartnersView);
+            SetMenuVisibility(RoutingTemplateMenuButton, PermissionCodes.RoutingTemplatesView);
+            SetMenuVisibility(RoutingTemplateStepMenuButton, PermissionCodes.RoutingTemplateStepsView);
+            SetMenuVisibility(DrawingMenuButton, PermissionCodes.DrawingsView);
+            SetMenuVisibility(ProductMenuButton, PermissionCodes.ProductsView);
+
+            SetMenuVisibility(OrderLineCreateMenuButton, PermissionCodes.OrderLineCreateView);
+            SetMenuVisibility(OrderLineListMenuButton, PermissionCodes.OrderLineListView);
+
+            SetMenuVisibility(LotProcessMenuButton, PermissionCodes.LotsView);
+
+            SetMenuVisibility(InspectionWorkInstructionMenuButton, PermissionCodes.InspectionWorkInstructionsView);
+            SetMenuVisibility(InspectionScheduleManagementMenuButton, PermissionCodes.InspectionSchedulesView);
+
+            SetMenuVisibility(OutsourceWorkInstructionMenuButton, PermissionCodes.OutsourceWorkInstructionsView);
+            SetMenuVisibility(OutsourcePurchaseOrderMenuButton, PermissionCodes.OutsourcePurchaseOrdersView);
+            SetMenuVisibility(OutsourcePurchaseOrderListMenuButton, PermissionCodes.OutsourcePurchaseOrderListView);
+            SetMenuVisibility(BohyunOutsourceManagementMenuButton, PermissionCodes.BohyunOutsourceManagementView);
+            SetMenuVisibility(BohyunOutsourceShipmentListMenuButton, PermissionCodes.BohyunOutsourceShipmentListView);
+
+            SetMenuVisibility(ProductMonitoringMenuButton, PermissionCodes.ProductMonitoringView);
+            SetMenuVisibility(InventoryMenuButton, PermissionCodes.InventoriesView);
+            SetMenuVisibility(ShipmentMenuButton, PermissionCodes.ShipmentsView);
+
+            SetMenuVisibility(UserManagementMenuButton, PermissionCodes.UsersView);
+            SetMenuVisibility(RoleManagementMenuButton, PermissionCodes.RolesView);
+        }
+
+        private void SetMenuVisibility(FrameworkElement menuElement, string permissionCode)
+        {
+            menuElement.Visibility = HasPermission(permissionCode)
+                ? Visibility.Visible
+                : Visibility.Collapsed;
         }
 
 

@@ -27,6 +27,11 @@ from .outsource_purchase_order_group import OutsourcePurchaseOrderGroup
 from .product_inventory import ProductInventory
 from .product_inventory_movement import ProductInventoryMovement
 from .shipment_line import ShipmentLine
+from .user import User
+from .role import Role
+from .user_role import UserRole
+from .permission import Permission
+from .role_permission import RolePermission
 
 __all__ = [
     "Process", 
@@ -57,7 +62,10 @@ __all__ = [
     "OutsourcePurchaseOrderGroup",
     "ProductInventory",
     "ProductInventoryMovement",
-    "ShipmentLine"
-    
-
-    ]
+    "ShipmentLine",
+    "User",
+    "Role",
+    "UserRole",
+    "Permission",
+    "RolePermission"
+]

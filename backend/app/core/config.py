@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     app_env: str = "dev"
     database_url: str
 
+    AUTH_SECRET_KEY: str = Field(default="mes-dev-auth-secret-key-change-me")
+    AUTH_ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=720, ge=1, le=1440)
+
     DRAWING_STORAGE_ROOT: str = Field(default=r"C:\mes_storage")
     DRAWING_MAX_MB: int = Field(default=50, ge=1, le=500)
     DRAWING_ALLOWED_EXT: Set[str] = Field(default_factory=set)

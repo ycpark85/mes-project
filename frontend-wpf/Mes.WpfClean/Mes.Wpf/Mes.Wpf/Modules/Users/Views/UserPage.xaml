@@ -1,0 +1,250 @@
+﻿<UserControl x:Class="Mes.Wpf.Modules.Users.Views.UserPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid Background="#F8FAFC">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0"
+                Margin="16"
+                Padding="16"
+                Background="White"
+                BorderBrush="#E2E8F0"
+                BorderThickness="1"
+                CornerRadius="12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="2*" />
+                    <ColumnDefinition Width="160" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="검색어"
+                               FontWeight="SemiBold"
+                               Foreground="#334155"
+                               Margin="0,0,0,6" />
+                    <TextBox Text="{Binding SearchKeyword, UpdateSourceTrigger=PropertyChanged}"
+                             Height="34"
+                             Padding="10,0"
+                             VerticalContentAlignment="Center" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="1"
+                            Margin="12,0,0,0">
+                    <TextBlock Text="사용여부"
+                               FontWeight="SemiBold"
+                               Foreground="#334155"
+                               Margin="0,0,0,6" />
+                    <ComboBox ItemsSource="{Binding UseYnOptions}"
+                              SelectedItem="{Binding SelectedUseYn}"
+                              Height="34" />
+                </StackPanel>
+
+                <Button Grid.Column="2"
+                        Content="조회"
+                        Width="80"
+                        Height="34"
+                        Margin="16,22,0,0"
+                        Command="{Binding SearchCommand}" />
+
+                <Button Grid.Column="3"
+                        Content="초기화"
+                        Width="80"
+                        Height="34"
+                        Margin="8,22,0,0"
+                        Command="{Binding ResetCommand}" />
+
+                <Button Grid.Column="4"
+                        Content="신규"
+                        Width="80"
+                        Height="34"
+                        Margin="8,22,0,0"
+                        Command="{Binding NewCommand}" />
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="1"
+              Margin="16,0,16,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="1.45*" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="0.95*" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0"
+                    Background="White"
+                    BorderBrush="#E2E8F0"
+                    BorderThickness="1"
+                    CornerRadius="12">
+                <DataGrid ItemsSource="{Binding Items}"
+                          SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
+                          AutoGenerateColumns="False"
+                          CanUserAddRows="False"
+                          IsReadOnly="True"
+                          HeadersVisibility="Column"
+                          GridLinesVisibility="Horizontal"
+                          RowHeaderWidth="0"
+                          SelectionMode="Single"
+                          Margin="12">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="아이디"
+                                            Binding="{Binding LoginId}"
+                                            Width="120" />
+                        <DataGridTextColumn Header="사용자명"
+                                            Binding="{Binding UserName}"
+                                            Width="130" />
+                        <DataGridTextColumn Header="역할"
+                                            Binding="{Binding RoleNames}"
+                                            Width="180" />
+                        <DataGridTextColumn Header="부서"
+                                            Binding="{Binding Department}"
+                                            Width="110" />
+                        <DataGridTextColumn Header="직책"
+                                            Binding="{Binding Position}"
+                                            Width="110" />
+                        <DataGridTextColumn Header="사용"
+                                            Binding="{Binding UseYn}"
+                                            Width="70" />
+                        <DataGridTextColumn Header="마지막 로그인"
+                                            Binding="{Binding LastLoginAt, StringFormat=yyyy-MM-dd HH:mm}"
+                                            Width="150" />
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Border>
+
+            <Border Grid.Column="2"
+                    Background="White"
+                    BorderBrush="#E2E8F0"
+                    BorderThickness="1"
+                    CornerRadius="12"
+                    Padding="16">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <TextBlock Text="회원 정보"
+                                   FontSize="18"
+                                   FontWeight="Bold"
+                                   Foreground="#0F172A"
+                                   Margin="0,0,0,16" />
+
+                        <TextBlock Text="아이디"
+                                   FontWeight="SemiBold"
+                                   Margin="0,0,0,6" />
+                        <TextBox Text="{Binding EditModel.LoginId, UpdateSourceTrigger=PropertyChanged}"
+                                 IsEnabled="{Binding IsLoginIdEditable}"
+                                 Height="34"
+                                 Padding="10,0"
+                                 VerticalContentAlignment="Center"
+                                 Margin="0,0,0,12" />
+
+                        <TextBlock Text="사용자명"
+                                   FontWeight="SemiBold"
+                                   Margin="0,0,0,6" />
+                        <TextBox Text="{Binding EditModel.UserName, UpdateSourceTrigger=PropertyChanged}"
+                                 Height="34"
+                                 Padding="10,0"
+                                 VerticalContentAlignment="Center"
+                                 Margin="0,0,0,12" />
+
+                        <TextBlock Text="신규 초기 비밀번호"
+                                   FontWeight="SemiBold"
+                                   Margin="0,0,0,6" />
+                        <TextBox Text="{Binding EditModel.InitialPassword, UpdateSourceTrigger=PropertyChanged}"
+                                 IsEnabled="{Binding IsLoginIdEditable}"
+                                 Height="34"
+                                 Padding="10,0"
+                                 VerticalContentAlignment="Center"
+                                 Margin="0,0,0,12" />
+
+                        <TextBlock Text="역할"
+                                   FontWeight="SemiBold"
+                                   Margin="0,0,0,6" />
+                        <Border BorderBrush="#CBD5E1"
+                                BorderThickness="1"
+                                CornerRadius="6"
+                                Padding="8"
+                                Margin="0,0,0,12"
+                                MinHeight="72">
+                            <ItemsControl ItemsSource="{Binding RoleOptions}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <CheckBox Content="{Binding DisplayName}"
+                                                  IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                  Margin="0,2,0,2" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Border>
+
+                        <TextBlock Text="부서"
+                                   FontWeight="SemiBold"
+                                   Margin="0,0,0,6" />
+                        <TextBox Text="{Binding EditModel.Department, UpdateSourceTrigger=PropertyChanged}"
+                                 Height="34"
+                                 Padding="10,0"
+                                 VerticalContentAlignment="Center"
+                                 Margin="0,0,0,12" />
+
+                        <TextBlock Text="직책"
+                                   FontWeight="SemiBold"
+                                   Margin="0,0,0,6" />
+                        <TextBox Text="{Binding EditModel.Position, UpdateSourceTrigger=PropertyChanged}"
+                                 Height="34"
+                                 Padding="10,0"
+                                 VerticalContentAlignment="Center"
+                                 Margin="0,0,0,12" />
+
+                        <CheckBox Content="사용"
+                                  IsChecked="{Binding EditModel.IsActive}"
+                                  Margin="0,0,0,16" />
+
+                        <Grid Margin="0,0,0,18">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="8" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <Button Grid.Column="0"
+                                    Content="저장"
+                                    Height="36"
+                                    Command="{Binding SaveCommand}" />
+
+                            <Button Grid.Column="2"
+                                    Content="삭제"
+                                    Height="36"
+                                    Command="{Binding DeleteCommand}" />
+                        </Grid>
+
+                        <Border Background="#F8FAFC"
+                                BorderBrush="#E2E8F0"
+                                BorderThickness="1"
+                                CornerRadius="10"
+                                Padding="12">
+                            <StackPanel>
+                                <TextBlock Text="비밀번호 초기화"
+                                           FontWeight="Bold"
+                                           Foreground="#0F172A"
+                                           Margin="0,0,0,8" />
+
+                                <TextBox Text="{Binding EditModel.ResetPassword, UpdateSourceTrigger=PropertyChanged}"
+                                         Height="34"
+                                         Padding="10,0"
+                                         VerticalContentAlignment="Center"
+                                         Margin="0,0,0,8" />
+
+                                <Button Content="비밀번호 초기화"
+                                        Height="34"
+                                        Command="{Binding ResetPasswordCommand}" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

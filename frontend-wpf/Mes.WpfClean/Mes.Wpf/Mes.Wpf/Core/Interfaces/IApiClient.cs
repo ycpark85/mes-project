@@ -18,5 +18,8 @@ namespace Mes.Wpf.Core.Interfaces
         Task<byte[]?> GetBytesAsync(string relativeUrl);
 
         string BuildAbsoluteUrl(string relativeUrl);
+
+        void SetAccessToken(string? accessToken);
+        void ClearAccessToken();
     }
 }

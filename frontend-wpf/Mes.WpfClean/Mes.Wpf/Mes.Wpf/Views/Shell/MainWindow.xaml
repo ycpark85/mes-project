@@ -223,7 +223,8 @@
                     <StackPanel x:Name="SidebarMenuStack"
                                 Margin="0,12,0,12">
 
-                        <Button Content="⌂  홈"
+                        <Button x:Name="DashboardMenuButton"
+                                Content="⌂  홈"
                                 Style="{StaticResource SidebarHomeButtonStyle}"
                                 Click="Dashboard_Click"/>
 
@@ -231,31 +232,38 @@
                                   Style="{StaticResource SidebarCategoryExpanderStyle}"
                                   IsExpanded="False">
                             <StackPanel>
-                                <Button Content="거래처관리"
+                                <Button x:Name="PartnerMenuButton"
+                                        Content="거래처관리"
                                         Style="{StaticResource SidebarMenuButtonStyle}"
                                         Click="Partner_Click"/>
 
-                                <Button Content="공정관리"
+                                <Button x:Name="ProcessMenuButton"
+                                        Content="공정관리"
                                         Style="{StaticResource SidebarMenuButtonStyle}"
                                         Click="Process_Click"/>
 
-                                <Button Content="라우팅템플릿"
+                                <Button x:Name="RoutingTemplateMenuButton"
+                                        Content="라우팅템플릿"
                                         Style="{StaticResource SidebarMenuButtonStyle}"
                                         Click="RoutingTemplate_Click"/>
 
-                                <Button Content="라우팅템플릿스텝"
+                                <Button x:Name="RoutingTemplateStepMenuButton"
+                                        Content="라우팅템플릿스탭"
                                         Style="{StaticResource SidebarMenuButtonStyle}"
                                         Click="RoutingTemplateStep_Click"/>
 
-                                <Button Content="도면관리"
+                                <Button x:Name="DrawingMenuButton"
+                                        Content="도면관리"
                                         Style="{StaticResource SidebarMenuButtonStyle}"
                                         Click="Drawing_Click"/>
 
-                                <Button Content="불량유형"
+                                <Button x:Name="DefectTypeMenuButton"
+                                        Content="불량유형"
                                         Style="{StaticResource SidebarMenuButtonStyle}"
                                         Click="DefectType_Click"/>
 
-                                <Button Content="품목관리"
+                                <Button x:Name="ProductMenuButton"
+                                        Content="품목관리"
                                         Style="{StaticResource SidebarMenuButtonStyle}"
                                         Click="Product_Click"/>
                             </StackPanel>
@@ -265,11 +273,13 @@
                                   Style="{StaticResource SidebarCategoryExpanderStyle}"
                                   IsExpanded="False">
                             <StackPanel>
-                                <Button Content="발주등록"
+                                <Button x:Name="OrderLineCreateMenuButton"
+                                        Content="발주등록"
                                         Style="{StaticResource SidebarMenuButtonStyle}"
                                         Click="OrderLineCreate_Click"/>
 
-                                <Button Content="발주리스트"
+                                <Button x:Name="OrderLineListMenuButton"
+                                        Content="발주리스트"
                                         Style="{StaticResource SidebarMenuButtonStyle}"
                                         Click="OrderLineList_Click"/>
                             </StackPanel>
@@ -279,18 +289,22 @@
                                   Style="{StaticResource SidebarCategoryExpanderStyle}"
                                   IsExpanded="False">
                             <StackPanel>
-                                <Button Content="LOT 관리"
+                                <Button x:Name="LotProcessMenuButton"
+                                        Content="LOT 관리"
                                         Style="{StaticResource SidebarMenuButtonStyle}"
                                         Click="LotProcess_Click"/>
 
-                                <Button Content="품목이력관리"
+                                <Button x:Name="ProductMonitoringMenuButton"
+                                        Content="품목이력관리"
                                         Style="{StaticResource SidebarMenuButtonStyle}"
                                         Click="ProductMonitoring_Click"/>
 
-                                <Button Content="재고 관리"
+                                <Button x:Name="InventoryMenuButton"
+                                        Content="재고 관리"
                                         Style="{StaticResource SidebarMenuButtonStyle}"
                                         Click="Inventory_Click"/>
-                                <Button Content="출하 관리"
+                                <Button x:Name="ShipmentMenuButton"
+                                        Content="출하 관리"
                                         Style="{StaticResource SidebarMenuButtonStyle}"
                                         Click="Shipment_Click"/>   
                             </StackPanel>
@@ -300,23 +314,28 @@
                                   Style="{StaticResource SidebarCategoryExpanderStyle}"
                                   IsExpanded="False">
                             <StackPanel>
-                                <Button Content="외주 작업지시"
+                                <Button x:Name="OutsourceWorkInstructionMenuButton"
+                                        Content="외주 작업지시"
                                         Style="{StaticResource SidebarMenuButtonStyle}"
                                         Click="OutsourceWorkInstruction_Click"/>
 
-                                <Button Content="외주 발주서 작성 / 출력"
+                                <Button x:Name="OutsourcePurchaseOrderMenuButton"
+                                        Content="외주 발주서 작성 / 출력"
                                         Style="{StaticResource SidebarMenuButtonStyle}"
                                         Click="OutsourcePurchaseOrder_Click"/>
 
-                                <Button Content="외주발주 리스트"
+                                <Button x:Name="OutsourcePurchaseOrderListMenuButton"
+                                        Content="외주발주 리스트"
                                         Style="{StaticResource SidebarMenuButtonStyle}"
                                         Click="OutsourcePurchaseOrderList_Click"/>
 
-                                <Button Content="보현문화 외주관리"
+                                <Button x:Name="BohyunOutsourceManagementMenuButton"
+                                        Content="보현문화 외주관리"
                                         Style="{StaticResource SidebarMenuButtonStyle}"
                                         Click="BohyunOutsourceManagement_Click"/>
 
-                                <Button Content="보현문화 출고리스트"
+                                <Button x:Name="BohyunOutsourceShipmentListMenuButton"
+                                        Content="보현문화 출고리스트"
                                         Style="{StaticResource SidebarMenuButtonStyle}"
                                         Click="BohyunOutsourceShipmentList_Click"/>
                             </StackPanel>
@@ -326,13 +345,30 @@
                                   Style="{StaticResource SidebarCategoryExpanderStyle}"
                                   IsExpanded="False">
                             <StackPanel>
-                                <Button Content="검수 작업지시 / 등록"
+                                <Button x:Name="InspectionWorkInstructionMenuButton"
+                                        Content="검수 작업지시 / 등록"
                                         Style="{StaticResource SidebarMenuButtonStyle}"
                                         Click="InspectionWorkInstruction_Click"/>
 
-                                <Button Content="검수스케쥴관리"
+                                <Button x:Name="InspectionScheduleManagementMenuButton"
+                                        Content="검수스케쥴관리"
                                         Style="{StaticResource SidebarMenuButtonStyle}"
                                         Click="InspectionScheduleManagement_Click"/>
+                            </StackPanel>
+                        </Expander>
+                        <Expander Header="☑ 회원관리"
+                                  Style="{StaticResource SidebarCategoryExpanderStyle}"
+                                  IsExpanded="False">   
+                            <StackPanel>
+                                <Button x:Name="UserManagementMenuButton"
+                                        Content="회원 관리"
+                                        Style="{StaticResource SidebarMenuButtonStyle}"
+                                        Click="UserManagement_Click"/>
+                                <Button x:Name="RoleManagementMenuButton"
+                                        Content="역할/권한 관리"
+                                        Style="{StaticResource SidebarMenuButtonStyle}"
+                                        Click="RoleManagement_Click"/>      
+
                             </StackPanel>
                         </Expander>
 

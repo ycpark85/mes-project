@@ -1,0 +1,261 @@
+﻿<UserControl x:Class="Mes.Wpf.Modules.Roles.Views.RolePage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid Background="#F8FAFC">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0"
+                Margin="16"
+                Padding="16"
+                Background="White"
+                BorderBrush="#E2E8F0"
+                BorderThickness="1"
+                CornerRadius="12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="2*" />
+                    <ColumnDefinition Width="160" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="검색어"
+                               FontWeight="SemiBold"
+                               Foreground="#334155"
+                               Margin="0,0,0,6" />
+                    <TextBox Text="{Binding SearchKeyword, UpdateSourceTrigger=PropertyChanged}"
+                             Height="34"
+                             Padding="10,0"
+                             VerticalContentAlignment="Center" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="1"
+                            Margin="12,0,0,0">
+                    <TextBlock Text="사용여부"
+                               FontWeight="SemiBold"
+                               Foreground="#334155"
+                               Margin="0,0,0,6" />
+                    <ComboBox ItemsSource="{Binding UseYnOptions}"
+                              SelectedItem="{Binding SelectedUseYn}"
+                              Height="34" />
+                </StackPanel>
+
+                <Button Grid.Column="2"
+                        Content="조회"
+                        Width="80"
+                        Height="34"
+                        Margin="16,22,0,0"
+                        Command="{Binding SearchCommand}" />
+
+                <Button Grid.Column="3"
+                        Content="초기화"
+                        Width="80"
+                        Height="34"
+                        Margin="8,22,0,0"
+                        Command="{Binding ResetCommand}" />
+
+                <Button Grid.Column="4"
+                        Content="신규"
+                        Width="80"
+                        Height="34"
+                        Margin="8,22,0,0"
+                        Command="{Binding NewCommand}" />
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="1"
+              Margin="16,0,16,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="1.05*" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="1.25*" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0"
+                    Background="White"
+                    BorderBrush="#E2E8F0"
+                    BorderThickness="1"
+                    CornerRadius="12">
+                <DataGrid ItemsSource="{Binding Items}"
+                          SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
+                          AutoGenerateColumns="False"
+                          CanUserAddRows="False"
+                          IsReadOnly="True"
+                          HeadersVisibility="Column"
+                          GridLinesVisibility="Horizontal"
+                          RowHeaderWidth="0"
+                          SelectionMode="Single"
+                          Margin="12">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="역할코드"
+                                            Binding="{Binding RoleCode}"
+                                            Width="120" />
+                        <DataGridTextColumn Header="역할명"
+                                            Binding="{Binding RoleName}"
+                                            Width="150" />
+                        <DataGridTextColumn Header="구분"
+                                            Binding="{Binding SystemYn}"
+                                            Width="80" />
+                        <DataGridTextColumn Header="사용"
+                                            Binding="{Binding UseYn}"
+                                            Width="70" />
+                        <DataGridTextColumn Header="설명"
+                                            Binding="{Binding Description}"
+                                            Width="*" />
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Border>
+
+            <Grid Grid.Column="2">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="16" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <Border Grid.Row="0"
+                        Background="White"
+                        BorderBrush="#E2E8F0"
+                        BorderThickness="1"
+                        CornerRadius="12"
+                        Padding="16">
+                    <StackPanel>
+                        <TextBlock Text="역할 정보"
+                                   FontSize="18"
+                                   FontWeight="Bold"
+                                   Foreground="#0F172A"
+                                   Margin="0,0,0,16" />
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="역할코드"
+                                           FontWeight="SemiBold"
+                                           Margin="0,0,0,6" />
+                                <TextBox Text="{Binding EditModel.RoleCode, UpdateSourceTrigger=PropertyChanged}"
+                                         IsEnabled="{Binding IsCodeEditable}"
+                                         Height="34"
+                                         Padding="10,0"
+                                         VerticalContentAlignment="Center" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="역할명"
+                                           FontWeight="SemiBold"
+                                           Margin="0,0,0,6" />
+                                <TextBox Text="{Binding EditModel.RoleName, UpdateSourceTrigger=PropertyChanged}"
+                                         Height="34"
+                                         Padding="10,0"
+                                         VerticalContentAlignment="Center" />
+                            </StackPanel>
+                        </Grid>
+
+                        <TextBlock Text="설명"
+                                   FontWeight="SemiBold"
+                                   Margin="0,14,0,6" />
+                        <TextBox Text="{Binding EditModel.Description, UpdateSourceTrigger=PropertyChanged}"
+                                 Height="64"
+                                 AcceptsReturn="True"
+                                 TextWrapping="Wrap"
+                                 Padding="10,6"
+                                 VerticalScrollBarVisibility="Auto" />
+
+                        <Grid Margin="0,14,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="8" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Orientation="Horizontal"
+                                        VerticalAlignment="Center">
+                                <CheckBox Content="사용"
+                                          IsChecked="{Binding EditModel.IsActive}"
+                                          Margin="0,0,16,0" />
+                                <CheckBox Content="시스템 역할"
+                                          IsChecked="{Binding EditModel.IsSystem}"
+                                          IsEnabled="False" />
+                            </StackPanel>
+
+                            <Button Grid.Column="1"
+                                    Content="저장"
+                                    Width="88"
+                                    Height="36"
+                                    Command="{Binding SaveCommand}" />
+
+                            <Button Grid.Column="3"
+                                    Content="삭제"
+                                    Width="88"
+                                    Height="36"
+                                    Command="{Binding DeleteCommand}" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Row="2"
+                        Background="White"
+                        BorderBrush="#E2E8F0"
+                        BorderThickness="1"
+                        CornerRadius="12"
+                        Padding="16">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <StackPanel Grid.Row="0"
+                                    Margin="0,0,0,12">
+                            <TextBlock Text="역할 권한"
+                                       FontSize="18"
+                                       FontWeight="Bold"
+                                       Foreground="#0F172A" />
+                            <TextBlock Text="선택한 역할에 메뉴/버튼 권한을 부여합니다."
+                                       Foreground="#64748B"
+                                       Margin="0,4,0,0" />
+                        </StackPanel>
+
+                        <Border Grid.Row="1"
+                                BorderBrush="#CBD5E1"
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                Padding="10">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <ItemsControl ItemsSource="{Binding PermissionItems}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <CheckBox Content="{Binding DisplayName}"
+                                                      IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                      IsEnabled="{Binding DataContext.IsPermissionEditable, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                      Margin="0,3,0,3" />
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Border>
+
+                        <Button Grid.Row="2"
+                                Content="권한 저장"
+                                Height="36"
+                                Margin="0,12,0,0"
+                                HorizontalAlignment="Right"
+                                Width="110"
+                                Command="{Binding SavePermissionsCommand}" />
+                    </Grid>
+                </Border>
+            </Grid>
+        </Grid>
+    </Grid>
+</UserControl>

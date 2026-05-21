@@ -47,5 +47,15 @@
         public const string OrderLinesBulkValidate = "api/v1/order-lines/bulk/validate";
         public const string OrderLinesBulkCommit = "api/v1/order-lines/bulk/commit";
 
+        public const string AuthLogin = "api/v1/auth/login";
+        public const string AuthMe = "api/v1/auth/me";
+
+        public const string Users = "api/v1/users";
+        public const string UserRoleOptions = "api/v1/users/role-options";
+
+        public const string Roles = "api/v1/roles";
+        public const string Permissions = "api/v1/permissions";
+
+
     }
 }
