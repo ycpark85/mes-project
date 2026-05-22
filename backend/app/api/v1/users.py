@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.auth import get_current_user, hash_password
+from app.core.auth import hash_password, require_permission
 from app.crud.user import user_crud
 from app.db.session import get_db
 from app.models.role import Role
@@ -23,11 +23,10 @@ from app.schemas.user import (
 
 router = APIRouter(prefix="/users", tags=["User"])
 
-
 @router.get("/role-options", response_model=list[UserRoleOptionOut])
 def list_role_options(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("USERS.VIEW")),
 ):
     roles = (
         db.query(Role)
@@ -50,7 +49,30 @@ def list_role_options(
 def create_user(
     payload: UserCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("USERS.CREATE")),
+):
+    roles = (
+        db.query(Role)
+        .filter(Role.is_active == True)
+        .order_by(Role.role_code.asc())
+        .all()
+    )
+
+    return [
+        UserRoleOptionOut(
+            role_id=role.role_id,
+            role_code=role.role_code,
+            role_name=role.role_name,
+        )
+        for role in roles
+    ]
+
+
+@router.post("", response_model=UserOut, status_code=status.HTTP_201_CREATED)
+def create_user(
+    payload: UserCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("USERS.CREATE")),
 ):
     role_ids = _validate_role_ids(db, payload.role_ids)
 
@@ -92,7 +114,7 @@ def list_users(
     q: str | None = Query(None),
     is_active: bool | None = Query(True),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("USERS.VIEW")),
 ):
     items, total = user_crud.list_paged(
         db,
@@ -114,7 +136,7 @@ def list_users(
 def get_user(
     user_id: int = Path(..., ge=1),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("USERS.VIEW")),
 ):
     obj = user_crud.get_or_404(db, user_id, active_only=True)
 
@@ -126,7 +148,7 @@ def update_user(
     user_id: int = Path(..., ge=1),
     payload: UserUpdate = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("USERS.UPDATE")),
 ):
     obj = user_crud.get_or_404(db, user_id, active_only=False)
 
@@ -176,7 +198,7 @@ def reset_user_password(
     user_id: int = Path(..., ge=1),
     payload: UserResetPassword = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("USERS.RESET_PASSWORD")),
 ):
     obj = user_crud.get_or_404(db, user_id, active_only=False)
 
@@ -192,7 +214,7 @@ def reset_user_password(
 def delete_user(
     user_id: int = Path(..., ge=1),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("USERS.DELETE")),
 ):
     if user_id == current_user.user_id:
         raise HTTPException(

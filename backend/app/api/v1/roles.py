@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.auth import get_current_user
+from app.core.auth import require_permission
 from app.crud.role import role_crud
 from app.db.session import get_db
 from app.models.permission import Permission
@@ -28,7 +28,7 @@ router = APIRouter(prefix="/roles", tags=["Role"])
 def create_role(
     payload: RoleCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("ROLES.CREATE")),
 ):
     role = Role(
         role_code=_normalize_code(payload.role_code),
@@ -59,7 +59,7 @@ def list_roles(
     q: str | None = Query(None),
     is_active: bool | None = Query(True),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("ROLES.VIEW")),
 ):
     items, total = role_crud.list_paged(
         db,
@@ -82,7 +82,7 @@ def list_roles(
 def get_role(
     role_id: int = Path(..., ge=1),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("ROLES.VIEW")),
 ):
     return role_crud.get_or_404(db, role_id, active_only=True)
 
@@ -92,7 +92,7 @@ def update_role(
     role_id: int = Path(..., ge=1),
     payload: RoleUpdate = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("ROLES.UPDATE")),
 ):
     role = role_crud.get_or_404(db, role_id, active_only=False)
 
@@ -118,7 +118,7 @@ def update_role(
 def delete_role(
     role_id: int = Path(..., ge=1),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("ROLES.DELETE")),
 ):
     role = role_crud.get_or_404(db, role_id, active_only=False)
 
@@ -135,7 +135,7 @@ def delete_role(
 def get_role_permissions(
     role_id: int = Path(..., ge=1),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("ROLE_PERMISSIONS.VIEW")),
 ):
     role = role_crud.get_or_404(db, role_id, active_only=False)
     permissions = _get_role_permissions(db, role.role_id)
@@ -151,7 +151,7 @@ def update_role_permissions(
     role_id: int = Path(..., ge=1),
     payload: RolePermissionUpdate = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("ROLE_PERMISSIONS.UPDATE")),
 ):
     role = role_crud.get_or_404(db, role_id, active_only=False)
 

@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
-from app.core.auth import get_current_user
+from app.core.auth import require_permission
 from app.db.session import get_db
 from app.models.permission import Permission
 from app.models.user import User
@@ -21,7 +21,7 @@ def list_permissions(
     q: str | None = Query(None),
     is_active: bool | None = Query(True),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("PERMISSIONS.VIEW")),
 ):
     query = db.query(Permission)
 

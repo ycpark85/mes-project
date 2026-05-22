@@ -231,3 +231,25 @@ def _credentials_exception() -> HTTPException:
         detail="인증 정보가 올바르지 않습니다.",
         headers={"WWW-Authenticate": "Bearer"},
     )
+
+def require_permission(permission_code: str):
+    normalized_permission_code = permission_code.strip().upper()
+
+    if not normalized_permission_code:
+        raise ValueError("permission_code is required")
+
+    def _require_permission(
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db),
+    ) -> User:
+        permission_codes = set(get_user_permission_codes(db, current_user.user_id))
+
+        if normalized_permission_code not in permission_codes:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="권한이 없습니다.",
+            )
+
+        return current_user
+
+    return _require_permission
