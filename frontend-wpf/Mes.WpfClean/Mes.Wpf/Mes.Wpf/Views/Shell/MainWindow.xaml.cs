@@ -93,7 +93,7 @@ namespace Mes.Wpf.Views.Shell
                 Title = $"MES - {_loginResponse.User.UserName}";
             }
 
-            var drawingFileOpener = new DrawingFileOpener(_messageService);
+            var drawingFileOpener = new DrawingFileOpener(_apiClient, _messageService);
 
             _drawingViewer = new DrawingViewer(
                 _apiClient,
@@ -331,7 +331,7 @@ namespace Mes.Wpf.Views.Shell
         {
             var drawingPage = new DrawingPage();
 
-            var drawingFileOpener = new DrawingFileOpener(_messageService);
+            var drawingFileOpener = new DrawingFileOpener(_apiClient, _messageService);
             var drawingViewModel = new DrawingPageViewModel(
                 _apiClient,
                 _messageService,
@@ -352,7 +352,7 @@ namespace Mes.Wpf.Views.Shell
         {
             var productPage = new ProductPage();
 
-            var drawingFileOpener = new DrawingFileOpener(_messageService);
+            var drawingFileOpener = new DrawingFileOpener(_apiClient, _messageService);
             var drawingViewer = new DrawingViewer(
                 _apiClient,
                 _messageService,
@@ -378,7 +378,7 @@ namespace Mes.Wpf.Views.Shell
         {
             var page = new OrderLineCreatePage();
 
-            var drawingFileOpener = new DrawingFileOpener(_messageService);
+            var drawingFileOpener = new DrawingFileOpener(_apiClient, _messageService);
             var drawingViewer = new DrawingViewer(
                 _apiClient,
                 _messageService,
@@ -444,7 +444,7 @@ namespace Mes.Wpf.Views.Shell
 
         private async Task OpenLotCreateWindowAsync(OrderLineListItemDto item)
         {
-            var drawingFileOpener = new DrawingFileOpener(_messageService);
+            var drawingFileOpener = new DrawingFileOpener(_apiClient, _messageService);
 
             var drawingViewer = new DrawingViewer(
                 _apiClient,

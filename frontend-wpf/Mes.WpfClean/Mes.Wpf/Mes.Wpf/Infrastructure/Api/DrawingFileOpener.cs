@@ -2,17 +2,21 @@
 using System;
 using System.Diagnostics;
 using System.IO;
-using System.Net.Http;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace Mes.Wpf.Infrastructure.Api
 {
     public class DrawingFileOpener : IDrawingFileOpener
     {
+        private readonly IApiClient _apiClient;
         private readonly IMessageService _messageService;
 
-        public DrawingFileOpener(IMessageService messageService)
+        public DrawingFileOpener(
+            IApiClient apiClient,
+            IMessageService messageService)
         {
+            _apiClient = apiClient;
             _messageService = messageService;
         }
 
@@ -20,41 +24,26 @@ namespace Mes.Wpf.Infrastructure.Api
         {
             try
             {
-                using var httpClient = new HttpClient();
-                using var response = await httpClient.GetAsync(downloadUrl);
-                response.EnsureSuccessStatusCode();
+                var bytes = await _apiClient.GetBytesAsync(downloadUrl);
 
-                var bytes = await response.Content.ReadAsByteArrayAsync();
-
-                var safeFileName = string.IsNullOrWhiteSpace(fileName)
-                    ? $"drawing_file_{DateTime.Now:yyyyMMddHHmmss}"
-                    : fileName;
-
-                var extension = Path.GetExtension(safeFileName);
-                if (string.IsNullOrWhiteSpace(extension))
+                if (bytes == null || bytes.Length == 0)
                 {
-                    var mediaType = response.Content.Headers.ContentType?.MediaType ?? string.Empty;
-
-                    extension = mediaType switch
-                    {
-                        "application/pdf" => ".pdf",
-                        "image/png" => ".png",
-                        "image/jpeg" => ".jpg",
-                        "image/jpg" => ".jpg",
-                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" => ".xlsx",
-                        "application/vnd.ms-excel" => ".xls",
-                        "application/msword" => ".doc",
-                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document" => ".docx",
-                        _ => string.Empty
-                    };
-
-                    safeFileName += extension;
+                    _messageService.ShowError(
+                        "도면 파일을 다운로드할 수 없습니다.\n로그인 권한 또는 도면 파일 정보를 확인하세요.");
+                    return;
                 }
 
-                var tempFolder = Path.Combine(Path.GetTempPath(), "Mes.Wpf", "Drawings");
+                var safeFileName = BuildSafeFileName(fileName);
+
+                var tempFolder = Path.Combine(
+                    Path.GetTempPath(),
+                    "Mes.Wpf",
+                    "Drawings");
+
                 Directory.CreateDirectory(tempFolder);
 
                 var tempFilePath = Path.Combine(tempFolder, safeFileName);
+
                 await File.WriteAllBytesAsync(tempFilePath, bytes);
 
                 Process.Start(new ProcessStartInfo
@@ -67,6 +56,43 @@ namespace Mes.Wpf.Infrastructure.Api
             {
                 _messageService.ShowError($"파일 열기 중 오류가 발생했습니다.\n{ex.Message}");
             }
+        }
+
+        private static string BuildSafeFileName(string? fileName)
+        {
+            var name = string.IsNullOrWhiteSpace(fileName)
+                ? $"drawing_file_{DateTime.Now:yyyyMMddHHmmss}"
+                : fileName.Trim();
+
+            foreach (var invalidChar in Path.GetInvalidFileNameChars())
+            {
+                name = name.Replace(invalidChar, '_');
+            }
+
+            name = name
+                .Replace("/", "_")
+                .Replace("\\", "_")
+                .Trim();
+
+            if (string.IsNullOrWhiteSpace(name) || name == "." || name == "..")
+            {
+                name = $"drawing_file_{DateTime.Now:yyyyMMddHHmmss}";
+            }
+
+            if (string.IsNullOrWhiteSpace(Path.GetExtension(name)))
+            {
+                name += ".bin";
+            }
+
+            var extension = Path.GetExtension(name);
+            var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(name);
+
+            if (fileNameWithoutExtension.Length > 120)
+            {
+                fileNameWithoutExtension = fileNameWithoutExtension.Substring(0, 120);
+            }
+
+            return $"{fileNameWithoutExtension}{extension}";
         }
     }
 }

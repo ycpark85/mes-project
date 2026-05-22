@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from datetime import datetime
 from pathlib import Path
-
+from uuid import uuid4
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy import func, select, or_
 from sqlalchemy.orm import Session
@@ -48,6 +48,27 @@ def _safe_filename(name: str) -> str:
 def _ext_of(filename: str) -> str:
     return Path(filename).suffix.lower().lstrip(".")
 
+def _normalize_allowed_exts(values) -> set[str]:
+    return {
+        str(value).strip().lower().lstrip(".")
+        for value in values
+        if str(value).strip()
+    }
+
+
+def _abs_path_from_uri(file_uri: str) -> Path:
+    root = Path(settings.DEFECT_PHOTO_STORAGE_ROOT).resolve()
+    abs_path = (root / file_uri).resolve()
+
+    try:
+        abs_path.relative_to(root)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid attachment path",
+        )
+
+    return abs_path
 
 def _ensure_schedule(db: Session, inspection_schedule_id: int) -> InspectionSchedule:
     obj = db.execute(
@@ -77,17 +98,30 @@ def _save_defect_photo(
     inspection_schedule_id: int,
 ) -> tuple[str, str, int, str | None]:
     ext = _ext_of(file.filename or "")
-    if not ext or ext not in settings.DEFECT_PHOTO_ALLOWED_EXT:
+    allowed_exts = _normalize_allowed_exts(settings.DEFECT_PHOTO_ALLOWED_EXT)
+
+    if not ext or ext not in allowed_exts:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid file extension. allowed={sorted(settings.DEFECT_PHOTO_ALLOWED_EXT)}",
+            detail=f"Invalid file extension. allowed={sorted(allowed_exts)}",
+        )
+
+    root = Path(settings.DEFECT_PHOTO_STORAGE_ROOT).resolve()
+    target_dir = target_dir.resolve()
+
+    try:
+        target_dir.relative_to(root)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid storage path",
         )
 
     target_dir.mkdir(parents=True, exist_ok=True)
 
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     original = _safe_filename(file.filename or f"file.{ext}")
-    final_name = f"{ts}_{original}"
+    final_name = f"{ts}_{uuid4().hex[:8]}_{original}"
     abs_path = target_dir / final_name
 
     max_bytes = settings.DEFECT_PHOTO_MAX_MB * 1024 * 1024
@@ -100,6 +134,7 @@ def _save_defect_photo(
                 break
 
             written += len(chunk)
+
             if written > max_bytes:
                 try:
                     abs_path.unlink(missing_ok=True)
@@ -113,7 +148,18 @@ def _save_defect_photo(
 
             f.write(chunk)
 
-    rel_uri = str(Path("defect_photos") / str(inspection_schedule_id) / final_name)
+    if written <= 0:
+        try:
+            abs_path.unlink(missing_ok=True)
+        except Exception:
+            pass
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Empty file is not allowed",
+        )
+
+    rel_uri = str(abs_path.resolve().relative_to(root))
     return rel_uri.replace("\\", "/"), original, written, file.content_type
 
 
@@ -334,16 +380,18 @@ def upload_result_photo(
 def get_result_attachment_content(
     attachment_id: int,
     db: Session = Depends(get_db),
+    user=Depends(get_current_user),
 ):
-    attachment = db.get(InspectionDefectAttachment, attachment_id)
+    _ = user
 
+    attachment = db.get(InspectionDefectAttachment, attachment_id)
     if attachment is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Attachment not found",
         )
 
-    file_path = Path(settings.DEFECT_PHOTO_STORAGE_ROOT) / attachment.file_uri
+    file_path = _abs_path_from_uri(attachment.file_uri)
 
     if not file_path.exists() or not file_path.is_file():
         raise HTTPException(
@@ -352,10 +400,8 @@ def get_result_attachment_content(
         )
 
     media_type = attachment.mime_type
-
     if not media_type:
         suffix = file_path.suffix.lower()
-
         if suffix in [".jpg", ".jpeg"]:
             media_type = "image/jpeg"
         elif suffix == ".png":
@@ -368,10 +414,11 @@ def get_result_attachment_content(
             media_type = "application/octet-stream"
 
     return FileResponse(
-        path=file_path,
+        path=str(file_path),
         media_type=media_type,
         filename=attachment.file_name or file_path.name,
         content_disposition_type="inline",
+        headers={"Cache-Control": "no-store"},
     )
 
 @router.put("/{inspection_schedule_id}/result", response_model=InspectionResultUpsertOut)

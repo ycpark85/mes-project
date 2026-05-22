@@ -16,6 +16,7 @@ from fastapi import (
     File,
     Form,
 )
+from uuid import uuid4
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import func
@@ -51,6 +52,23 @@ def _safe_filename(name: str) -> str:
 def _ext_of(filename: str) -> str:
     return Path(filename).suffix.lower().lstrip(".")
 
+def _normalize_allowed_exts(values) -> set[str]:
+    return {
+        str(value).strip().lower().lstrip(".")
+        for value in values
+        if str(value).strip()
+    }
+
+
+def _safe_path_segment(value: str | None, fallback: str) -> str:
+    name = (value or "").strip().replace(" ", "_")
+    name = _filename_safe_re.sub("_", name)
+    name = name.strip("._-")
+
+    if not name or name in {".", ".."}:
+        return fallback
+
+    return name[:80]
 
 def _ensure_valid_file_kind(file_kind: str) -> str:
     normalized = (file_kind or "").strip().upper()
@@ -86,22 +104,40 @@ def _ensure_revision(db: Session, drawing_id: int, revision_id: int) -> DrawingR
 
 def _make_store_dir(*, drawing_no: str, rev_no: str, file_kind: str) -> Path:
     root = Path(settings.DRAWING_STORAGE_ROOT)
-    return root / "drawings" / drawing_no / rev_no / file_kind
-
+    return (
+        root
+        / "drawings"
+        / _safe_path_segment(drawing_no, "drawing")
+        / _safe_path_segment(rev_no, "revision")
+        / _safe_path_segment(file_kind, "file")
+    )
 
 def _save_upload_file(*, file: UploadFile, target_dir: Path) -> tuple[str, int | None, str | None]:
     ext = _ext_of(file.filename or "")
-    if not ext or ext not in settings.DRAWING_ALLOWED_EXT:
+    allowed_exts = _normalize_allowed_exts(settings.DRAWING_ALLOWED_EXT)
+
+    if not ext or ext not in allowed_exts:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid file extension. allowed={sorted(settings.DRAWING_ALLOWED_EXT)}",
+            detail=f"Invalid file extension. allowed={sorted(allowed_exts)}",
+        )
+
+    root = Path(settings.DRAWING_STORAGE_ROOT).resolve()
+    target_dir = target_dir.resolve()
+
+    try:
+        target_dir.relative_to(root)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid storage path",
         )
 
     target_dir.mkdir(parents=True, exist_ok=True)
 
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     original = _safe_filename(file.filename or f"file.{ext}")
-    final_name = f"{ts}_{original}"
+    final_name = f"{ts}_{uuid4().hex[:8]}_{original}"
     abs_path = target_dir / final_name
 
     max_bytes = settings.DRAWING_MAX_MB * 1024 * 1024
@@ -112,31 +148,50 @@ def _save_upload_file(*, file: UploadFile, target_dir: Path) -> tuple[str, int |
             chunk = file.file.read(1024 * 1024)
             if not chunk:
                 break
+
             written += len(chunk)
+
             if written > max_bytes:
                 try:
                     abs_path.unlink(missing_ok=True)
                 except Exception:
                     pass
+
                 raise HTTPException(
                     status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
                     detail=f"File too large. max={settings.DRAWING_MAX_MB}MB",
                 )
+
             f.write(chunk)
 
-    rel_uri = str(
-        Path("drawings")
-        / target_dir.parts[-3]
-        / target_dir.parts[-2]
-        / target_dir.parts[-1]
-        / final_name
-    )
+    if written <= 0:
+        try:
+            abs_path.unlink(missing_ok=True)
+        except Exception:
+            pass
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Empty file is not allowed",
+        )
+
+    rel_uri = str(abs_path.resolve().relative_to(root))
     return rel_uri.replace("\\", "/"), written, file.content_type
 
 
 def _abs_path_from_uri(file_uri: str) -> Path:
-    return Path(settings.DRAWING_STORAGE_ROOT) / file_uri
+    root = Path(settings.DRAWING_STORAGE_ROOT).resolve()
+    abs_path = (root / file_uri).resolve()
 
+    try:
+        abs_path.relative_to(root)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid file path",
+        )
+
+    return abs_path
 
 # =========================================================
 # 1) revision 생성 (파일 없이)
