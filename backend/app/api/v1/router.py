@@ -22,7 +22,7 @@ from app.api.v1.dashboard import router as dashboard_router
 from app.api.v1.inventories import router as inventory_router
 from app.api.v1.shipments import router as shipment_router
 
-from app.core.auth import require_any_permission, require_permission
+from app.core.auth import  require_any_permission, require_method_any_permission, require_permission
 
 router = APIRouter()
 
@@ -43,26 +43,50 @@ router.include_router(
 
 router.include_router(
     defect_type_router,
-    dependencies=[Depends(require_permission("DEFECT_TYPES.VIEW"))],
+    dependencies=[
+        Depends(
+            require_method_any_permission(
+                read_permission_codes=("DEFECT_TYPES.VIEW",),
+                write_permission_codes=("DEFECT_TYPES.WRITE",),
+            )
+        )
+    ],
 )
 
 router.include_router(
     process_router,
-    dependencies=[Depends(require_permission("PROCESSES.VIEW"))],
+    dependencies=[
+        Depends(
+            require_method_any_permission(
+                read_permission_codes=("PROCESSES.VIEW",),
+                write_permission_codes=("PROCESSES.WRITE",),
+            )
+        )
+    ],
 )
 
 router.include_router(
     partner_router,
-    dependencies=[Depends(require_permission("PARTNERS.VIEW"))],
+    dependencies=[
+        Depends(
+            require_method_any_permission(
+                read_permission_codes=("PARTNERS.VIEW",),
+                write_permission_codes=("PARTNERS.WRITE",),
+            )
+        )
+    ],
 )
 
 router.include_router(
     routing_template_router,
     dependencies=[
         Depends(
-            require_any_permission(
-                "ROUTING_TEMPLATES.VIEW",
-                "ROUTING_TEMPLATE_STEPS.VIEW",
+            require_method_any_permission(
+                read_permission_codes=(
+                    "ROUTING_TEMPLATES.VIEW",
+                    "ROUTING_TEMPLATE_STEPS.VIEW",
+                ),
+                write_permission_codes=("ROUTING_TEMPLATES.WRITE",),
             )
         )
     ],
@@ -70,21 +94,38 @@ router.include_router(
 
 router.include_router(
     drawing_router,
-    dependencies=[Depends(require_permission("DRAWINGS.VIEW"))],
+    dependencies=[
+        Depends(
+            require_method_any_permission(
+                read_permission_codes=("DRAWINGS.VIEW",),
+                write_permission_codes=("DRAWINGS.WRITE",),
+            )
+        )
+    ],
 )
 
 router.include_router(
     drawing_revision_router,
-    dependencies=[Depends(require_permission("DRAWINGS.VIEW"))],
+    dependencies=[
+        Depends(
+            require_method_any_permission(
+                read_permission_codes=("DRAWINGS.VIEW",),
+                write_permission_codes=("DRAWINGS.WRITE",),
+            )
+        )
+    ],
 )
 
 router.include_router(
     product_router,
     dependencies=[
         Depends(
-            require_any_permission(
-                "PRODUCTS.VIEW",
-                "PRODUCT_MONITORING.VIEW",
+            require_method_any_permission(
+                read_permission_codes=(
+                    "PRODUCTS.VIEW",
+                    "PRODUCT_MONITORING.VIEW",
+                ),
+                write_permission_codes=("PRODUCTS.WRITE",),
             )
         )
     ],
@@ -94,9 +135,12 @@ router.include_router(
     order_line_router,
     dependencies=[
         Depends(
-            require_any_permission(
-                "ORDER_LINE_CREATE.VIEW",
-                "ORDER_LINE_LIST.VIEW",
+            require_method_any_permission(
+                read_permission_codes=(
+                    "ORDER_LINE_CREATE.VIEW",
+                    "ORDER_LINE_LIST.VIEW",
+                ),
+                write_permission_codes=("ORDER_LINES.WRITE",),
             )
         )
     ],
@@ -104,21 +148,38 @@ router.include_router(
 
 router.include_router(
     lot_router,
-    dependencies=[Depends(require_permission("LOTS.VIEW"))],
+    dependencies=[
+        Depends(
+            require_method_any_permission(
+                read_permission_codes=("LOTS.VIEW",),
+                write_permission_codes=("LOTS.WRITE",),
+            )
+        )
+    ],
 )
 
 router.include_router(
     lot_step_router,
-    dependencies=[Depends(require_permission("LOTS.VIEW"))],
+    dependencies=[
+        Depends(
+            require_method_any_permission(
+                read_permission_codes=("LOTS.VIEW",),
+                write_permission_codes=("LOTS.WRITE",),
+            )
+        )
+    ],
 )
 
 router.include_router(
     inspection_schedule_router,
     dependencies=[
         Depends(
-            require_any_permission(
-                "INSPECTION_WORK_INSTRUCTIONS.VIEW",
-                "INSPECTION_SCHEDULES.VIEW",
+            require_method_any_permission(
+                read_permission_codes=(
+                    "INSPECTION_WORK_INSTRUCTIONS.VIEW",
+                    "INSPECTION_SCHEDULES.VIEW",
+                ),
+                write_permission_codes=("INSPECTIONS.WRITE",),
             )
         )
     ],
@@ -128,9 +189,12 @@ router.include_router(
     inspection_result_router,
     dependencies=[
         Depends(
-            require_any_permission(
-                "INSPECTION_WORK_INSTRUCTIONS.VIEW",
-                "INSPECTION_SCHEDULES.VIEW",
+            require_method_any_permission(
+                read_permission_codes=(
+                    "INSPECTION_WORK_INSTRUCTIONS.VIEW",
+                    "INSPECTION_SCHEDULES.VIEW",
+                ),
+                write_permission_codes=("INSPECTIONS.WRITE",),
             )
         )
     ],
@@ -140,12 +204,15 @@ router.include_router(
     outsource_work_instruction_router,
     dependencies=[
         Depends(
-            require_any_permission(
-                "OUTSOURCE_WORK_INSTRUCTIONS.VIEW",
-                "OUTSOURCE_PURCHASE_ORDERS.VIEW",
-                "OUTSOURCE_PURCHASE_ORDER_LIST.VIEW",
-                "BOHYUN_OUTSOURCE_MANAGEMENT.VIEW",
-                "BOHYUN_OUTSOURCE_SHIPMENT_LIST.VIEW",
+            require_method_any_permission(
+                read_permission_codes=(
+                    "OUTSOURCE_WORK_INSTRUCTIONS.VIEW",
+                    "OUTSOURCE_PURCHASE_ORDERS.VIEW",
+                    "OUTSOURCE_PURCHASE_ORDER_LIST.VIEW",
+                    "BOHYUN_OUTSOURCE_MANAGEMENT.VIEW",
+                    "BOHYUN_OUTSOURCE_SHIPMENT_LIST.VIEW",
+                ),
+                write_permission_codes=("OUTSOURCE_WORK_INSTRUCTIONS.WRITE",),
             )
         )
     ],
@@ -153,10 +220,24 @@ router.include_router(
 
 router.include_router(
     inventory_router,
-    dependencies=[Depends(require_permission("INVENTORIES.VIEW"))],
+    dependencies=[
+        Depends(
+            require_method_any_permission(
+                read_permission_codes=("INVENTORIES.VIEW",),
+                write_permission_codes=("INVENTORIES.WRITE",),
+            )
+        )
+    ],
 )
 
 router.include_router(
     shipment_router,
-    dependencies=[Depends(require_permission("SHIPMENTS.VIEW"))],
+    dependencies=[
+        Depends(
+            require_method_any_permission(
+                read_permission_codes=("SHIPMENTS.VIEW",),
+                write_permission_codes=("SHIPMENTS.WRITE",),
+            )
+        )
+    ],
 )

@@ -10,7 +10,7 @@ import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
@@ -279,3 +279,49 @@ def require_any_permission(*permission_codes: str):
         return current_user
 
     return _require_any_permission
+
+def require_method_any_permission(
+    read_permission_codes: list[str] | tuple[str, ...],
+    write_permission_codes: list[str] | tuple[str, ...],
+):
+    normalized_read_permission_codes = {
+        permission_code.strip().upper()
+        for permission_code in read_permission_codes
+        if permission_code and permission_code.strip()
+    }
+
+    normalized_write_permission_codes = {
+        permission_code.strip().upper()
+        for permission_code in write_permission_codes
+        if permission_code and permission_code.strip()
+    }
+
+    if not normalized_read_permission_codes:
+        raise ValueError("read_permission_codes is required")
+
+    if not normalized_write_permission_codes:
+        raise ValueError("write_permission_codes is required")
+
+    def _require_method_any_permission(
+        request: Request,
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db),
+    ) -> User:
+        method = request.method.upper()
+
+        if method in {"GET", "HEAD", "OPTIONS"}:
+            required_permission_codes = normalized_read_permission_codes
+        else:
+            required_permission_codes = normalized_write_permission_codes
+
+        user_permission_codes = set(get_user_permission_codes(db, current_user.user_id))
+
+        if required_permission_codes.isdisjoint(user_permission_codes):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="권한이 없습니다.",
+            )
+
+        return current_user
+
+    return _require_method_any_permission
