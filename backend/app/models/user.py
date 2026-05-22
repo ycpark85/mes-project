@@ -24,6 +24,13 @@ class User(Base):
 
     password_hash: Mapped[str] = mapped_column(String(500), nullable=False)
 
+    password_change_required: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="false",
+    )
+
     department: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     position: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
 
@@ -52,3 +59,5 @@ class User(Base):
         back_populates="user",
         cascade="all, delete-orphan",
     )
+
+    

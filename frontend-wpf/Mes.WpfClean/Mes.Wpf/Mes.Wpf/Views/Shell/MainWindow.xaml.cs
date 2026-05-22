@@ -41,6 +41,10 @@ using Mes.Wpf.Modules.Shipments.ViewModels;
 using Mes.Wpf.Modules.Shipments.Views;
 using Mes.Wpf.Modules.Users.ViewModels;
 using Mes.Wpf.Modules.Users.Views;
+using Mes.Wpf.Modules.MyPage.ViewModels;
+using Mes.Wpf.Modules.MyPage.Views;
+
+
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -111,6 +115,19 @@ namespace Mes.Wpf.Views.Shell
         {
             ApplyMenuPermissions();
 
+            if (_loginResponse?.User?.PasswordChangeRequired == true)
+            {
+                var changed = OpenPasswordChangeWindow(true);
+
+                if (!changed)
+                {
+                    Close();
+                    return;
+                }
+
+                _loginResponse.User.PasswordChangeRequired = false;
+            }
+
             if (HasPermission(PermissionCodes.DashboardView))
             {
                 await ShowDashboardAsync();
@@ -154,6 +171,52 @@ namespace Mes.Wpf.Views.Shell
             CollapseAllSidebarExpanders();
 
             await ShowDashboardAsync();
+        }
+
+        private void MyPage_Click(object sender, RoutedEventArgs e)
+        {
+            ShowMyPage();
+        }
+
+        private void ShowMyPage()
+        {
+            CollapseAllSidebarExpanders();
+
+            var page = new MyPage();
+            var viewModel = new MyPageViewModel(
+                _loginResponse?.User,
+                isRequired => OpenPasswordChangeWindow(isRequired));
+
+            page.DataContext = viewModel;
+
+            MainContent.Content = page;
+            MainContent.Visibility = Visibility.Visible;
+
+            HeaderTitle.Text = "마이페이지";
+            HeaderSubtitle.Text = "내 정보 확인 및 비밀번호 변경";
+        }
+
+        private bool OpenPasswordChangeWindow(bool isRequired)
+        {
+            var viewModel = new PasswordChangeWindowViewModel(
+                _apiClient,
+                _messageService,
+                isRequired);
+
+            var window = new PasswordChangeWindow(viewModel)
+            {
+                Owner = this
+            };
+
+            var result = window.ShowDialog();
+
+            if (result == true && window.ChangedAuthContext?.User != null && _loginResponse?.User != null)
+            {
+                _loginResponse.User.PasswordChangeRequired = window.ChangedAuthContext.User.PasswordChangeRequired;
+                return true;
+            }
+
+            return result == true;
         }
 
         private void DefectType_Click(object sender, RoutedEventArgs e)
@@ -636,10 +699,23 @@ namespace Mes.Wpf.Views.Shell
             return Task.CompletedTask;
         }
 
-        private Task OpenShipmentCoaAsync(ShipmentDisplayItemDto item)
+        private async Task OpenShipmentCoaAsync(ShipmentDisplayItemDto item)
         {
-            _messageService.ShowInfo("COA 기능은 아직 미구현입니다.");
-            return Task.CompletedTask;
+            if (item == null)
+            {
+                _messageService.ShowWarning("COA를 출력할 출고 항목을 선택하세요.");
+                return;
+            }
+
+            var viewModel = new ShipmentCoaWindowViewModel(_apiClient, _messageService);
+            var window = new ShipmentCoaWindow(viewModel)
+            {
+                Owner = this
+            };
+
+            await viewModel.InitializeAsync(item.OrderLineId);
+
+            window.ShowDialog();
         }
         private async Task OpenOrderLineDetailWindowAsync(long orderLineId)
         {

@@ -32,6 +32,7 @@ from .role import Role
 from .user_role import UserRole
 from .permission import Permission
 from .role_permission import RolePermission
+from .shipment_coa import ShipmentCoa
 
 __all__ = [
     "Process", 
@@ -67,5 +68,6 @@ __all__ = [
     "Role",
     "UserRole",
     "Permission",
-    "RolePermission"
+    "RolePermission",
+    "ShipmentCoa",
 ]

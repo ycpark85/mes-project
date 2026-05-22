@@ -9,6 +9,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="Modules\Shipments\views\Images\quality_approval_stamp.png" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Folder Include="Styles\Controls\" />
     <Folder Include="Styles\Layout\" />
     <Folder Include="Styles\Tokens\" />
@@ -23,6 +27,12 @@
 
   <ItemGroup>
 	<PackageReference Include="ClosedXML" Version="0.104.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Modules\Shipments\views\Images\quality_approval_stamp.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Resource>
   </ItemGroup>
 	
 	

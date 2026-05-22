@@ -55,6 +55,7 @@ class UserOut(BaseModel):
     position: str | None = None
 
     is_active: bool
+    password_change_required: bool = False
     last_login_at: datetime | None = None
 
     created_at: datetime | None = None

@@ -227,6 +227,11 @@
                                 Content="⌂  홈"
                                 Style="{StaticResource SidebarHomeButtonStyle}"
                                 Click="Dashboard_Click"/>
+                        
+                        <Button x:Name="MyPageMenuButton"
+                                Content="👤 마이페이지"
+                                Style="{StaticResource SidebarHomeButtonStyle}"
+                                Click="MyPage_Click"/>  
 
                         <Expander Header="▣  기준정보"
                                   Style="{StaticResource SidebarCategoryExpanderStyle}"

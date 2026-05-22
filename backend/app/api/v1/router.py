@@ -24,7 +24,6 @@ from app.api.v1.shipments import router as shipment_router
 
 from app.core.auth import get_current_user
 
-
 router = APIRouter()
 
 router.include_router(health_router)
@@ -63,7 +62,7 @@ router.include_router(outsource_work_instruction_router,
     dependencies=[Depends(get_current_user)],)
 router.include_router(dashboard_router,
     dependencies=[Depends(get_current_user)],)
-router.includeRouter(inventory_router,
+router.include_router(inventory_router,
     dependencies=[Depends(get_current_user)],)
-router.includeRouter(shipment_router,
+router.include_router(shipment_router,
     dependencies=[Depends(get_current_user)],)

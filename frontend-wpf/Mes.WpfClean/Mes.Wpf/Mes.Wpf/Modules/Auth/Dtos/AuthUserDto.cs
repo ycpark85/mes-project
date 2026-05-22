@@ -23,6 +23,10 @@ namespace Mes.Wpf.Modules.Auth.Dtos
         [JsonPropertyName("is_active")]
         public bool IsActive { get; set; }
 
+        [JsonPropertyName("password_change_required")]
+        public bool PasswordChangeRequired { get; set; }
+        public string PasswordChangeRequiredText => PasswordChangeRequired ? "필요" : "-";
+        
         [JsonPropertyName("last_login_at")]
         public DateTime? LastLoginAt { get; set; }
     }

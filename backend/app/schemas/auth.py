@@ -10,6 +10,11 @@ class AuthLoginRequest(BaseModel):
     password: str = Field(..., min_length=1, max_length=200)
 
 
+class AuthChangePasswordRequest(BaseModel):
+    current_password: str = Field(..., min_length=1, max_length=200)
+    new_password: str = Field(..., min_length=6, max_length=200)
+
+
 class AuthUserOut(BaseModel):
     user_id: int
     login_id: str
@@ -17,6 +22,7 @@ class AuthUserOut(BaseModel):
     department: str | None = None
     position: str | None = None
     is_active: bool
+    password_change_required: bool = False
     last_login_at: datetime | None = None
 
     class Config:

@@ -30,12 +30,23 @@ router = APIRouter(prefix="/products", tags=["Product"])
 def _to_product_out(db: Session, obj: Product) -> ProductOut:
     out = ProductOut.model_validate(obj, from_attributes=True)
 
+    if obj.drawing is not None:
+        out.drawing_no = obj.drawing.drawing_no
+    else:
+        out.drawing_no = None
+
+    if obj.routing_template is not None:
+        out.routing_template_name = obj.routing_template.template_name
+    else:
+        out.routing_template_name = None
+
     current_qty = db.execute(
         select(func.coalesce(ProductInventory.current_qty, 0))
         .where(ProductInventory.product_id == obj.product_id)
     ).scalar_one_or_none()
 
     out.current_stock_qty = int(current_qty or 0)
+
     return out
 
 def _ensure_drawing_exists(db: Session, drawing_id: int):

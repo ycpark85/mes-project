@@ -13,7 +13,7 @@ backend/**/*.pyc
 backend/**/*.pyo
 backend/**/*.pyd
 backend/.env
-
+backend/**/__pycache__/
 # =========================
 # .NET / WPF
 # =========================

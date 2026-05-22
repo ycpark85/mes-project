@@ -61,6 +61,7 @@ def create_user(
         login_id=login_id,
         user_name=user_name,
         password_hash=hash_password(payload.password),
+        password_change_required=True,
         department=_normalize_optional(payload.department),
         position=_normalize_optional(payload.position),
         is_active=payload.is_active,
@@ -180,6 +181,7 @@ def reset_user_password(
     obj = user_crud.get_or_404(db, user_id, active_only=False)
 
     obj.password_hash = hash_password(payload.new_password)
+    obj.password_change_required = True
 
     updated = user_crud.commit(db, obj)
 
@@ -213,6 +215,7 @@ def _to_user_out(db: Session, obj: User) -> UserOut:
         department=obj.department,
         position=obj.position,
         is_active=obj.is_active,
+        password_change_required=obj.password_change_required,
         last_login_at=obj.last_login_at,
         created_at=getattr(obj, "created_at", None),
         updated_at=getattr(obj, "updated_at", None),

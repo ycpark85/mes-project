@@ -10,12 +10,14 @@ from app.core.auth import (
     get_current_user,
     get_user_permission_codes,
     get_user_roles,
+    hash_password,
     verify_password,
 )
 from app.core.config import settings
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.auth import (
+    AuthChangePasswordRequest,
     AuthLoginRequest,
     AuthLoginResponse,
     AuthMeResponse,
@@ -74,6 +76,40 @@ def me(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    roles = get_user_roles(db, current_user.user_id)
+    permissions = get_user_permission_codes(db, current_user.user_id)
+
+    return {
+        "user": AuthUserOut.model_validate(current_user),
+        "roles": [AuthRoleOut.model_validate(role) for role in roles],
+        "permissions": permissions,
+    }
+
+@router.patch("/change-password", response_model=AuthMeResponse)
+def change_password(
+    payload: AuthChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not verify_password(payload.current_password, current_user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="현재 비밀번호가 올바르지 않습니다.",
+        )
+
+    if payload.current_password == payload.new_password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="새 비밀번호는 현재 비밀번호와 달라야 합니다.",
+        )
+
+    current_user.password_hash = hash_password(payload.new_password)
+    current_user.password_change_required = False
+
+    db.add(current_user)
+    db.commit()
+    db.refresh(current_user)
+
     roles = get_user_roles(db, current_user.user_id)
     permissions = get_user_permission_codes(db, current_user.user_id)
 

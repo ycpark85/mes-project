@@ -13,6 +13,7 @@ namespace Mes.Wpf
     {
         protected override void OnStartup(StartupEventArgs e)
         {
+            // App.xaml에 StartupUri가 남아 있어도 MainWindow가 자동으로 뜨지 않도록 차단
             base.OnStartup(e);
 
             var messageService = new MessageService();
@@ -23,8 +24,8 @@ namespace Mes.Wpf
                 ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
                 var appSettings = AppSettings.Load();
-
                 var apiClient = new ApiClient(appSettings.Api.BaseUrl);
+
                 var loginViewModel = new LoginViewModel(apiClient, messageService);
                 var loginWindow = new LoginWindow(loginViewModel);
 

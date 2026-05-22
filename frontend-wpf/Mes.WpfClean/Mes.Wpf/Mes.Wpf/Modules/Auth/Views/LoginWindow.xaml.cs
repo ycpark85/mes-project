@@ -22,7 +22,12 @@ namespace Mes.Wpf.Modules.Auth.Views
 
         private void LoginWindow_Loaded(object sender, RoutedEventArgs e)
         {
-            PasswordBox.Focus();
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                LoginIdTextBox.Focus();
+                LoginIdTextBox.SelectAll();
+                Keyboard.Focus(LoginIdTextBox);
+            }), System.Windows.Threading.DispatcherPriority.Input);
         }
 
         private void LoginButton_Click(object sender, RoutedEventArgs e)

@@ -49,6 +49,7 @@
 
         public const string AuthLogin = "api/v1/auth/login";
         public const string AuthMe = "api/v1/auth/me";
+        public const string AuthChangePassword = "api/v1/auth/change-password";
 
         public const string Users = "api/v1/users";
         public const string UserRoleOptions = "api/v1/users/role-options";
