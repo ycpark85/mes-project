@@ -33,6 +33,7 @@ from .user_role import UserRole
 from .permission import Permission
 from .role_permission import RolePermission
 from .shipment_coa import ShipmentCoa
+from .auth_audit_log import AuthAuditLog
 
 __all__ = [
     "Process", 
@@ -70,4 +71,5 @@ __all__ = [
     "Permission",
     "RolePermission",
     "ShipmentCoa",
+    "AuthAuditLog"
 ]
