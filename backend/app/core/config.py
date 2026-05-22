@@ -18,6 +18,11 @@ class Settings(BaseSettings):
 
     AUTH_SECRET_KEY: str = Field(default="mes-dev-auth-secret-key-change-me")
     AUTH_ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=720, ge=1, le=1440)
+
+    AUTH_LOGIN_MAX_FAILED_ATTEMPTS: int = Field(default=5, ge=1, le=20)
+    AUTH_LOGIN_FAILURE_WINDOW_MINUTES: int = Field(default=10, ge=1, le=1440)
+    AUTH_LOGIN_LOCKOUT_MINUTES: int = Field(default=3, ge=1, le=60)
+
     MES_ADMIN_LOGIN_ID: str = Field(default="admin")
     MES_ADMIN_PASSWORD: str | None = Field(default=None)
     

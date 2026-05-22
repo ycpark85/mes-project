@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from app.models.auth_audit_log import AuthAuditLog
 from app.core.auth import (
     create_access_token,
@@ -66,6 +67,76 @@ def _write_auth_audit_log(
         )
     )
 
+def _normalize_datetime(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+
+    return value
+
+
+def _raise_if_login_temporarily_blocked(
+    db: Session,
+    *,
+    request: Request,
+    login_id: str,
+) -> None:
+    client_ip = _client_ip_from_request(request)
+    now = datetime.now(timezone.utc)
+    cutoff_at = now - timedelta(minutes=settings.AUTH_LOGIN_FAILURE_WINDOW_MINUTES)
+
+    query = (
+        db.query(
+            func.count(AuthAuditLog.auth_audit_log_id),
+            func.max(AuthAuditLog.created_at),
+        )
+        .filter(
+            AuthAuditLog.event_type == "LOGIN_FAILED",
+            AuthAuditLog.success == False,
+            AuthAuditLog.login_id == login_id,
+            AuthAuditLog.created_at >= cutoff_at,
+        )
+    )
+
+    if client_ip:
+        query = query.filter(AuthAuditLog.client_ip == client_ip)
+
+    failed_count, last_failed_at = query.one()
+
+    if failed_count < settings.AUTH_LOGIN_MAX_FAILED_ATTEMPTS:
+        return
+
+    if last_failed_at is None:
+        return
+
+    last_failed_at = _normalize_datetime(last_failed_at)
+    lockout_until = last_failed_at + timedelta(
+        minutes=settings.AUTH_LOGIN_LOCKOUT_MINUTES
+    )
+
+    remaining_seconds = int((lockout_until - now).total_seconds())
+
+    if remaining_seconds <= 0:
+        return
+
+    _write_auth_audit_log(
+        db,
+        event_type="LOGIN_BLOCKED",
+        request=request,
+        login_id=login_id,
+        user_id=None,
+        success=False,
+        reason="TOO_MANY_FAILED_ATTEMPTS",
+    )
+    db.commit()
+
+    raise HTTPException(
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        detail=(
+            "로그인 실패가 반복되어 잠시 차단되었습니다. "
+            f"{max(1, remaining_seconds // 60)}분 후 다시 시도하세요."
+        ),
+        headers={"Retry-After": str(remaining_seconds)},
+    )
 
 @router.post("/login", response_model=AuthLoginResponse)
 def login(
@@ -74,6 +145,12 @@ def login(
     db: Session = Depends(get_db),
 ):
     login_id = payload.login_id.strip()
+
+    _raise_if_login_temporarily_blocked(
+        db,
+        request=request,
+        login_id=login_id,
+    )
 
     user = (
         db.query(User)
