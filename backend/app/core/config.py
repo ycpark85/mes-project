@@ -3,6 +3,8 @@ from typing import Set
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+DEFAULT_AUTH_SECRET_KEY = "mes-dev-auth-secret-key-change-me"
+PRODUCTION_ENVS = {"prod", "production"}
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -16,6 +18,9 @@ class Settings(BaseSettings):
 
     AUTH_SECRET_KEY: str = Field(default="mes-dev-auth-secret-key-change-me")
     AUTH_ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=720, ge=1, le=1440)
+    MES_ADMIN_LOGIN_ID: str = Field(default="admin")
+    MES_ADMIN_PASSWORD: str | None = Field(default=None)
+    
 
     DRAWING_STORAGE_ROOT: str = Field(default=r"C:\mes_storage")
     DRAWING_MAX_MB: int = Field(default=50, ge=1, le=500)
@@ -38,3 +43,18 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+def is_production_env() -> bool:
+    return settings.app_env.strip().lower() in PRODUCTION_ENVS
+
+
+def validate_runtime_settings() -> None:
+    if not is_production_env():
+        return
+
+    secret_key = settings.AUTH_SECRET_KEY.strip()
+
+    if secret_key == DEFAULT_AUTH_SECRET_KEY or len(secret_key) < 32:
+        raise RuntimeError(
+            "운영 환경에서는 AUTH_SECRET_KEY를 32자 이상의 안전한 값으로 설정해야 합니다."
+        )

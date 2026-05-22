@@ -5,10 +5,11 @@ from fastapi import FastAPI
 from app.api.v1.router import router as v1_router
 from app.core.db import SessionLocal, engine
 from app.services.auth_seed import ensure_auth_seed_data
-
+from app.core.config import validate_runtime_settings
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    validate_runtime_settings()
     # startup 영역
     # DB 연결 체크 (실패 시 서버 자체가 안 뜸)
     with engine.connect() as conn:

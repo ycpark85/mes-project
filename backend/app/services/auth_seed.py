@@ -6,15 +6,23 @@ from app.models.role import Role
 from app.models.role_permission import RolePermission
 from app.models.user import User
 from app.models.user_role import UserRole
+from app.core.config import settings
 
 
 ADMIN_ROLE_CODE = "ADMIN"
 ADMIN_ROLE_NAME = "관리자"
 
-ADMIN_LOGIN_ID = "admin"
-ADMIN_PASSWORD = "admin1"
+
 ADMIN_USER_NAME = "관리자"
 
+WEAK_ADMIN_PASSWORDS = {
+    "admin",
+    "admin1",
+    "password",
+    "123456",
+    "12345678",
+    "qwerty",
+}
 
 PERMISSION_SEEDS = [
     {
@@ -292,23 +300,48 @@ def _ensure_admin_role(db: Session) -> Role:
 
 
 def _ensure_admin_user(db: Session) -> User:
-    user = db.query(User).filter(User.login_id == ADMIN_LOGIN_ID).first()
+    admin_login_id = settings.MES_ADMIN_LOGIN_ID.strip()
 
-    if user is None:
-        user = User(
-            login_id=ADMIN_LOGIN_ID,
-            user_name=ADMIN_USER_NAME,
-            password_hash=hash_password(ADMIN_PASSWORD),
-            department=None,
-            position=None,
-            is_active=True,
-        )
-        db.add(user)
-        db.flush()
+    user = db.query(User).filter(User.login_id == admin_login_id).first()
+    if user is not None:
         return user
+
+    admin_password = settings.MES_ADMIN_PASSWORD
+
+    if admin_password is None or not admin_password.strip():
+        raise RuntimeError(
+            "최초 관리자 계정 생성을 위해 MES_ADMIN_PASSWORD를 .env에 설정해야 합니다."
+        )
+
+    admin_password = admin_password.strip()
+    _validate_admin_password(admin_password)
+
+    user = User(
+        login_id=admin_login_id,
+        user_name=ADMIN_USER_NAME,
+        password_hash=hash_password(admin_password),
+        department=None,
+        position=None,
+        is_active=True,
+    )
+
+    db.add(user)
+    db.flush()
 
     return user
 
+def _validate_admin_password(password: str) -> None:
+    normalized = password.strip().lower()
+
+    if len(password) < 12:
+        raise RuntimeError(
+            "MES_ADMIN_PASSWORD는 최소 12자 이상이어야 합니다."
+        )
+
+    if normalized in WEAK_ADMIN_PASSWORDS:
+        raise RuntimeError(
+            "MES_ADMIN_PASSWORD가 너무 약합니다. 다른 비밀번호를 사용하세요."
+        )
 
 def _ensure_permissions(db: Session) -> None:
     for seed in PERMISSION_SEEDS:
