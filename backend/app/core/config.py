@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     MES_ADMIN_LOGIN_ID: str = Field(default="admin")
     MES_ADMIN_PASSWORD: str | None = Field(default=None)
     
+    BACKEND_ALLOWED_HOSTS: Set[str] = Field(default_factory=set)
 
     DRAWING_STORAGE_ROOT: str = Field(default=r"C:\mes_storage")
     DRAWING_MAX_MB: int = Field(default=50, ge=1, le=500)
@@ -57,4 +58,9 @@ def validate_runtime_settings() -> None:
     if secret_key == DEFAULT_AUTH_SECRET_KEY or len(secret_key) < 32:
         raise RuntimeError(
             "운영 환경에서는 AUTH_SECRET_KEY를 32자 이상의 안전한 값으로 설정해야 합니다."
+        )
+
+    if not settings.BACKEND_ALLOWED_HOSTS:
+        raise RuntimeError(
+            "운영 환경에서는 BACKEND_ALLOWED_HOSTS를 설정해야 합니다."
         )

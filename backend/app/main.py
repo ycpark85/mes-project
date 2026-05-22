@@ -1,11 +1,11 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 from app.api.v1.router import router as v1_router
 from app.core.db import SessionLocal, engine
 from app.services.auth_seed import ensure_auth_seed_data
-from app.core.config import validate_runtime_settings
+from app.core.config import is_production_env, settings, validate_runtime_settings
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -29,10 +29,19 @@ async def lifespan(app: FastAPI):
     pass
 
 
+openapi_enabled = not is_production_env()
+
 app = FastAPI(
     title="MES API",
     version="0.1.0",
     lifespan=lifespan,
+    docs_url="/docs" if openapi_enabled else None,
+    redoc_url="/redoc" if openapi_enabled else None,
+    openapi_url="/openapi.json" if openapi_enabled else None,
 )
-
+if settings.BACKEND_ALLOWED_HOSTS:
+    app.add_middleware(
+        TrustedHostMiddleware,
+        allowed_hosts=sorted(settings.BACKEND_ALLOWED_HOSTS),
+    )
 app.include_router(v1_router, prefix="/api/v1")
