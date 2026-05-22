@@ -253,3 +253,29 @@ def require_permission(permission_code: str):
         return current_user
 
     return _require_permission
+
+def require_any_permission(*permission_codes: str):
+    normalized_permission_codes = {
+        permission_code.strip().upper()
+        for permission_code in permission_codes
+        if permission_code and permission_code.strip()
+    }
+
+    if not normalized_permission_codes:
+        raise ValueError("permission_codes is required")
+
+    def _require_any_permission(
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db),
+    ) -> User:
+        user_permission_codes = set(get_user_permission_codes(db, current_user.user_id))
+
+        if normalized_permission_codes.isdisjoint(user_permission_codes):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="권한이 없습니다.",
+            )
+
+        return current_user
+
+    return _require_any_permission
