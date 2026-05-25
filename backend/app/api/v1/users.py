@@ -51,29 +51,6 @@ def create_user(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("USERS.CREATE")),
 ):
-    roles = (
-        db.query(Role)
-        .filter(Role.is_active == True)
-        .order_by(Role.role_code.asc())
-        .all()
-    )
-
-    return [
-        UserRoleOptionOut(
-            role_id=role.role_id,
-            role_code=role.role_code,
-            role_name=role.role_name,
-        )
-        for role in roles
-    ]
-
-
-@router.post("", response_model=UserOut, status_code=status.HTTP_201_CREATED)
-def create_user(
-    payload: UserCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_permission("USERS.CREATE")),
-):
     role_ids = _validate_role_ids(db, payload.role_ids)
 
     login_id = _normalize_required(payload.login_id, "login_id")

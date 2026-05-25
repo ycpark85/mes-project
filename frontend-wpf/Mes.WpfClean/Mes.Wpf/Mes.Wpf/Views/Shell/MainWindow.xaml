@@ -409,10 +409,7 @@
                                    Foreground="{StaticResource Brush.TextSecondary}"/>
                     </StackPanel>
 
-                    <Button Grid.Column="1"
-                            Content="테스트 버튼"
-                            Style="{StaticResource PrimaryButtonStyle}"
-                            VerticalAlignment="Center"/>
+                   
                 </Grid>
             </Border>
 

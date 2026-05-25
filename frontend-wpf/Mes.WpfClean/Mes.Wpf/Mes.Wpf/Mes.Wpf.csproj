@@ -17,14 +17,15 @@
     <Folder Include="Styles\Layout\" />
     <Folder Include="Styles\Tokens\" />
   </ItemGroup>
-	
-	
-  <ItemGroup>
-    <None Update="appsettings.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-    </None>
-  </ItemGroup>
+
+
+	<ItemGroup>
+		<None Remove="appsettings.json" />
+		<Content Include="appsettings.json">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+			<CopyToPublishDirectory>Always</CopyToPublishDirectory>
+		</Content>
+	</ItemGroup>
 
   <ItemGroup>
 	<PackageReference Include="ClosedXML" Version="0.104.2" />
