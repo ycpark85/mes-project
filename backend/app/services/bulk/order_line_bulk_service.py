@@ -327,12 +327,7 @@ class OrderLineBulkService:
         return qty
 
     def _build_mes_product_display_name(self, product: Product) -> str:
-        product_name = (product.product_name or "").strip()
-        product_spec = (product.product_spec or "").strip()
-
-        if product_spec:
-            return f"{product_name} [{product_spec}]"
-        return product_name
+        return (product.product_name or "").strip()
 
     def _split_erp_product_display_name(self, value: str) -> tuple[Optional[str], Optional[str]]:
         text = (value or "").strip()
