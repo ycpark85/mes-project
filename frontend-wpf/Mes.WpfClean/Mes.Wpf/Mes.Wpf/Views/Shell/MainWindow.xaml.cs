@@ -858,6 +858,21 @@ namespace Mes.Wpf.Views.Shell
                 : Visibility.Collapsed;
         }
 
+        private void OpenNewMainWindow_Click(object sender, RoutedEventArgs e)
+        {
+            var window = new MainWindow(
+                _apiClient,
+                _messageService,
+                _loginResponse)
+            {
+                Title = $"{Title} - 보조 창",
+                WindowStartupLocation = WindowStartupLocation.CenterScreen
+            };
+
+            window.Show();
+        }
+
 
     }
 }
+

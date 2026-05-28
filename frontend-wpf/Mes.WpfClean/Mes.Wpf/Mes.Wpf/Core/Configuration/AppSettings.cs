@@ -10,7 +10,19 @@ namespace Mes.Wpf.Core.Configuration
 
         public static AppSettings Load()
         {
-            var filePath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
+#if DEBUG
+            const string environment = "Development";
+#else
+            const string environment = "Production";
+#endif
+
+            var baseDirectory = AppContext.BaseDirectory;
+            var environmentFilePath = Path.Combine(baseDirectory, $"appsettings.{environment}.json");
+            var fallbackFilePath = Path.Combine(baseDirectory, "appsettings.json");
+
+            var filePath = File.Exists(environmentFilePath)
+                ? environmentFilePath
+                : fallbackFilePath;
 
             if (!File.Exists(filePath))
             {
@@ -28,12 +40,12 @@ namespace Mes.Wpf.Core.Configuration
 
             if (settings == null)
             {
-                throw new InvalidOperationException("appsettings.json 로드에 실패했습니다.");
+                throw new InvalidOperationException($"{Path.GetFileName(filePath)} 로드에 실패했습니다.");
             }
 
             if (settings.Api == null || string.IsNullOrWhiteSpace(settings.Api.BaseUrl))
             {
-                throw new InvalidOperationException("Api:BaseUrl 설정이 비어 있습니다.");
+                throw new InvalidOperationException($"{Path.GetFileName(filePath)}의 Api:BaseUrl 설정이 비어 있습니다.");
             }
 
             return settings;
