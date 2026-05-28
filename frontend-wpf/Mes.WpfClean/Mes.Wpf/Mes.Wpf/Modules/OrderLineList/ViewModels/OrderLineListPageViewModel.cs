@@ -87,8 +87,13 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
             ConfirmPartialStockPlanCommand = new AsyncRelayCommand(ConfirmPartialStockPlanAsync);
             OpenOrderDetailCommand = new AsyncRelayCommand(OpenOrderDetailAsync);
             OpenLotActionCommand = new AsyncRelayCommand(OpenLotActionAsync);
-            PreviousPageCommand = new AsyncRelayCommand(GoPreviousPageAsync);
-            NextPageCommand = new AsyncRelayCommand(GoNextPageAsync);
+            PreviousPageCommand = new AsyncRelayCommand(
+                GoPreviousPageAsync,
+                () => CanGoPreviousPage);
+
+            NextPageCommand = new AsyncRelayCommand(
+                GoNextPageAsync,
+                () => CanGoNextPage);
 
 
         }
@@ -111,6 +116,7 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
         public AsyncRelayCommand NextPageCommand { get; }
 
         public AsyncRelayCommand ConfirmPartialStockPlanCommand { get; }
+
 
         public string SearchKeyword
         {
@@ -197,14 +203,29 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
         public bool CanGoPreviousPage
         {
             get => _canGoPreviousPage;
-            set => SetProperty(ref _canGoPreviousPage, value);
+            set
+            {
+                if (SetProperty(ref _canGoPreviousPage, value))
+                {
+                    PreviousPageCommand?.RaiseCanExecuteChanged();
+                }
+            }
         }
 
         public bool CanGoNextPage
         {
             get => _canGoNextPage;
-            set => SetProperty(ref _canGoNextPage, value);
+            set
+            {
+                if (SetProperty(ref _canGoNextPage, value))
+                {
+                    NextPageCommand?.RaiseCanExecuteChanged();
+                }
+            }
         }
+
+        public string PagingDebugText =>
+             $"Page={Page}, Size={Size}, Total={Total}, Next={CanGoNextPage}";
 
         public string PageInfoText =>
             $"{Page} / {Math.Max(1, (int)Math.Ceiling((double)Math.Max(Total, 1) / Math.Max(Size, 1)))} 페이지";
@@ -382,6 +403,7 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
         protected override async Task LoadListAsync()
         {
             var route = BuildListUrl();
+
             var result = await _apiClient.GetAsync<OrderLineListResponse>(route);
 
             if (!result.Success || result.Data == null)
@@ -390,6 +412,13 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
                 Total = 0;
                 CanGoPreviousPage = false;
                 CanGoNextPage = false;
+
+                OnPropertyChanged(nameof(PageInfoText));
+                OnPropertyChanged(nameof(TotalCountText));
+                OnPropertyChanged(nameof(CanGoPreviousPage));
+                OnPropertyChanged(nameof(CanGoNextPage));
+                OnPropertyChanged(nameof(PagingDebugText));
+
                 _messageService.ShowError(result.Message ?? "수주 리스트 조회 중 오류가 발생했습니다.");
                 return;
             }
@@ -410,6 +439,11 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
 
             OnPropertyChanged(nameof(PageInfoText));
             OnPropertyChanged(nameof(TotalCountText));
+            OnPropertyChanged(nameof(CanGoPreviousPage));
+            OnPropertyChanged(nameof(CanGoNextPage));
+            OnPropertyChanged(nameof(PageInfoText));
+            OnPropertyChanged(nameof(TotalCountText));
+            OnPropertyChanged(nameof(PagingDebugText));
         }
 
         protected override void Reset()

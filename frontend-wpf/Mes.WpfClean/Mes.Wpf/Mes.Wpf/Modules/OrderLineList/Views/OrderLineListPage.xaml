@@ -302,6 +302,7 @@
                     <StackPanel Grid.Row="4"
                                 Orientation="Horizontal"
                                 HorizontalAlignment="Right">
+                       
                         <Button Style="{StaticResource PrimaryButtonStyle}"
                                 Margin="0,0,8,0"
                                 Content="이전"
@@ -312,6 +313,7 @@
                                 Content="다음"
                                 IsEnabled="{Binding CanGoNextPage}"
                                 Command="{Binding NextPageCommand}"/>
+                           
                     </StackPanel>
                 </Grid>
             </Border>
