@@ -126,10 +126,7 @@
                                     Command="{Binding ShowCompletedCommand}"/>
                         </StackPanel>
 
-                        <TextBlock DockPanel.Dock="Right"
-                                   VerticalAlignment="Center"
-                                   Foreground="#6B7280"
-                                   Text="{Binding TotalCountText}"/>
+                        
                     </DockPanel>
 
                     <Grid Grid.Row="2">
@@ -211,6 +208,11 @@
                                    VerticalAlignment="Center"
                                    Foreground="#6B7280"
                                    Text="{Binding PageInfoText}"/>
+                        
+                        <TextBlock DockPanel.Dock="Right"
+                                   VerticalAlignment="Center"
+                                   Foreground="#6B7280"
+                                   Text="{Binding TotalCountText}"/>    
                     </DockPanel>
 
                     <DataGrid Grid.Row="2"

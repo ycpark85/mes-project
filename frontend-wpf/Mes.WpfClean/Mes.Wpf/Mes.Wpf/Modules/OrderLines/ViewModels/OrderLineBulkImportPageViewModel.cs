@@ -24,6 +24,7 @@ namespace Mes.Wpf.Modules.OrderLines.ViewModels
         private string _selectedFilePath = string.Empty;
         private OrderLineBulkValidateResultDto? _validationResult;
         private OrderLineBulkCommitResultDto? _commitResult;
+        private OrderLineBulkValidateRowDto? _selectedValidationRow;
 
         public OrderLineBulkImportPageViewModel(
             IApiClient apiClient,
@@ -42,6 +43,8 @@ namespace Mes.Wpf.Modules.OrderLines.ViewModels
             ValidateCommand = new AsyncRelayCommand(ValidateAsync);
             CommitCommand = new AsyncRelayCommand(CommitAsync);
             ResetCommand = new RelayCommand(Reset);
+            RemoveSelectedRowCommand = new AsyncRelayCommand(RemoveSelectedRowAsync);
+            RemoveErrorRowsCommand = new AsyncRelayCommand(RemoveErrorRowsAsync);
         }
 
         public ObservableCollection<OrderLineBulkImportRowDto> SourceRows { get; }
@@ -52,6 +55,8 @@ namespace Mes.Wpf.Modules.OrderLines.ViewModels
         public AsyncRelayCommand ValidateCommand { get; }
         public AsyncRelayCommand CommitCommand { get; }
         public RelayCommand ResetCommand { get; }
+        public AsyncRelayCommand RemoveSelectedRowCommand { get; }
+        public AsyncRelayCommand RemoveErrorRowsCommand { get; }
 
         public bool IsLoading
         {
@@ -63,6 +68,12 @@ namespace Mes.Wpf.Modules.OrderLines.ViewModels
         {
             get => _selectedFilePath;
             set => SetProperty(ref _selectedFilePath, value);
+        }
+
+        public OrderLineBulkValidateRowDto? SelectedValidationRow
+        {
+            get => _selectedValidationRow;
+            set => SetProperty(ref _selectedValidationRow, value);
         }
 
         public OrderLineBulkValidateResultDto? ValidationResult
@@ -236,10 +247,13 @@ namespace Mes.Wpf.Modules.OrderLines.ViewModels
 
                 CommitResult = result.Data;
 
+                CommitResult = result.Data;
+                ApplyCommitResultToRows(result.Data);
+
                 if (result.Data.FailureGroupCount > 0)
                 {
                     _messageService.ShowWarning(
-                        $"일부 등록이 완료되었습니다. 성공 {result.Data.SuccessGroupCount}건 / 실패 {result.Data.FailureGroupCount}건");
+                        $"일부 등록이 완료되었습니다.\n성공 {result.Data.SuccessGroupCount}건 / 실패 {result.Data.FailureGroupCount}건\n\n성공한 행은 목록에서 제거했고, 실패한 행만 남겨두었습니다.");
                     return;
                 }
 
@@ -257,12 +271,152 @@ namespace Mes.Wpf.Modules.OrderLines.ViewModels
             }
         }
 
+        private void ApplyCommitResultToRows(OrderLineBulkCommitResultDto commitResult)
+        {
+            var successOrderNos = commitResult.Groups
+                .Where(x => string.Equals(x.Status, "SUCCESS", StringComparison.OrdinalIgnoreCase))
+                .Select(x => (x.ErpOrderNo ?? string.Empty).Trim())
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            if (successOrderNos.Count == 0)
+            {
+                return;
+            }
+
+            foreach (var row in SourceRows
+                .Where(x => successOrderNos.Contains((x.ErpOrderNo ?? string.Empty).Trim()))
+                .ToList())
+            {
+                SourceRows.Remove(row);
+            }
+
+            foreach (var row in FlatRows
+                .Where(x => successOrderNos.Contains((x.ErpOrderNo ?? string.Empty).Trim()))
+                .ToList())
+            {
+                FlatRows.Remove(row);
+            }
+
+            foreach (var group in ValidationGroups
+                .Where(x => successOrderNos.Contains((x.ErpOrderNo ?? string.Empty).Trim()))
+                .ToList())
+            {
+                ValidationGroups.Remove(group);
+            }
+
+            if (ValidationResult != null)
+            {
+                foreach (var group in ValidationResult.Groups
+                    .Where(x => successOrderNos.Contains((x.ErpOrderNo ?? string.Empty).Trim()))
+                    .ToList())
+                {
+                    ValidationResult.Groups.Remove(group);
+                }
+
+                RefreshValidationSummary();
+            }
+
+            OnPropertyChanged(nameof(CanCommit));
+        }
+
+        private void RefreshValidationSummary()
+        {
+            if (ValidationResult == null)
+            {
+                OnPropertyChanged(nameof(CanCommit));
+                return;
+            }
+
+            ValidationResult.TotalRowCount = FlatRows.Count;
+            ValidationResult.ReadyRowCount = FlatRows.Count(x => x.Status == "READY");
+            ValidationResult.ReviewRowCount = FlatRows.Count(x => x.Status == "REVIEW");
+            ValidationResult.ErrorRowCount = FlatRows.Count(x => x.Status == "ERROR");
+
+            OnPropertyChanged(nameof(TotalRowCount));
+            OnPropertyChanged(nameof(ReadyRowCount));
+            OnPropertyChanged(nameof(ReviewRowCount));
+            OnPropertyChanged(nameof(ErrorRowCount));
+            OnPropertyChanged(nameof(CanCommit));
+        }
+
+        private async Task RemoveSelectedRowAsync()
+        {
+            if (SelectedValidationRow == null)
+            {
+                _messageService.ShowWarning("삭제할 행을 선택하세요.");
+                return;
+            }
+
+            var confirmed = _messageService.Confirm(
+                $"선택한 행을 삭제하시겠습니까?\n\n행번호: {SelectedValidationRow.RowNumber}\n주문번호: {SelectedValidationRow.ErpOrderNo}\n품목코드: {SelectedValidationRow.ProductCode}",
+                "업로드 행 삭제");
+
+            if (!confirmed)
+            {
+                return;
+            }
+
+            await RemoveRowsAndRevalidateAsync(new[] { SelectedValidationRow.RowNumber });
+        }
+
+        private async Task RemoveErrorRowsAsync()
+        {
+            var errorRowNumbers = FlatRows
+                .Where(x => x.Status == "ERROR")
+                .Select(x => x.RowNumber)
+                .ToList();
+
+            if (errorRowNumbers.Count == 0)
+            {
+                _messageService.ShowInfo("삭제할 오류 행이 없습니다.");
+                return;
+            }
+
+            var confirmed = _messageService.Confirm(
+                $"오류 행 {errorRowNumbers.Count}건을 모두 삭제하시겠습니까?",
+                "오류 행 전체 삭제");
+
+            if (!confirmed)
+            {
+                return;
+            }
+
+            await RemoveRowsAndRevalidateAsync(errorRowNumbers);
+        }
+
+        private async Task RemoveRowsAndRevalidateAsync(IEnumerable<int> rowNumbers)
+        {
+            var rowNumberSet = rowNumbers.ToHashSet();
+
+            foreach (var row in SourceRows.Where(x => rowNumberSet.Contains(x.RowNumber)).ToList())
+            {
+                SourceRows.Remove(row);
+            }
+
+            SelectedValidationRow = null;
+
+            if (SourceRows.Count == 0)
+            {
+                ValidationGroups.Clear();
+                FlatRows.Clear();
+                ValidationResult = null;
+                CommitResult = null;
+                OnPropertyChanged(nameof(CanCommit));
+                _messageService.ShowInfo("업로드 데이터가 모두 삭제되었습니다.");
+                return;
+            }
+
+            await ValidateAsync();
+        }
+
         private void Reset()
         {
             SelectedFilePath = string.Empty;
             SourceRows.Clear();
             ValidationGroups.Clear();
             FlatRows.Clear();
+            SelectedValidationRow = null;
             ValidationResult = null;
             CommitResult = null;
             OnPropertyChanged(nameof(CanCommit));

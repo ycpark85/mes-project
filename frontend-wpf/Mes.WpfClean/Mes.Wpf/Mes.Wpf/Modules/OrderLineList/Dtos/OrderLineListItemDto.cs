@@ -127,6 +127,7 @@ namespace Mes.Wpf.Modules.OrderLineList.Dtos
 
 
 
+
         public string StatusDisplay => Status switch
         {
             "OPEN" => "LOT 생성대기",
@@ -188,5 +189,6 @@ namespace Mes.Wpf.Modules.OrderLineList.Dtos
         [JsonPropertyName("memo")]
         public string? Memo { get; set; }
     }
+    
 
 }

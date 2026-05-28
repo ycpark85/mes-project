@@ -382,7 +382,7 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
         protected override async Task LoadListAsync()
         {
             var route = BuildListUrl();
-            var result = await _apiClient.GetAsync<PagedResult<OrderLineListItemDto>>(route);
+            var result = await _apiClient.GetAsync<OrderLineListResponse>(route);
 
             if (!result.Success || result.Data == null)
             {
@@ -401,9 +401,9 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
                 Items.Add(item);
             }
 
-            Page = result.Data.Page;
-            Size = result.Data.Size;
-            Total = result.Data.Total;
+            Page = result.Data.Meta.Page <= 0 ? Page : result.Data.Meta.Page;
+            Size = result.Data.Meta.Size <= 0 ? Size : result.Data.Meta.Size;
+            Total = result.Data.Meta.Total;
 
             CanGoPreviousPage = Page > 1;
             CanGoNextPage = Page * Size < Total;
