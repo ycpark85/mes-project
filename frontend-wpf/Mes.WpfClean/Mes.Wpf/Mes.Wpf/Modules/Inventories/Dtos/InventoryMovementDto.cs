@@ -11,6 +11,12 @@ namespace Mes.Wpf.Modules.Inventories.Dtos
         [JsonPropertyName("product_id")]
         public long ProductId { get; set; }
 
+        [JsonPropertyName("product_inventory_lot_id")]
+        public long? ProductInventoryLotId { get; set; }
+
+        [JsonPropertyName("stock_lot_no")]
+        public string? StockLotNo { get; set; }
+
         [JsonPropertyName("product_code")]
         public string? ProductCode { get; set; }
 

@@ -13,6 +13,7 @@ from app.models.order_line import OrderLine
 from app.models.partner import Partner
 from app.models.product import Product
 from app.models.product_inventory import ProductInventory
+from app.models.product_inventory_lot import ProductInventoryLot
 from app.models.product_inventory_movement import ProductInventoryMovement
 from app.models.inspection_result import InspectionResult
 from app.models.inspection_schedule import InspectionSchedule
@@ -113,6 +114,7 @@ def list_shipments(
             Product.product_code.ilike(keyword),
             Product.product_name.ilike(keyword),
             Lot.lot_no.ilike(keyword),
+            ShipmentLine.stock_lot_no.ilike(keyword),
         )
         base = base.where(search_cond)
         count_q = count_q.where(search_cond)
@@ -144,6 +146,7 @@ def list_shipments(
     items: list[ShipmentLineOut] = []
 
     for shipment_line, order_no, partner_name, product_code, product_name, lot_no in rows:
+        display_lot_no = shipment_line.stock_lot_no if shipment_line.source_type == "STOCK" else lot_no
         order_line = db.get(OrderLine, shipment_line.order_line_id)
 
         ship_target_qty = 0
@@ -178,8 +181,10 @@ def list_shipments(
                 product_id=shipment_line.product_id,
                 product_code=product_code,
                 product_name=product_name,
+                product_inventory_lot_id=shipment_line.product_inventory_lot_id,
+                stock_lot_no=shipment_line.stock_lot_no,
                 lot_id=shipment_line.lot_id,
-                lot_no=lot_no,
+                lot_no=display_lot_no,
                 inspection_result_id=shipment_line.inspection_result_id,
                 source_type=shipment_line.source_type,
                 status=shipment_line.status,
@@ -201,6 +206,42 @@ def list_shipments(
         total=total,
         page=page,
         size=size,
+    )
+
+
+def _resolve_inventory_lot_for_shipment_line(
+    db: Session,
+    line: ShipmentLine,
+) -> ProductInventoryLot | None:
+    if line.product_inventory_lot_id:
+        return (
+            db.execute(
+                select(ProductInventoryLot)
+                .where(ProductInventoryLot.product_inventory_lot_id == line.product_inventory_lot_id)
+                .with_for_update()
+            )
+            .scalar_one_or_none()
+        )
+
+    lot_no = line.stock_lot_no
+
+    if not lot_no and line.lot_id:
+        lot = db.get(Lot, line.lot_id)
+        lot_no = lot.lot_no if lot else None
+
+    if not lot_no:
+        return None
+
+    return (
+        db.execute(
+            select(ProductInventoryLot)
+            .where(
+                ProductInventoryLot.product_id == line.product_id,
+                ProductInventoryLot.lot_no == lot_no,
+            )
+            .with_for_update()
+        )
+        .scalar_one_or_none()
     )
 
 
@@ -260,10 +301,25 @@ def confirm_shipments(
                     detail=f"재고가 부족합니다. shipment_line_id={line.shipment_line_id}",
                 )
 
+            inventory_lot = _resolve_inventory_lot_for_shipment_line(db, line)
+
+            if inventory_lot is not None:
+                if int(inventory_lot.current_qty or 0) < ship_qty:
+                    raise HTTPException(
+                        status_code=409,
+                        detail=f"LOT 재고가 부족합니다. shipment_line_id={line.shipment_line_id}",
+                    )
+
+                inventory_lot.current_qty -= ship_qty
+                line.product_inventory_lot_id = inventory_lot.product_inventory_lot_id
+                line.stock_lot_no = inventory_lot.lot_no
+
             inventory.current_qty -= ship_qty
 
             movement = ProductInventoryMovement(
                 product_id=line.product_id,
+                product_inventory_lot_id=line.product_inventory_lot_id,
+                stock_lot_no=line.stock_lot_no,
                 movement_type="SHIP_OUT",
                 qty=-ship_qty,
                 balance_after=inventory.current_qty,
@@ -525,10 +581,10 @@ def _get_or_create_shipment_coa(db: Session, order_line_id: int) -> ShipmentCoa:
         if shipment_line.lot_id is not None and shipment_line.lot_id not in lot_ids:
             lot_ids.append(shipment_line.lot_id)
 
-        if lot is not None:
-            if shipment_line.source_type == "STOCK":
-                _append_unique(stock_lot_nos, lot.lot_no)
-            elif shipment_line.source_type == "INSPECTION_RESULT":
+        if shipment_line.source_type == "STOCK":
+            _append_unique(stock_lot_nos, shipment_line.stock_lot_no or (lot.lot_no if lot else None))
+        elif lot is not None:
+            if shipment_line.source_type == "INSPECTION_RESULT":
                 _append_unique(production_lot_nos, lot.lot_no)
 
         if inspection_schedule is not None:

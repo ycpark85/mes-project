@@ -19,6 +19,7 @@ from app.schemas.inspection_result import DefectLineIn
 from sqlalchemy import func
 from app.models.partner import Partner
 from app.models.product_inventory import ProductInventory
+from app.models.product_inventory_lot import ProductInventoryLot
 from app.models.product_inventory_movement import ProductInventoryMovement
 from app.models.shipment_line import ShipmentLine
 from app.services.ship_qty_policy import calculate_ship_qty, is_stock_replenishment_partner
@@ -439,6 +440,36 @@ def _get_fifo_stock_lot_allocations(
     return allocations
 
 
+def _get_or_create_inventory_lot(
+    db: Session,
+    *,
+    product_id: int,
+    lot_no: str,
+) -> ProductInventoryLot:
+    inventory_lot = (
+        db.execute(
+            select(ProductInventoryLot)
+            .where(
+                ProductInventoryLot.product_id == product_id,
+                ProductInventoryLot.lot_no == lot_no,
+            )
+            .with_for_update()
+        )
+        .scalar_one_or_none()
+    )
+
+    if inventory_lot is None:
+        inventory_lot = ProductInventoryLot(
+            product_id=product_id,
+            lot_no=lot_no,
+            current_qty=0,
+        )
+        db.add(inventory_lot)
+        db.flush()
+
+    return inventory_lot
+
+
 def _create_stock_shipment_lines_by_fifo(
     db: Session,
     *,
@@ -457,10 +488,22 @@ def _create_stock_shipment_lines_by_fifo(
     )
 
     for lot_id, ship_qty in allocations:
+        stock_lot = db.get(Lot, lot_id)
+        inventory_lot = None
+
+        if stock_lot is not None:
+            inventory_lot = _get_or_create_inventory_lot(
+                db,
+                product_id=product_id,
+                lot_no=stock_lot.lot_no,
+            )
+
         db.add(
             ShipmentLine(
                 order_line_id=order_line.order_line_id,
                 product_id=product_id,
+                product_inventory_lot_id=inventory_lot.product_inventory_lot_id if inventory_lot else None,
+                stock_lot_no=stock_lot.lot_no if stock_lot else None,
                 lot_id=lot_id,
                 inspection_result_id=inspection_result_id,
                 source_type="STOCK",
@@ -529,10 +572,25 @@ def _apply_inventory_for_result(
     ).scalars().all()
 
     for mv in existing_movements:
+        inventory_lot = None
+        if mv.product_inventory_lot_id:
+            inventory_lot = (
+                db.execute(
+                    select(ProductInventoryLot)
+                    .where(ProductInventoryLot.product_inventory_lot_id == mv.product_inventory_lot_id)
+                    .with_for_update()
+                )
+                .scalar_one_or_none()
+            )
+
         if mv.movement_type == "INSPECTION_IN":
             inventory.current_qty -= int(mv.qty or 0)
+            if inventory_lot is not None:
+                inventory_lot.current_qty -= int(mv.qty or 0)
         elif mv.movement_type == "SHIP_OUT":
             inventory.current_qty -= int(mv.qty or 0)
+            if inventory_lot is not None:
+                inventory_lot.current_qty -= int(mv.qty or 0)
 
         db.delete(mv)
 
@@ -602,10 +660,18 @@ def _apply_inventory_for_result(
             )
 
     if sellable_qty > 0:
+        inventory_lot = _get_or_create_inventory_lot(
+            db,
+            product_id=lot.product_id,
+            lot_no=lot.lot_no,
+        )
         inventory.current_qty += sellable_qty
+        inventory_lot.current_qty += sellable_qty
         db.add(
             ProductInventoryMovement(
                 product_id=lot.product_id,
+                product_inventory_lot_id=inventory_lot.product_inventory_lot_id,
+                stock_lot_no=inventory_lot.lot_no,
                 movement_type="INSPECTION_IN",
                 qty=sellable_qty,
                 balance_after=inventory.current_qty,
@@ -629,10 +695,17 @@ def _apply_inventory_for_result(
         )
 
     if result_ship_qty > 0:
+        result_inventory_lot = _get_or_create_inventory_lot(
+            db,
+            product_id=lot.product_id,
+            lot_no=lot.lot_no,
+        )
         db.add(
             ShipmentLine(
                 order_line_id=order_line.order_line_id,
                 product_id=lot.product_id,
+                product_inventory_lot_id=result_inventory_lot.product_inventory_lot_id,
+                stock_lot_no=result_inventory_lot.lot_no,
                 lot_id=lot.lot_id,
                 inspection_result_id=result.inspection_result_id,
                 source_type="INSPECTION_RESULT",
@@ -645,4 +718,4 @@ def _apply_inventory_for_result(
 
     order_line.status = "DONE"
 
-    db.flush()   
+    db.flush()

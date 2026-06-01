@@ -31,6 +31,8 @@ class ProductInventoryMovement(Base):
             name="ck_product_inventory_movement__qty_not_zero",
         ),
         Index("ix_product_inventory_movement__product_id", "product_id"),
+        Index("ix_product_inventory_movement__product_inventory_lot_id", "product_inventory_lot_id"),
+        Index("ix_product_inventory_movement__stock_lot_no", "stock_lot_no"),
         Index("ix_product_inventory_movement__order_line_id", "order_line_id"),
         Index("ix_product_inventory_movement__inspection_result_id", "inspection_result_id"),
         Index("ix_product_inventory_movement__created_at", "created_at"),
@@ -43,6 +45,14 @@ class ProductInventoryMovement(Base):
         ForeignKey("product.product_id", ondelete="RESTRICT"),
         nullable=False,
     )
+
+    product_inventory_lot_id: Mapped[Optional[int]] = mapped_column(
+        BigInteger,
+        ForeignKey("product_inventory_lot.product_inventory_lot_id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
+    stock_lot_no: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
 
     movement_type: Mapped[str] = mapped_column(String(30), nullable=False)
     qty: Mapped[int] = mapped_column(BigInteger, nullable=False)
@@ -78,3 +88,4 @@ class ProductInventoryMovement(Base):
     )
 
     product = relationship("Product")
+    inventory_lot = relationship("ProductInventoryLot")

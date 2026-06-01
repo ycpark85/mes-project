@@ -159,6 +159,7 @@
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
+                    <DataGridTextColumn Header="재고 LOT" Binding="{Binding StockLotNo}" Width="130"/>
                     <DataGridTextColumn Header="수량" Binding="{Binding Qty}" Width="100"/>
                     <DataGridTextColumn Header="반영 후 재고" Binding="{Binding BalanceAfter}" Width="120"/>
                     <DataGridTextColumn Header="수주ID" Binding="{Binding OrderLineId}" Width="100"/>

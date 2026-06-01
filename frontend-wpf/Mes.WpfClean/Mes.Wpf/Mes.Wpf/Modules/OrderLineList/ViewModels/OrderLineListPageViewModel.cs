@@ -87,6 +87,7 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
             ConfirmPartialStockPlanCommand = new AsyncRelayCommand(ConfirmPartialStockPlanAsync);
             OpenOrderDetailCommand = new AsyncRelayCommand(OpenOrderDetailAsync);
             OpenLotActionCommand = new AsyncRelayCommand(OpenLotActionAsync);
+            DeleteOrderGroupCommand = new AsyncRelayCommand(DeleteOrderGroupAsync);
             PreviousPageCommand = new AsyncRelayCommand(
                 GoPreviousPageAsync,
                 () => CanGoPreviousPage);
@@ -112,6 +113,7 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
 
         public AsyncRelayCommand OpenOrderDetailCommand { get; }
         public AsyncRelayCommand OpenLotActionCommand { get; }
+        public AsyncRelayCommand DeleteOrderGroupCommand { get; }
         public AsyncRelayCommand PreviousPageCommand { get; }
         public AsyncRelayCommand NextPageCommand { get; }
 
@@ -150,6 +152,8 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
         public bool IsPlanningSectionVisible => IsInProgressTab && SelectedItem != null;
 
         public string CurrentTabTitle => IsCompletedTab ? "발주리스트 - 생산완료" : "발주리스트 - 생산중";
+
+        public bool CanDeleteOrderGroup => SelectedItem != null;
 
         public DateTime? OrderDateFrom
         {
@@ -546,6 +550,7 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
             OnPropertyChanged(nameof(CanEditFulfillmentPlan));
             OnPropertyChanged(nameof(CanEditFulfillmentMode));
             OnPropertyChanged(nameof(CanEditExtraProductionQty));
+            OnPropertyChanged(nameof(CanDeleteOrderGroup));
             OnPropertyChanged(nameof(IsPartialStockDecisionVisible));
         }
 
@@ -873,6 +878,38 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
             }
 
             await _openLotCreateAsync(SelectedItem);
+        }
+
+        private async Task DeleteOrderGroupAsync()
+        {
+            if (SelectedItem == null)
+            {
+                _messageService.ShowWarning("삭제할 수주를 먼저 선택하세요.");
+                return;
+            }
+
+            var orderNo = SelectedItem.OrderNo;
+            var confirmed = _messageService.Confirm(
+                $"수주번호 [{orderNo}]에 포함된 모든 라인과 관련 LOT/검수/출하대기 데이터가 삭제됩니다.\n\n다시 등록하기 위한 관리자 삭제 작업입니다. 계속하시겠습니까?",
+                "수주번호 전체 삭제 확인");
+
+            if (!confirmed)
+            {
+                return;
+            }
+
+            var result = await _apiClient.DeleteAsync($"{ApiRoutes.OrderLines}/{SelectedItem.OrderLineId}");
+
+            if (!result.Success || !result.Data)
+            {
+                _messageService.ShowError(result.Message ?? "수주번호 전체 삭제 중 오류가 발생했습니다.");
+                return;
+            }
+
+            SelectedItem = null;
+            await SearchAsync();
+
+            _messageService.ShowInfo($"수주번호 [{orderNo}] 전체 삭제가 완료되었습니다.");
         }
 
         private string BuildListUrl()

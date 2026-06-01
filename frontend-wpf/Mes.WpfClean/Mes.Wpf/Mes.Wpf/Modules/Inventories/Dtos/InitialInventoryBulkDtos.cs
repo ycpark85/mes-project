@@ -17,6 +17,9 @@ namespace Mes.Wpf.Modules.Inventories.Dtos
         [JsonPropertyName("product_code")]
         public string ProductCode { get; set; } = string.Empty;
 
+        [JsonPropertyName("lot_no")]
+        public string LotNo { get; set; } = string.Empty;
+
         [JsonPropertyName("initial_qty")]
         public int InitialQty { get; set; }
 
@@ -49,6 +52,9 @@ namespace Mes.Wpf.Modules.Inventories.Dtos
 
         [JsonPropertyName("product_code")]
         public string? ProductCode { get; set; }
+
+        [JsonPropertyName("lot_no")]
+        public string? LotNo { get; set; }
 
         [JsonPropertyName("message")]
         public string Message { get; set; } = string.Empty;

@@ -6,6 +6,7 @@ namespace Mes.Wpf.Modules.Inventories.Dtos
     {
         private int _rowNumber;
         private string _productCode = string.Empty;
+        private string _lotNo = string.Empty;
         private int _initialQty;
         private string? _memo;
         private string _status = "대기";
@@ -21,6 +22,12 @@ namespace Mes.Wpf.Modules.Inventories.Dtos
         {
             get => _productCode;
             set => SetProperty(ref _productCode, value);
+        }
+
+        public string LotNo
+        {
+            get => _lotNo;
+            set => SetProperty(ref _lotNo, value);
         }
 
         public int InitialQty

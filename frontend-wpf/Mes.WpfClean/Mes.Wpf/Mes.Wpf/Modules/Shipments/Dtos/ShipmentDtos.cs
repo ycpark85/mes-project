@@ -52,6 +52,12 @@ namespace Mes.Wpf.Modules.Shipments.Dtos
         [JsonPropertyName("product_name")]
         public string? ProductName { get; set; }
 
+        [JsonPropertyName("product_inventory_lot_id")]
+        public int? ProductInventoryLotId { get; set; }
+
+        [JsonPropertyName("stock_lot_no")]
+        public string? StockLotNoRaw { get; set; }
+
         [JsonPropertyName("lot_id")]
         public int? LotId { get; set; }
 
@@ -110,7 +116,7 @@ namespace Mes.Wpf.Modules.Shipments.Dtos
 
         [JsonIgnore]
         public string StockLotNo => SourceType == "STOCK"
-            ? LotNo ?? string.Empty
+            ? StockLotNoRaw ?? LotNo ?? string.Empty
             : string.Empty;
 
         [JsonIgnore]

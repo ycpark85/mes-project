@@ -25,6 +25,8 @@ class ProductInventoryListOut(BaseModel):
 class ProductInventoryMovementOut(BaseModel):
     inventory_movement_id: int
     product_id: int
+    product_inventory_lot_id: Optional[int] = None
+    stock_lot_no: Optional[str] = None
     product_code: Optional[str] = None
     product_name: Optional[str] = None
     movement_type: str
@@ -56,6 +58,7 @@ class ProductInventoryAdjustmentIn(BaseModel):
 class InitialInventoryBulkItemIn(BaseModel):
     row_number: int
     product_code: str
+    lot_no: str = Field(..., max_length=100)
     initial_qty: int = Field(..., ge=0)
     memo: Optional[str] = None
 
@@ -67,6 +70,7 @@ class InitialInventoryBulkIn(BaseModel):
 class InitialInventoryBulkErrorOut(BaseModel):
     row_number: int
     product_code: Optional[str] = None
+    lot_no: Optional[str] = None
     message: str
 
 
@@ -75,4 +79,4 @@ class InitialInventoryBulkResultOut(BaseModel):
     success_count: int
     skipped_count: int
     failure_count: int
-    errors: list[InitialInventoryBulkErrorOut] = []    
+    errors: list[InitialInventoryBulkErrorOut] = []

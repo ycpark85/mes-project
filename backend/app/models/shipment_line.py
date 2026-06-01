@@ -41,6 +41,8 @@ class ShipmentLine(Base):
         Index("ix_shipment_line__order_line_id", "order_line_id"),
         Index("ix_shipment_line__product_id", "product_id"),
         Index("ix_shipment_line__lot_id", "lot_id"),
+        Index("ix_shipment_line__product_inventory_lot_id", "product_inventory_lot_id"),
+        Index("ix_shipment_line__stock_lot_no", "stock_lot_no"),
         Index("ix_shipment_line__inspection_result_id", "inspection_result_id"),
         Index("ix_shipment_line__status", "status"),
         Index("ix_shipment_line__created_at", "created_at"),
@@ -59,6 +61,14 @@ class ShipmentLine(Base):
         ForeignKey("product.product_id", ondelete="RESTRICT"),
         nullable=False,
     )
+
+    product_inventory_lot_id: Mapped[Optional[int]] = mapped_column(
+        BigInteger,
+        ForeignKey("product_inventory_lot.product_inventory_lot_id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
+    stock_lot_no: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
 
     lot_id: Mapped[Optional[int]] = mapped_column(
         BigInteger,
@@ -93,5 +103,6 @@ class ShipmentLine(Base):
 
     order_line = relationship("OrderLine")
     product = relationship("Product")
+    inventory_lot = relationship("ProductInventoryLot")
     lot = relationship("Lot")
     inspection_result = relationship("InspectionResult")

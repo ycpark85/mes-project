@@ -116,7 +116,11 @@
 
                 <DataGridTextColumn Header="품목코드"
                                     Binding="{Binding ProductCode}"
-                                    Width="160"/>
+                                    Width="140"/>
+
+                <DataGridTextColumn Header="LOT"
+                                    Binding="{Binding LotNo}"
+                                    Width="140"/>
 
                 <DataGridTextColumn Header="기초재고"
                                     Binding="{Binding InitialQty, StringFormat={}{0:N0}}"
@@ -175,7 +179,7 @@
             <TextBlock Grid.Column="0"
                        VerticalAlignment="Center"
                        Foreground="#666666"
-                       Text="엑셀 컬럼: product_code, initial_qty, memo / initial_qty가 0인 행은 등록 제외됩니다."/>
+                       Text="엑셀 컬럼: product_code, lot_no, initial_qty, memo / initial_qty가 0인 행은 등록 제외됩니다."/>
 
             <TextBlock Grid.Column="1"
                        VerticalAlignment="Center"

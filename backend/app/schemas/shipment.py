@@ -17,6 +17,8 @@ class ShipmentLineOut(BaseModel):
     product_code: Optional[str] = None
     product_name: Optional[str] = None
 
+    product_inventory_lot_id: Optional[int] = None
+    stock_lot_no: Optional[str] = None
     lot_id: Optional[int] = None
     lot_no: Optional[str] = None
     inspection_result_id: Optional[int] = None

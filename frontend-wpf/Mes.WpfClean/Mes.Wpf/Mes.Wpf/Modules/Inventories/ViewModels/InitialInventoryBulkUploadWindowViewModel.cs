@@ -8,6 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -96,7 +97,8 @@ namespace Mes.Wpf.Modules.Inventories.ViewModels
 
             try
             {
-                var targetPath = dialog.FileName;
+                var requestedPath = dialog.FileName;
+                var targetPath = GetAvailableTemplatePath(requestedPath);
 
                 await Task.Run(() =>
                 {
@@ -104,19 +106,28 @@ namespace Mes.Wpf.Modules.Inventories.ViewModels
                     var worksheet = workbook.Worksheets.Add("InitialInventory");
 
                     worksheet.Cell(1, 1).Value = "product_code";
-                    worksheet.Cell(1, 2).Value = "initial_qty";
-                    worksheet.Cell(1, 3).Value = "memo";
+                    worksheet.Cell(1, 2).Value = "lot_no";
+                    worksheet.Cell(1, 3).Value = "initial_qty";
+                    worksheet.Cell(1, 4).Value = "memo";
 
                     worksheet.Cell(2, 1).Value = "P-001";
-                    worksheet.Cell(2, 2).Value = 1000;
-                    worksheet.Cell(2, 3).Value = "오픈 전 실사 재고";
+                    worksheet.Cell(2, 2).Value = "LOT-001";
+                    worksheet.Cell(2, 3).Value = 1000;
+                    worksheet.Cell(2, 4).Value = "오픈 전 실사 재고";
 
                     worksheet.Columns().AdjustToContents();
 
                     workbook.SaveAs(targetPath);
                 });
 
-                _messageService.ShowInfo("기초재고 업로드 템플릿이 저장되었습니다.");
+                if (!string.Equals(requestedPath, targetPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    _messageService.ShowInfo($"선택한 파일이 이미 있어서 새 파일명으로 저장했습니다.\n{targetPath}");
+                }
+                else
+                {
+                    _messageService.ShowInfo("기초재고 업로드 템플릿이 저장되었습니다.");
+                }
             }
             catch (Exception ex)
             {
@@ -127,6 +138,30 @@ namespace Mes.Wpf.Modules.Inventories.ViewModels
                 IsLoading = false;
                 LoadingMessage = "처리 중입니다...";
             }
+        }
+
+        private static string GetAvailableTemplatePath(string requestedPath)
+        {
+            if (!File.Exists(requestedPath))
+            {
+                return requestedPath;
+            }
+
+            var directory = Path.GetDirectoryName(requestedPath) ?? string.Empty;
+            var fileName = Path.GetFileNameWithoutExtension(requestedPath);
+            var extension = Path.GetExtension(requestedPath);
+            var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss", CultureInfo.InvariantCulture);
+
+            var candidate = Path.Combine(directory, $"{fileName}_{timestamp}{extension}");
+            var sequence = 1;
+
+            while (File.Exists(candidate))
+            {
+                candidate = Path.Combine(directory, $"{fileName}_{timestamp}_{sequence}{extension}");
+                sequence++;
+            }
+
+            return candidate;
         }
 
         private async Task SelectFileAsync()
@@ -220,6 +255,7 @@ namespace Mes.Wpf.Modules.Inventories.ViewModels
                     {
                         RowNumber = x.RowNumber,
                         ProductCode = x.ProductCode,
+                        LotNo = x.LotNo,
                         InitialQty = x.InitialQty,
                         Memo = x.Memo
                     }).ToList()
@@ -255,7 +291,7 @@ namespace Mes.Wpf.Modules.Inventories.ViewModels
 
         private IEnumerable<InitialInventoryBulkUploadRowModel> ParseRowsFromExcel(string filePath)
         {
-            using var workbook = new XLWorkbook(filePath);
+            using var workbook = OpenWorkbookForUpload(filePath);
             var worksheet = workbook.Worksheets.First();
 
             var lastRow = worksheet.LastRowUsed()?.RowNumber() ?? 1;
@@ -263,10 +299,12 @@ namespace Mes.Wpf.Modules.Inventories.ViewModels
             for (var rowNumber = 2; rowNumber <= lastRow; rowNumber++)
             {
                 var productCode = worksheet.Cell(rowNumber, 1).GetString();
-                var qtyText = worksheet.Cell(rowNumber, 2).GetFormattedString();
-                var memo = worksheet.Cell(rowNumber, 3).GetString();
+                var lotNo = worksheet.Cell(rowNumber, 2).GetString();
+                var qtyText = worksheet.Cell(rowNumber, 3).GetFormattedString();
+                var memo = worksheet.Cell(rowNumber, 4).GetString();
 
                 if (string.IsNullOrWhiteSpace(productCode)
+                    && string.IsNullOrWhiteSpace(lotNo)
                     && string.IsNullOrWhiteSpace(qtyText)
                     && string.IsNullOrWhiteSpace(memo))
                 {
@@ -279,10 +317,26 @@ namespace Mes.Wpf.Modules.Inventories.ViewModels
                 {
                     RowNumber = rowNumber,
                     ProductCode = productCode,
+                    LotNo = lotNo,
                     InitialQty = initialQty,
                     Memo = string.IsNullOrWhiteSpace(memo) ? null : memo
                 };
             }
+        }
+
+        private static XLWorkbook OpenWorkbookForUpload(string filePath)
+        {
+            using var fileStream = new FileStream(
+                filePath,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete);
+
+            var memoryStream = new MemoryStream();
+            fileStream.CopyTo(memoryStream);
+            memoryStream.Position = 0;
+
+            return new XLWorkbook(memoryStream);
         }
 
         private static int ParseQty(string text)
@@ -307,6 +361,7 @@ namespace Mes.Wpf.Modules.Inventories.ViewModels
             foreach (var row in Rows)
             {
                 row.ProductCode = (row.ProductCode ?? string.Empty).Trim().ToUpperInvariant();
+                row.LotNo = (row.LotNo ?? string.Empty).Trim().ToUpperInvariant();
                 row.Memo = string.IsNullOrWhiteSpace(row.Memo) ? null : row.Memo.Trim();
                 row.ClearValidation();
             }
@@ -314,7 +369,7 @@ namespace Mes.Wpf.Modules.Inventories.ViewModels
 
         private void ValidateRows()
         {
-            var seenCodes = new Dictionary<string, int>();
+            var seenLots = new Dictionary<string, int>();
 
             foreach (var row in Rows.OrderBy(x => x.RowNumber))
             {
@@ -324,19 +379,26 @@ namespace Mes.Wpf.Modules.Inventories.ViewModels
                     continue;
                 }
 
+                if (string.IsNullOrWhiteSpace(row.LotNo))
+                {
+                    row.MarkError("LOT 번호는 필수입니다.");
+                    continue;
+                }
+
                 if (row.InitialQty < 0)
                 {
                     row.MarkError("기초재고 수량은 0 이상의 숫자여야 합니다.");
                     continue;
                 }
 
-                if (seenCodes.TryGetValue(row.ProductCode, out var firstRowNumber))
+                var duplicateKey = $"{row.ProductCode}|{row.LotNo}";
+                if (seenLots.TryGetValue(duplicateKey, out var firstRowNumber))
                 {
-                    row.MarkError($"엑셀 내 중복 품목코드입니다. 첫 행: {firstRowNumber}");
+                    row.MarkError($"엑셀 내 중복 품목/LOT입니다. 첫 행: {firstRowNumber}");
                     continue;
                 }
 
-                seenCodes[row.ProductCode] = row.RowNumber;
+                seenLots[duplicateKey] = row.RowNumber;
 
                 if (row.InitialQty == 0)
                 {
