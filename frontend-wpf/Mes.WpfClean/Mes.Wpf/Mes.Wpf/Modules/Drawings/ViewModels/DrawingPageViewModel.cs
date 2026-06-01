@@ -13,6 +13,7 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace Mes.Wpf.Modules.Drawings.ViewModels
@@ -323,6 +324,7 @@ namespace Mes.Wpf.Modules.Drawings.ViewModels
             EditModel.Clear();
             RevisionEditModel.Clear();
             RevisionItems.Clear();
+
             ClearUploadPaths();
             ClearDirtyFlags();
 
@@ -332,6 +334,8 @@ namespace Mes.Wpf.Modules.Drawings.ViewModels
             LoadingMessage = "처리 중입니다...";
 
             RaiseAllStates();
+
+            _ = GenerateNextDrawingNoAsync();
         }
 
         protected override void OnSelectedItemChanged(DrawingDto? item)
@@ -1098,6 +1102,141 @@ namespace Mes.Wpf.Modules.Drawings.ViewModels
         private void NormalizeEditModel()
         {
             EditModel.DrawingNo = EditModel.DrawingNo?.Trim() ?? string.Empty;
+        }
+
+        private async Task GenerateNextDrawingNoAsync()
+        {
+            IsLoading = true;
+            LoadingMessage = "도면번호 생성 중...";
+
+            try
+            {
+                var latestResult = await GetLatestDrawingAsync();
+
+                if (!latestResult.Success)
+                {
+                    return;
+                }
+
+                if (!IsNewMode || EditModel.DrawingId.HasValue || !string.IsNullOrWhiteSpace(EditModel.DrawingNo))
+                {
+                    return;
+                }
+
+                EditModel.DrawingNo = BuildNextDrawingNo(latestResult.Item?.DrawingNo);
+                IsCodeEditable = true;
+            }
+            finally
+            {
+                IsLoading = false;
+                LoadingMessage = "처리 중입니다...";
+            }
+        }
+
+        private async Task<(bool Success, DrawingDto? Item)> GetLatestDrawingAsync()
+        {
+            var activeResult = await GetLatestDrawingByUseYnAsync(true);
+
+            if (!activeResult.Success)
+            {
+                return (false, null);
+            }
+
+            var inactiveResult = await GetLatestDrawingByUseYnAsync(false);
+
+            if (!inactiveResult.Success)
+            {
+                return (false, null);
+            }
+
+            return (true, GetHigherDrawing(activeResult.Item, inactiveResult.Item));
+        }
+
+        private async Task<(bool Success, DrawingDto? Item)> GetLatestDrawingByUseYnAsync(bool isActive)
+        {
+            var route = $"{ApiRoutes.Drawings}?page=1&size=1&is_active={isActive.ToString().ToLowerInvariant()}";
+            var result = await _apiClient.GetAsync<PagedResult<DrawingDto>>(route);
+
+            if (!result.Success)
+            {
+                _messageService.ShowError(result.Message ?? "도면번호 생성 중 오류가 발생했습니다.");
+                return (false, null);
+            }
+
+            return (true, result.Data?.Items?.FirstOrDefault());
+        }
+
+        private static DrawingDto? GetHigherDrawing(DrawingDto? first, DrawingDto? second)
+        {
+            if (first == null)
+            {
+                return second;
+            }
+
+            if (second == null)
+            {
+                return first;
+            }
+
+            var firstNumber = TryGetTrailingNumber(first.DrawingNo, out var parsedFirstNumber)
+                ? parsedFirstNumber
+                : long.MinValue;
+
+            var secondNumber = TryGetTrailingNumber(second.DrawingNo, out var parsedSecondNumber)
+                ? parsedSecondNumber
+                : long.MinValue;
+
+            if (firstNumber != secondNumber)
+            {
+                return firstNumber > secondNumber ? first : second;
+            }
+
+            return string.Compare(first.DrawingNo, second.DrawingNo, StringComparison.OrdinalIgnoreCase) >= 0
+                ? first
+                : second;
+        }
+
+        private static string BuildNextDrawingNo(string? latestDrawingNo)
+        {
+            if (string.IsNullOrWhiteSpace(latestDrawingNo))
+            {
+                return "0001";
+            }
+
+            var normalized = latestDrawingNo.Trim();
+            var match = Regex.Match(normalized, @"^(.*?)(\d+)$");
+
+            if (!match.Success)
+            {
+                return $"{normalized}-0001";
+            }
+
+            var prefix = match.Groups[1].Value;
+            var numberText = match.Groups[2].Value;
+
+            if (!long.TryParse(numberText, out var number))
+            {
+                return $"{normalized}-0001";
+            }
+
+            var nextNumber = number + 1;
+            var numberFormat = new string('0', numberText.Length);
+
+            return $"{prefix}{nextNumber.ToString(numberFormat)}";
+        }
+
+        private static bool TryGetTrailingNumber(string? drawingNo, out long number)
+        {
+            number = 0;
+
+            if (string.IsNullOrWhiteSpace(drawingNo))
+            {
+                return false;
+            }
+
+            var match = Regex.Match(drawingNo.Trim(), @"(\d+)$");
+
+            return match.Success && long.TryParse(match.Groups[1].Value, out number);
         }
 
         private string BuildListUrl()

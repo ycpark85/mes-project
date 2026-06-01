@@ -1,12 +1,34 @@
 from fastapi import APIRouter, Depends, Query, Path, status
 from sqlalchemy.orm import Session, selectinload
-
+from sqlalchemy import BigInteger, case, cast, desc, func, nullslast
 from app.db.session import get_db
 from app.models.drawing import Drawing
 from app.schemas.drawing import DrawingCreate, DrawingUpdate, DrawingOut, DrawingListOut
 from app.crud.drawing import drawing_crud
 
 router = APIRouter(prefix="/drawings", tags=["Drawing"])
+
+def _drawing_no_order():
+    numeric_suffix = case(
+        (
+            Drawing.drawing_no.op("~")(r"[0-9]+$"),
+            cast(
+                func.regexp_replace(
+                    Drawing.drawing_no,
+                    r"^.*?([0-9]+)$",
+                    r"\1",
+                ),
+                BigInteger,
+            ),
+        ),
+        else_=None,
+    )
+
+    return (
+        nullslast(desc(numeric_suffix)),
+        Drawing.drawing_no.desc(),
+        Drawing.drawing_id.desc(),
+    )
 
 
 @router.post("", response_model=DrawingOut, status_code=status.HTTP_201_CREATED)
@@ -49,7 +71,7 @@ def list_drawings(
     total = base.count()
 
     items = (
-        base.order_by(Drawing.drawing_id.desc())
+        base.order_by(*_drawing_no_order())
         .offset((page - 1) * size)
         .limit(size)
         .all()
