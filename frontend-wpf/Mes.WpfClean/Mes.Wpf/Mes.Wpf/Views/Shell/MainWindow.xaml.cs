@@ -348,6 +348,27 @@ namespace Mes.Wpf.Views.Shell
             await drawingViewModel.InitializeAsync();
         }
 
+        private async void PendingNewDrawing_Click(object sender, RoutedEventArgs e)
+        {
+            var page = new PendingNewDrawingPage();
+
+            var drawingFileOpener = new DrawingFileOpener(_apiClient, _messageService);
+            var viewModel = new PendingNewDrawingPageViewModel(
+                _apiClient,
+                _messageService,
+                drawingFileOpener);
+
+            page.DataContext = viewModel;
+
+            MainContent.Content = page;
+            MainContent.Visibility = Visibility.Visible;
+
+            HeaderTitle.Text = "신규작성도면";
+            HeaderSubtitle.Text = "품목에 매칭되었지만 도면파일이 아직 등록되지 않은 도면 목록";
+
+            await viewModel.InitializeAsync();
+        }
+
         private async void Product_Click(object sender, RoutedEventArgs e)
         {
             var productPage = new ProductPage();
@@ -827,6 +848,7 @@ namespace Mes.Wpf.Views.Shell
             SetMenuVisibility(RoutingTemplateMenuButton, PermissionCodes.RoutingTemplatesView);
             SetMenuVisibility(RoutingTemplateStepMenuButton, PermissionCodes.RoutingTemplateStepsView);
             SetMenuVisibility(DrawingMenuButton, PermissionCodes.DrawingsView);
+            SetMenuVisibility(PendingNewDrawingMenuButton, PermissionCodes.DrawingsView);
             SetMenuVisibility(ProductMenuButton, PermissionCodes.ProductsView);
 
             SetMenuVisibility(OrderLineCreateMenuButton, PermissionCodes.OrderLineCreateView);

@@ -262,6 +262,11 @@
                                         Style="{StaticResource SidebarMenuButtonStyle}"
                                         Click="Drawing_Click"/>
 
+                                <Button x:Name="PendingNewDrawingMenuButton"
+                                        Content="신규작성도면"
+                                        Style="{StaticResource SidebarMenuButtonStyle}"
+                                        Click="PendingNewDrawing_Click"/>
+
                                 <Button x:Name="DefectTypeMenuButton"
                                         Content="불량유형"
                                         Style="{StaticResource SidebarMenuButtonStyle}"

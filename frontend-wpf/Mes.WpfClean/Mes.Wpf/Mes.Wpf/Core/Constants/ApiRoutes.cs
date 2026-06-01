@@ -13,6 +13,7 @@
         public const string PartnersBulk = "api/v1/partners/bulk";
 
         public const string Drawings = "api/v1/drawings";
+        public const string PendingNewDrawings = "api/v1/drawings/pending-new";
 
         public const string Products = "api/v1/products";
         public const string ProductsBulk = "api/v1/products/bulk";

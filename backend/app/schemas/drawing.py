@@ -30,3 +30,23 @@ class DrawingListOut(BaseModel):
     total: int
     page: int
     size: int
+
+
+class PendingNewDrawingOut(BaseModel):
+    drawing_id: int
+    drawing_no: str
+    current_revision_id: int | None
+    current_revision_no: str | None = None
+    product_id: int
+    product_code: str
+    product_name: str
+    status_text: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class PendingNewDrawingListOut(BaseModel):
+    items: list[PendingNewDrawingOut]
+    total: int
+    page: int
+    size: int
