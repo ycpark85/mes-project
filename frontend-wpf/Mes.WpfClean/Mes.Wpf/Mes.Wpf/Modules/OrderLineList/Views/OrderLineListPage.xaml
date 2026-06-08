@@ -252,6 +252,11 @@
                                                 Width="120"
                                                 ElementStyle="{StaticResource GridTextStyle}"/>
 
+                            <DataGridTextColumn Header="도면번호"
+                                                Binding="{Binding DrawingNo}"
+                                                Width="130"
+                                                ElementStyle="{StaticResource GridTextStyle}"/>
+
                             <DataGridTextColumn Header="품목명"
                                                 Binding="{Binding ProductName}"
                                                 Width="180"

@@ -8,7 +8,7 @@ from typing import List
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status as http_status
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from openpyxl import load_workbook
 from openpyxl.cell.cell import MergedCell
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
@@ -1235,6 +1235,47 @@ async def upload_plate_data(
         content_type=file.content_type,
         file_size=size_bytes,
         uploaded_at=uploaded_at,
+    )
+
+
+@router.get("/work-groups/{group_id}/plate-data")
+def download_work_group_plate_data(
+    group_id: int,
+    db: Session = Depends(get_db),
+):
+    work_group = db.get(OutsourceWorkGroup, group_id)
+
+    if not work_group:
+        raise HTTPException(status_code=404, detail="Outsource work group not found")
+
+    if not work_group.is_bundle:
+        raise HTTPException(status_code=404, detail="Bundle plate data not found")
+
+    file_row = (
+        db.execute(
+            select(OutsourceWorkInstructionFile)
+            .where(
+                OutsourceWorkInstructionFile.outsource_work_instruction_id
+                == work_group.outsource_work_instruction_id
+            )
+            .order_by(OutsourceWorkInstructionFile.outsource_work_instruction_file_id.asc())
+        )
+        .scalars()
+        .first()
+    )
+
+    if not file_row:
+        raise HTTPException(status_code=404, detail="Plate data file not found")
+
+    file_path = Path(file_row.file_path)
+
+    if not file_path.is_file():
+        raise HTTPException(status_code=404, detail="Plate data file is missing")
+
+    return FileResponse(
+        path=file_path,
+        media_type=file_row.content_type or "application/octet-stream",
+        filename=file_row.file_name,
     )
 
 

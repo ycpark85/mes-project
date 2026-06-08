@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Input;
@@ -53,6 +55,14 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                 OpenDrawingAsync,
                 () => !IsLoading && SelectedItem != null);
 
+            OpenBundlePlateDataCommand = new AsyncRelayCommand<InspectionScheduleListItemDto>(
+                OpenBundlePlateDataAsync,
+                item =>
+                    !IsLoading
+                    && item != null
+                    && item.OutsourceWorkGroupId.HasValue
+                    && !string.IsNullOrWhiteSpace(item.BundleNo));
+
             SelectItemCommand = new AsyncRelayCommand<InspectionScheduleListItemDto>(
                 SelectItemAsync,
                 item => !IsLoading && item != null);
@@ -92,6 +102,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
         public ICommand SelectItemCommand { get; }
         public ICommand OpenDrawingCommand { get; }
         public ICommand OpenLotDetailCommand { get; }
+        public ICommand OpenBundlePlateDataCommand { get; }
         public ICommand ReceiveCommand { get; }
         public ICommand StartCommand { get; }
         public ICommand CancelCommand { get; }
@@ -560,6 +571,64 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
             await _drawingViewer.OpenCurrentDrawingAsync(SelectedItem.DrawingId);
         }
 
+        private async Task OpenBundlePlateDataAsync(InspectionScheduleListItemDto? item)
+        {
+            if (item == null)
+            {
+                _messageService.ShowWarning("묶음 작업을 선택해주세요.");
+                return;
+            }
+
+            if (!item.OutsourceWorkGroupId.HasValue)
+            {
+                _messageService.ShowWarning("묶음 작업 정보가 없습니다.");
+                return;
+            }
+
+            try
+            {
+                IsLoading = true;
+
+                var result = await _apiClient.DownloadFileAsync(
+                    $"{ApiRoutes.OutsourceWorkInstructionWorkGroups}/{item.OutsourceWorkGroupId.Value}/plate-data");
+
+                if (!result.Success || result.Data == null || result.Data.Content.Length == 0)
+                {
+                    _messageService.ShowError(result.Message ?? "판데이터 파일을 다운로드할 수 없습니다.");
+                    return;
+                }
+
+                var tempFolder = Path.Combine(
+                    Path.GetTempPath(),
+                    "Mes.Wpf",
+                    "PlateData");
+
+                Directory.CreateDirectory(tempFolder);
+
+                var safeFileName = BuildSafePlateDataFileName(
+                    result.Data.FileName,
+                    item.BundleNo,
+                    item.OutsourceWorkGroupId.Value);
+                var tempFilePath = Path.Combine(tempFolder, safeFileName);
+
+                await File.WriteAllBytesAsync(tempFilePath, result.Data.Content);
+
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = tempFilePath,
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                _messageService.ShowError($"판데이터 열기 중 오류가 발생했습니다.\n{ex.Message}");
+            }
+            finally
+            {
+                IsLoading = false;
+            }
+        }
+
         public Task MoveUpAsync()
         {
             return ReorderBySwapAsync(true);
@@ -668,6 +737,46 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
             return $"{ApiRoutes.InspectionSchedules}?{string.Join("&", queryParts)}";
         }
 
+
+        private static string BuildSafePlateDataFileName(
+            string? fileName,
+            string? bundleNo,
+            long outsourceWorkGroupId)
+        {
+            var name = string.IsNullOrWhiteSpace(fileName)
+                ? $"plate_data_{bundleNo ?? outsourceWorkGroupId.ToString()}_{DateTime.Now:yyyyMMddHHmmss}.bin"
+                : fileName.Trim();
+
+            foreach (var invalidChar in Path.GetInvalidFileNameChars())
+            {
+                name = name.Replace(invalidChar, '_');
+            }
+
+            name = name
+                .Replace("/", "_")
+                .Replace("\\", "_")
+                .Trim();
+
+            if (string.IsNullOrWhiteSpace(name) || name == "." || name == "..")
+            {
+                name = $"plate_data_{outsourceWorkGroupId}_{DateTime.Now:yyyyMMddHHmmss}.bin";
+            }
+
+            if (string.IsNullOrWhiteSpace(Path.GetExtension(name)))
+            {
+                name += ".bin";
+            }
+
+            var extension = Path.GetExtension(name);
+            var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(name);
+
+            if (fileNameWithoutExtension.Length > 120)
+            {
+                fileNameWithoutExtension = fileNameWithoutExtension.Substring(0, 120);
+            }
+
+            return $"{fileNameWithoutExtension}{extension}";
+        }
 
 
         private void NormalizeSearchInputs()
@@ -793,6 +902,11 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
             if (OpenDrawingCommand is AsyncRelayCommand openDrawingCommand)
             {
                 openDrawingCommand.RaiseCanExecuteChanged();
+            }
+
+            if (OpenBundlePlateDataCommand is AsyncRelayCommand<InspectionScheduleListItemDto> openBundlePlateDataCommand)
+            {
+                openBundlePlateDataCommand.RaiseCanExecuteChanged();
             }
         }
     }

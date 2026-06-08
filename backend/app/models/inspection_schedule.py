@@ -43,6 +43,7 @@ class InspectionSchedule(Base):
         Index("ix_inspection_schedule__lot_id", "lot_id"),
         Index("ix_inspection_schedule__outsource_work_group_id", "outsource_work_group_id"),
         Index("ix_inspection_schedule__outsource_work_group_item_id", "outsource_work_group_item_id"),
+        Index("ix_inspection_schedule__status_date", "status", "inspection_date"),
     )
 
     inspection_schedule_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)

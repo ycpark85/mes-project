@@ -1,7 +1,7 @@
 ﻿# app/api/v1/order_lines.py
 from __future__ import annotations
 
-from datetime import date,datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Optional
 from app.models.drawing import Drawing
 from app.models.drawing_revision import DrawingRevision
@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session, selectinload
 from collections import defaultdict
 from app.crud.lot import lot_crud
 from app.crud.order_line import order_line_crud
-from app.db.session import get_db  # ?덊씗 ?꾨줈?앺듃??get_db 寃쎈줈??留욎떠 ?섏젙
+from app.db.session import get_db
 from app.models.lot import Lot
 from app.models.lot_step import LotStep
 from app.models.inspection_certificate import InspectionCertificate
@@ -32,12 +32,23 @@ from app.models.partner import Partner
 from app.models.process import Process
 from app.models.product import Product
 from app.models.product_inventory import ProductInventory
-from app.models.product_inventory_lot import ProductInventoryLot
 from app.models.shipment_coa import ShipmentCoa
 from app.models.shipment_line import ShipmentLine
 from app.models.product_inventory_movement import ProductInventoryMovement
+from app.services.order_line_plan_service import (
+    confirm_order_line_plan_decision,
+    create_plan_history as _create_plan_history,
+    create_stock_shipment_waiting_for_plan as _create_stock_shipment_waiting_for_plan,
+    create_stock_shipment_waiting_if_needed as _create_stock_shipment_waiting_if_needed,
+    get_already_shipped_qty as _get_already_shipped_qty,
+    get_available_inventory_qty as _get_available_inventory_qty,
+    get_latest_plan_history as _get_latest_plan_history,
+    get_planned_production_qty as _get_planned_production_qty,
+    get_target_ship_qty as _get_target_ship_qty,
+)
 from app.services.ship_qty_policy import calculate_ship_qty, is_stock_replenishment_partner
 from app.services.bulk.order_line_bulk_service import order_line_bulk_service
+from app.services.order_line_display import to_plan_type_display
 
 from app.schemas.order_line import (
     OrderLineCreate,
@@ -72,11 +83,6 @@ from app.schemas.lot_create_context import (
     LotCreateDrawingDto,
     LotCreatePrimaryCandidateDto,
 )
-from app.crud.order_line import order_line_crud
-
-from sqlalchemy import update, select, exists, and_
-from app.models.lot import Lot
-from app.models.lot_step import LotStep
 
 router = APIRouter(prefix="/order-lines", tags=["OrderLine"])
 
@@ -264,7 +270,7 @@ def _apply_stock_fulfillment_for_order_line(
             source_type="ORDER_STOCK_FULFILLMENT",
             source_id=order_line.order_line_id,
             order_line_id=order_line.order_line_id,
-            memo=f"諛쒖＜ ?깅줉 ?ш퀬 異⑸떦 異쒓퀬 / 紐⑺몴 {ship_target_qty}",
+            memo=f"발주 등록 재고 충당 출고 / 목표 {ship_target_qty}",
         )
     )
 
@@ -308,7 +314,7 @@ def _create_order_line_with_policy(db: Session, payload: OrderLineCreate) -> Ord
             stock_ship_qty=0,
             production_qty=production_qty,
             is_short_close=False,
-            memo="諛쒖＜ ?깅줉 ?먮룞 泥섎━: ?ш퀬鍮꾩텞 ?앹궛",
+            memo="발주 등록 자동 처리: 재고비축 생산",
             actor=actor,
         )
 
@@ -353,7 +359,7 @@ def _create_order_line_with_policy(db: Session, payload: OrderLineCreate) -> Ord
             stock_ship_qty=0,
             production_qty=production_qty,
             is_short_close=False,
-            memo="諛쒖＜ ?깅줉 ?먮룞 泥섎━: ?꾩옱怨??놁쓬, ?앹궛 吏꾪뻾",
+            memo="발주 등록 자동 처리: 현재고 없음, 생산 진행",
             actor=actor,
         )
 
@@ -381,7 +387,7 @@ def _create_order_line_with_policy(db: Session, payload: OrderLineCreate) -> Ord
             db,
             order_line=obj,
             ship_qty=stock_ship_qty,
-            memo="諛쒖＜ ?깅줉 ?먮룞 泥섎━: ?ш퀬 異쒗븯?湲??앹꽦",
+            memo="발주 등록 자동 처리: 재고 출하대기 생성",
         )
 
         _create_plan_history(
@@ -393,7 +399,7 @@ def _create_order_line_with_policy(db: Session, payload: OrderLineCreate) -> Ord
             stock_ship_qty=stock_ship_qty,
             production_qty=0,
             is_short_close=False,
-            memo="諛쒖＜ ?깅줉 ?먮룞 泥섎━: ?ш퀬 異⑸텇, LOT ?놁씠 異쒗븯?湲??앹꽦",
+            memo="발주 등록 자동 처리: 재고 충분, LOT 없이 출하대기 생성",
             actor=actor,
         )
 
@@ -408,12 +414,8 @@ def _create_order_line_with_policy(db: Session, payload: OrderLineCreate) -> Ord
         db.flush()
         return obj
 
-    # 遺遺꾩옱怨?
-    # ??耳?댁뒪???ъ슜???좏깮???꾩슂?섎?濡??먮룞?쇰줈 LOT??異쒗븯?湲곕? 留뚮뱾吏 ?딅뒗??
-    # ?댄썑 諛쒖＜由ъ뒪?몄뿉??
-    # 1) ?ш퀬留?異쒓퀬 ??醫낅즺
-    # 2) 遺議깅텇 ?앹궛 ??紐⑺몴?섎웾 異쒓퀬
-    # 以??섎굹瑜??뺤젙?쒕떎.
+    # 부분재고 케이스는 사용자가 처리 방식을 선택해야 하므로 자동 LOT/출하대기를 만들지 않는다.
+    # 이후 발주리스트에서 재고만 출고 후 종료 또는 부족분 생산 중 하나를 확정한다.
     obj.fulfillment_mode = OrderLineFulfillmentMode.HYBRID.value
     obj.production_policy = OrderLineProductionPolicy.ORDER_ONLY.value
     obj.extra_production_qty = 0
@@ -454,7 +456,7 @@ def _validate_product_name_change_choices(group, choice_map: dict[int, bool]) ->
         if not row.can_apply_product_name_change:
             raise HTTPException(
                 status_code=409,
-                detail=f"row_number={row.row_number} ???덈ぉ紐?蹂寃?諛섏쁺??遺덇??ν빀?덈떎.",
+                detail=f"row_number={row.row_number} 품목명 변경 반영이 불가능합니다.",
             )
 
         product_updates[row.product_id].add(
@@ -465,231 +467,8 @@ def _validate_product_name_change_choices(group, choice_map: dict[int, bool]) ->
         if len(values) > 1:
             raise HTTPException(
                 status_code=409,
-                detail=f"媛숈? ?덈ぉ(product_id={product_id})???쒕줈 ?ㅻⅨ ?덈ぉ紐?蹂寃쎌씠 ?숈떆???붿껌?섏뿀?듬땲??",
+                detail=f"같은 품목(product_id={product_id})에 서로 다른 품목명 변경이 동시에 요청되었습니다.",
             )
-        
-def _get_available_inventory_qty(db: Session, product_id: int) -> int:
-    inventory = (
-        db.execute(
-            select(ProductInventory)
-            .where(ProductInventory.product_id == product_id)
-        )
-        .scalar_one_or_none()
-    )
-    return int(inventory.current_qty or 0) if inventory else 0
-
-
-def _get_target_ship_qty(order_line: OrderLine, partner_name: str) -> int:
-    return int(calculate_ship_qty(partner_name or "", int(order_line.order_qty or 0)) or 0)
-
-def _get_already_shipped_qty(db: Session, order_line_id: int) -> int:
-    shipped_qty = db.execute(
-        select(func.coalesce(func.sum(-ProductInventoryMovement.qty), 0)).where(
-            ProductInventoryMovement.order_line_id == order_line_id,
-            ProductInventoryMovement.movement_type == "SHIP_OUT",
-        )
-    ).scalar_one()
-
-    return int(shipped_qty or 0)
-
-
-def _get_fifo_inventory_lot_allocations(
-    db: Session,
-    *,
-    product_id: int,
-    ship_qty: int,
-) -> tuple[list[tuple[ProductInventoryLot, int]], int]:
-    if ship_qty <= 0:
-        return [], 0
-
-    lots = (
-        db.execute(
-            select(ProductInventoryLot)
-            .where(
-                ProductInventoryLot.product_id == product_id,
-                ProductInventoryLot.current_qty > 0,
-            )
-            .order_by(ProductInventoryLot.created_at.asc(), ProductInventoryLot.product_inventory_lot_id.asc())
-            .with_for_update()
-        )
-        .scalars()
-        .all()
-    )
-
-    if not lots:
-        return [], ship_qty
-
-    lot_ids = [lot.product_inventory_lot_id for lot in lots]
-    allocated_rows = (
-        db.execute(
-            select(
-                ShipmentLine.product_inventory_lot_id,
-                func.coalesce(func.sum(ShipmentLine.ship_qty), 0).label("allocated_qty"),
-            )
-            .where(
-                ShipmentLine.product_inventory_lot_id.in_(lot_ids),
-                ShipmentLine.source_type == "STOCK",
-                ShipmentLine.status == "WAITING",
-            )
-            .group_by(ShipmentLine.product_inventory_lot_id)
-        )
-        .mappings()
-        .all()
-    )
-
-    allocated_map = {
-        int(row["product_inventory_lot_id"]): int(row["allocated_qty"] or 0)
-        for row in allocated_rows
-        if row["product_inventory_lot_id"] is not None
-    }
-
-    remaining_qty = ship_qty
-    allocations: list[tuple[ProductInventoryLot, int]] = []
-
-    for lot in lots:
-        allocated_qty = allocated_map.get(lot.product_inventory_lot_id, 0)
-        available_qty = max(int(lot.current_qty or 0) - allocated_qty, 0)
-
-        if available_qty <= 0:
-            continue
-
-        allocated_ship_qty = min(available_qty, remaining_qty)
-        allocations.append((lot, allocated_ship_qty))
-        remaining_qty -= allocated_ship_qty
-
-        if remaining_qty <= 0:
-            break
-
-    return allocations, remaining_qty
-
-
-def _add_stock_shipment_lines_by_inventory_lot(
-    db: Session,
-    *,
-    order_line: OrderLine,
-    ship_qty: int,
-    memo: str,
-) -> None:
-    allocations, remaining_qty = _get_fifo_inventory_lot_allocations(
-        db,
-        product_id=order_line.product_id,
-        ship_qty=ship_qty,
-    )
-
-    for inventory_lot, allocated_qty in allocations:
-        db.add(
-            ShipmentLine(
-                order_line_id=order_line.order_line_id,
-                product_id=order_line.product_id,
-                product_inventory_lot_id=inventory_lot.product_inventory_lot_id,
-                stock_lot_no=inventory_lot.lot_no,
-                lot_id=None,
-                inspection_result_id=None,
-                source_type="STOCK",
-                status="WAITING",
-                ship_qty=allocated_qty,
-                shipped_qty=0,
-                memo=memo,
-            )
-        )
-
-    if remaining_qty > 0:
-        db.add(
-            ShipmentLine(
-                order_line_id=order_line.order_line_id,
-                product_id=order_line.product_id,
-                lot_id=None,
-                inspection_result_id=None,
-                source_type="STOCK",
-                status="WAITING",
-                ship_qty=remaining_qty,
-                shipped_qty=0,
-                memo=f"{memo} / LOT 미지정 재고",
-            )
-        )
-
-
-def _create_stock_shipment_waiting_if_needed(
-    db: Session,
-    order_line: OrderLine,
-    partner_name: str,
-) -> None:
-    existing = db.execute(
-        select(ShipmentLine)
-        .where(
-            ShipmentLine.order_line_id == order_line.order_line_id,
-            ShipmentLine.status != "CANCELED",
-            ShipmentLine.source_type == "STOCK",
-            ShipmentLine.inspection_result_id.is_(None),
-        )
-        .limit(1)
-    ).scalar_one_or_none()
-
-    if existing is not None:
-        return
-
-    inventory = (
-        db.execute(
-            select(ProductInventory)
-            .where(ProductInventory.product_id == order_line.product_id)
-            .with_for_update()
-        )
-        .scalar_one_or_none()
-    )
-
-    available_inventory_qty = int(inventory.current_qty or 0) if inventory else 0
-
-    ship_target_qty = int(calculate_ship_qty(partner_name, int(order_line.order_qty or 0)) or 0)
-    already_shipped_qty = _get_already_shipped_qty(db, order_line.order_line_id)
-    remaining_ship_qty = max(ship_target_qty - already_shipped_qty, 0)
-
-    ship_qty = min(available_inventory_qty, remaining_ship_qty)
-
-    if ship_qty <= 0:
-        return
-
-    _add_stock_shipment_lines_by_inventory_lot(
-        db,
-        order_line=order_line,
-        ship_qty=ship_qty,
-        memo="처리계획 기반 재고 출하대기 생성",
-    )
-
-    if order_line.status == OrderLineStatus.OPEN.value:
-        order_line.status = OrderLineStatus.CLOSED.value
-
-
-def _to_plan_type_display(plan_type: str | None) -> str | None:
-    if not plan_type:
-        return None
-
-    mapping = {
-        OrderLinePlanType.AUTO_PRODUCTION.value: "자동 생산",
-        OrderLinePlanType.AUTO_STOCK_SHIP.value: "재고 출고",
-        OrderLinePlanType.PARTIAL_STOCK_ONLY_CLOSE.value: "재고만 출고 후 종료",
-        OrderLinePlanType.PARTIAL_STOCK_PLUS_PRODUCTION.value: "부분재고 + 부족분 생산",
-        OrderLinePlanType.STOCK_REPLENISHMENT.value: "재고비축 생산",
-    }
-
-    return mapping.get(plan_type, plan_type)
-
-
-def _get_latest_plan_history(
-    db: Session,
-    order_line_id: int,
-) -> OrderLinePlanHistory | None:
-    return (
-        db.execute(
-            select(OrderLinePlanHistory)
-            .where(OrderLinePlanHistory.order_line_id == order_line_id)
-            .order_by(
-                OrderLinePlanHistory.created_at.desc(),
-                OrderLinePlanHistory.plan_history_id.desc(),
-            )
-            .limit(1)
-        )
-        .scalar_one_or_none()
-    )
 
 
 def _apply_plan_summary_to_out(
@@ -700,99 +479,8 @@ def _apply_plan_summary_to_out(
         return out
 
     out.plan_type = history.plan_type
-    out.plan_type_display = _to_plan_type_display(history.plan_type)
+    out.plan_type_display = to_plan_type_display(history.plan_type)
     return out
-
-
-def _create_plan_history(
-    db: Session,
-    *,
-    order_line: OrderLine,
-    plan_type: OrderLinePlanType,
-    ship_target_qty: int,
-    available_inventory_qty: int,
-    stock_ship_qty: int,
-    production_qty: int,
-    is_short_close: bool,
-    memo: str | None,
-    actor: str | None,
-) -> OrderLinePlanHistory:
-    history = OrderLinePlanHistory(
-        order_line_id=order_line.order_line_id,
-        plan_type=plan_type.value,
-        ship_target_qty=ship_target_qty,
-        available_inventory_qty=available_inventory_qty,
-        stock_ship_qty=stock_ship_qty,
-        production_qty=production_qty,
-        is_short_close=is_short_close,
-        memo=memo.strip() if memo and memo.strip() else None,
-        created_by=actor,
-    )
-
-    db.add(history)
-    db.flush()
-    return history
-
-
-def _create_stock_shipment_waiting_for_plan(
-    db: Session,
-    *,
-    order_line: OrderLine,
-    ship_qty: int,
-    memo: str,
-) -> None:
-    if ship_qty <= 0:
-        return
-
-    existing = (
-        db.execute(
-            select(ShipmentLine)
-            .where(
-                ShipmentLine.order_line_id == order_line.order_line_id,
-                ShipmentLine.status != "CANCELED",
-                ShipmentLine.source_type == "STOCK",
-                ShipmentLine.inspection_result_id.is_(None),
-            )
-            .limit(1)
-        )
-        .scalar_one_or_none()
-    )
-
-    if existing is not None:
-        raise HTTPException(
-            status_code=409,
-            detail="?대? ?앹꽦???ш퀬 異쒗븯?湲곌? ?덉뒿?덈떎.",
-        )
-
-    _add_stock_shipment_lines_by_inventory_lot(
-        db,
-        order_line=order_line,
-        ship_qty=ship_qty,
-        memo=memo,
-    )
-
-
-def _get_planned_production_qty(
-    db: Session,
-    order_line: OrderLine,
-    partner_name: str,
-) -> int:
-    available_inventory_qty = _get_available_inventory_qty(db, order_line.product_id)
-    target_ship_qty = _get_target_ship_qty(order_line, partner_name)
-
-    fulfillment_mode = order_line.fulfillment_mode or "INVENTORY_FIRST"
-    production_policy = order_line.production_policy or "ORDER_ONLY"
-    extra_production_qty = int(order_line.extra_production_qty or 0)
-
-    if fulfillment_mode == "PRODUCTION_FIRST":
-        base_planned_production_qty = target_ship_qty
-    else:
-        base_planned_production_qty = max(target_ship_qty - available_inventory_qty, 0)
-
-    if production_policy != "ALLOW_STOCK_BUILD":
-        extra_production_qty = 0
-
-    return base_planned_production_qty + extra_production_qty
 
 
 
@@ -848,7 +536,7 @@ def commit_order_lines_bulk(
                 OrderLineBulkCommitGroupResult(
                     erp_order_no=group.erp_order_no,
                     status="ERROR",
-                    message="寃利??ㅻ쪟媛 ?덉뼱 ?깅줉?????놁뒿?덈떎.",
+                    message="검증 오류가 있어 등록할 수 없습니다.",
                     created_order_line_ids=[],
                 )
             )
@@ -866,7 +554,7 @@ def commit_order_lines_bulk(
                     if row.status == "ERROR":
                         raise HTTPException(
                             status_code=409,
-                            detail=f"row_number={row.row_number} 寃利??ㅻ쪟濡??깅줉?????놁뒿?덈떎.",
+                            detail=f"row_number={row.row_number} 검증 오류로 등록할 수 없습니다.",
                         )
 
                     if choice_map.get(row.row_number, False) and row.product_name_mismatch:
@@ -874,7 +562,7 @@ def commit_order_lines_bulk(
                         if product is None or not product.is_active:
                             raise HTTPException(
                                 status_code=404,
-                                detail=f"row_number={row.row_number} ?덈ぉ??李얠쓣 ???놁뒿?덈떎.",
+                                detail=f"row_number={row.row_number} 품목을 찾을 수 없습니다.",
                             )
 
                         if row.parsed_product_name:
@@ -987,165 +675,12 @@ def confirm_order_line_plan(
     payload: OrderLinePlanConfirmRequest,
     db: Session = Depends(get_db),
 ):
-    order_line = order_line_crud.get(db, order_line_id)
-
-    if not order_line or not order_line.is_active:
-        raise HTTPException(status_code=404, detail="OrderLine not found")
-
-    if order_line.status in {OrderLineStatus.DONE.value, OrderLineStatus.CANCELED.value}:
-        raise HTTPException(
-            status_code=409,
-            detail="DONE ?먮뒗 CANCELED ?곹깭???섏＜??泥섎━怨꾪쉷???뺤젙?????놁뒿?덈떎.",
-        )
-
-    if order_line.decision_made:
-        raise HTTPException(
-            status_code=409,
-            detail="?대? 泥섎━怨꾪쉷???뺤젙???섏＜?낅땲??",
-        )
-
-    partner = db.get(Partner, order_line.partner_id)
-    if not partner:
-        raise HTTPException(status_code=404, detail="Partner not found")
-
-    product = db.get(Product, order_line.product_id)
-    if not product or not product.is_active:
-        raise HTTPException(status_code=404, detail="Product not found or inactive")
-
-    actor = "system"
-    plan_type = payload.plan_type
-
-    available_inventory_qty = _get_available_inventory_qty(
-        db,
-        order_line.product_id,
-    )
-
-    is_stock_replenishment = is_stock_replenishment_partner(
-        partner.name,
-        partner.business_no,
-    )
-
-    if is_stock_replenishment:
-        ship_target_qty = 0
-        remaining_ship_qty = 0
-
-        if plan_type != OrderLinePlanType.STOCK_REPLENISHMENT:
-            raise HTTPException(
-                status_code=409,
-                detail="?ш퀬鍮꾩텞 嫄곕옒泥섎뒗 ?ш퀬鍮꾩텞 ?앹궛 泥섎━留?媛?ν빀?덈떎.",
-            )
-
-        stock_ship_qty = 0
-        production_qty = int(order_line.order_qty or 0)
-        is_short_close = False
-
-        order_line.fulfillment_mode = OrderLineFulfillmentMode.PRODUCTION_FIRST.value
-        order_line.production_policy = OrderLineProductionPolicy.ALLOW_STOCK_BUILD.value
-        order_line.extra_production_qty = production_qty
-
-    else:
-        ship_target_qty = _get_target_ship_qty(order_line, partner.name)
-        already_shipped_qty = _get_already_shipped_qty(db, order_line.order_line_id)
-        remaining_ship_qty = max(ship_target_qty - already_shipped_qty, 0)
-
-        if remaining_ship_qty <= 0:
-            raise HTTPException(
-                status_code=409,
-                detail="?대? 異쒓퀬紐⑺몴?섎웾??異⑹”???섏＜?낅땲??",
-            )
-
-        stock_ship_qty = 0
-        production_qty = 0
-        is_short_close = False
-
-        if available_inventory_qty <= 0:
-            if plan_type != OrderLinePlanType.AUTO_PRODUCTION:
-                raise HTTPException(
-                    status_code=409,
-                    detail="?꾩옱怨좉? ?녿뒗 ?섏＜???먮룞 ?앹궛 泥섎━留?媛?ν빀?덈떎.",
-                )
-
-            production_qty = remaining_ship_qty
-
-            order_line.fulfillment_mode = OrderLineFulfillmentMode.PRODUCTION_FIRST.value
-            order_line.production_policy = OrderLineProductionPolicy.ORDER_ONLY.value
-            order_line.extra_production_qty = 0
-
-        elif available_inventory_qty >= remaining_ship_qty:
-            if plan_type != OrderLinePlanType.AUTO_STOCK_SHIP:
-                raise HTTPException(
-                    status_code=409,
-                    detail="?꾩옱怨좉? 異쒓퀬紐⑺몴?섎웾 ?댁긽???섏＜???ш퀬 異쒓퀬 泥섎━留?媛?ν빀?덈떎.",
-                )
-
-            stock_ship_qty = remaining_ship_qty
-
-            _create_stock_shipment_waiting_for_plan(
-                db,
-                order_line=order_line,
-                ship_qty=stock_ship_qty,
-                memo="처리계획 확정: 재고 출고",
-            )
-
-            order_line.fulfillment_mode = OrderLineFulfillmentMode.INVENTORY_FIRST.value
-            order_line.production_policy = OrderLineProductionPolicy.INVENTORY_ONLY_CLOSE.value
-            order_line.extra_production_qty = 0
-            order_line.status = OrderLineStatus.DONE.value
-
-        else:
-            if plan_type == OrderLinePlanType.PARTIAL_STOCK_ONLY_CLOSE:
-                stock_ship_qty = available_inventory_qty
-                production_qty = 0
-                is_short_close = True
-
-                _create_stock_shipment_waiting_for_plan(
-                    db,
-                    order_line=order_line,
-                    ship_qty=stock_ship_qty,
-                    memo="처리계획 확정: 부분재고만 출고 후 종료",
-                )
-
-                order_line.fulfillment_mode = OrderLineFulfillmentMode.INVENTORY_FIRST.value
-                order_line.production_policy = OrderLineProductionPolicy.INVENTORY_ONLY_CLOSE.value
-                order_line.extra_production_qty = 0
-                order_line.status = OrderLineStatus.DONE.value
-
-            elif plan_type == OrderLinePlanType.PARTIAL_STOCK_PLUS_PRODUCTION:
-                stock_ship_qty = available_inventory_qty
-                production_qty = remaining_ship_qty - available_inventory_qty
-                is_short_close = False
-
-                # 以묒슂:
-                # 遺遺꾩옱怨?+ 遺議깅텇 ?앹궛 耳?댁뒪?먯꽌???ш린??STOCK 異쒗븯?湲곕? 留뚮뱾吏 ?딅뒗??
-                # 湲곗〈?ш퀬遺?異쒗븯?湲곗? 寃?섎텇 異쒗븯?湲곕뒗 寃?섏떎?곷벑濡???????④퍡 ?앹꽦?쒕떎.
-                order_line.fulfillment_mode = OrderLineFulfillmentMode.INVENTORY_FIRST.value
-                order_line.production_policy = OrderLineProductionPolicy.ORDER_ONLY.value
-                order_line.extra_production_qty = 0
-
-            else:
-                raise HTTPException(
-                    status_code=409,
-                    detail="遺遺꾩옱怨??섏＜???ш퀬留?異쒓퀬 ??醫낅즺 ?먮뒗 遺議깅텇 ?앹궛 泥섎━留?媛?ν빀?덈떎.",
-                )
-
-    order_line.decision_made = True
-    order_line.decision_made_at = datetime.now(timezone.utc)
-    order_line.decision_made_by = actor
-
-    history = _create_plan_history(
-        db,
-        order_line=order_line,
-        plan_type=plan_type,
-        ship_target_qty=ship_target_qty,
-        available_inventory_qty=available_inventory_qty,
-        stock_ship_qty=stock_ship_qty,
-        production_qty=production_qty,
-        is_short_close=is_short_close,
-        memo=payload.memo,
-        actor=actor,
-    )
-
     try:
+        order_line, history, partner, product = confirm_order_line_plan_decision(
+            db,
+            order_line_id=order_line_id,
+            payload=payload,
+        )
         db.commit()
         db.refresh(order_line)
     except HTTPException:
@@ -1155,7 +690,7 @@ def confirm_order_line_plan(
         db.rollback()
         raise HTTPException(
             status_code=409,
-            detail="泥섎━怨꾪쉷 ?뺤젙 以?臾닿껐???ㅻ쪟媛 諛쒖깮?덉뒿?덈떎.",
+            detail="처리계획 확정 중 무결성 오류가 발생했습니다.",
         )
 
     out = OrderLineOut.model_validate(order_line, from_attributes=True)
@@ -1177,7 +712,7 @@ def update_order_line_fulfillment_plan(
         raise HTTPException(status_code=404, detail="OrderLine not found")
 
     if obj.status in {OrderLineStatus.DONE.value, OrderLineStatus.CANCELED.value}:
-        raise HTTPException(status_code=409, detail="DONE ?먮뒗 CANCELED ?곹깭???섏＜??泥섎━怨꾪쉷??蹂寃쏀븷 ???놁뒿?덈떎.")
+        raise HTTPException(status_code=409, detail="DONE 또는 CANCELED 상태의 수주는 처리계획을 변경할 수 없습니다.")
 
     data = payload.model_dump()
 
@@ -1256,16 +791,16 @@ def update_order_line(order_line_id: int, payload: OrderLineUpdate, db: Session 
 
     data = payload.model_dump(exclude_unset=True)
 
-    # ??CLOSED?먯꽌 due_date 蹂寃쎌쓣 ?덉슜?섍린 ?꾪빐, 癒쇱? ?붿껌??due_date瑜??곕줈 蹂닿?
+    # CLOSED 상태에서 due_date 변경을 허용하기 위해 요청된 due_date를 따로 보관한다.
     requested_due_date = data.get("due_date")
 
-    # ?곹깭 湲곕컲 ?섏젙 ?쒗븳
+    # 상태 기반 수정 제한
     if obj.status == OrderLineStatus.OPEN.value:
-        # OPEN: 湲곗〈 ?뺤콉 洹몃?濡?(紐⑤뱺 ?꾨뱶 ?섏젙 媛??踰붿쐞??data???ㅼ뼱??寃?湲곗?)
+        # OPEN: 기존 정책대로 모든 요청 필드 수정을 허용한다.
         pass
 
     elif obj.status == OrderLineStatus.CLOSED.value:
-        # ??CLOSED: due_date + memo/customer_po留??덉슜
+        # CLOSED: due_date, memo, customer_po만 허용한다.
         allow_keys = {"due_date", "memo", "customer_po"}
         forbidden = set(data.keys()) - allow_keys
         if forbidden:
@@ -1276,7 +811,7 @@ def update_order_line(order_line_id: int, payload: OrderLineUpdate, db: Session 
         data = {k: v for k, v in data.items() if k in allow_keys}
 
     else:
-        # DONE/CANCELED: memo/customer_po留??덉슜(湲곗〈 ?뺤콉 ?좎?)
+        # DONE/CANCELED: 기존 정책대로 memo, customer_po만 허용한다.
         forbidden_keys = {
             "order_no", "line_no",
             "partner_id", "product_id",
@@ -1290,7 +825,7 @@ def update_order_line(order_line_id: int, payload: OrderLineUpdate, db: Session 
         allow_keys = {"memo", "customer_po"}
         data = {k: v for k, v in data.items() if k in allow_keys}
     old_due_date = obj.due_date
-    # FK validate if changed (OPEN?먯꽌留??꾨떖)
+    # FK validate if changed. In practice this only applies to OPEN updates.
     if "partner_id" in data:
         _ensure_partner_active(db, data["partner_id"])
     if "product_id" in data:
@@ -1300,10 +835,9 @@ def update_order_line(order_line_id: int, payload: OrderLineUpdate, db: Session 
     try:
         order_line_crud.update(db, obj, data)
 
-        # ??due_date媛 ?ㅼ젣濡?蹂寃쎈릺硫?"誘몄떆??LOT留? ?숆린??
+        # due_date가 실제로 변경되면 아직 시작하지 않은 LOT의 납기도 함께 동기화한다.
         if requested_due_date is not None and requested_due_date != old_due_date:
-            # 二쇱쓽: ??update濡?obj.due_date媛 ?대? 諛붾뚯뿀?????덉쑝??
-            # rowcount 湲곗??쇰줈 ?숆린?붾뒗 "payload 媛??쇰줈 ?섑뻾
+            # obj는 이미 update로 바뀌었을 수 있으므로 payload 기준으로 동기화한다.
             _sync_lot_due_date_for_not_started(db, order_line_id, requested_due_date)
 
         db.commit()
@@ -1311,7 +845,7 @@ def update_order_line(order_line_id: int, payload: OrderLineUpdate, db: Session 
         db.rollback()
         raise HTTPException(status_code=409, detail="Duplicate order_no+line_no or integrity error")
 
-    # ?쒖떆 ?꾨뱶 ?ы븿?댁꽌 諛섑솚
+    # 표시 필드를 포함해서 반환한다.
     partner = db.get(Partner, obj.partner_id)
     product = db.get(Product, obj.product_id)
     out = OrderLineOut.model_validate(obj, from_attributes=True)
@@ -1639,10 +1173,10 @@ def get_order_line_detail(order_line_id: int, db: Session = Depends(get_db)):
     }
     can_save = can_edit
 
-    # ?섏＜痍⑥냼 媛??
-    # - ?곌껐 LOT媛 ?녾굅??
-    # - ?곌껐 LOT媛 ?꾨? CANCELED
-    # - 洹몃━怨??섏＜ ?먯껜媛 DONE/CANCELED媛 ?꾨땲?댁빞 ??
+    # 수주 취소 가능 조건:
+    # - 연결 LOT가 없거나
+    # - 연결 LOT가 모두 CANCELED이고
+    # - 수주 자체가 DONE/CANCELED가 아니어야 한다.
     can_cancel_order = (
         order_line.status not in {OrderLineStatus.DONE.value, OrderLineStatus.CANCELED.value}
         and (
@@ -1651,9 +1185,9 @@ def get_order_line_detail(order_line_id: int, db: Session = Depends(get_db)):
         )
     )
 
-    # 湲곕낯 LOT ?앹꽦 媛??
-    # - ?섏＜ ?곹깭 OPEN
-    # - ?꾩쭅 湲곕낯 LOT ?놁쓬
+    # 기본 LOT 생성 가능 조건:
+    # - 수주 상태 OPEN
+    # - 아직 기본 LOT가 없음
     can_create_base_lot = (
         order_line.status == OrderLineStatus.OPEN.value
         and not has_base_lot
@@ -1718,7 +1252,7 @@ def create_base_lot_from_fulfillment_plan(
         raise HTTPException(status_code=404, detail="OrderLine not found")
 
     if order_line.status != OrderLineStatus.OPEN.value:
-        raise HTTPException(status_code=409, detail="湲곕낯 LOT??OPEN ?곹깭 ?섏＜?먯꽌留??앹꽦?????덉뒿?덈떎.")
+        raise HTTPException(status_code=409, detail="기본 LOT는 OPEN 상태 수주에서만 생성할 수 있습니다.")
 
     lots = (
         db.execute(
@@ -1732,10 +1266,10 @@ def create_base_lot_from_fulfillment_plan(
 
     has_base_lot = any(l.parent_lot_id is None for l in lots)
     if has_base_lot:
-        raise HTTPException(status_code=409, detail="?대? 湲곕낯 LOT媛 議댁옱?⑸땲??")
+        raise HTTPException(status_code=409, detail="이미 기본 LOT가 존재합니다.")
 
     if not order_line.decision_made:
-        raise HTTPException(status_code=409, detail="泥섎━怨꾪쉷??癒쇱? ??λ릺?댁빞 ?⑸땲??")
+        raise HTTPException(status_code=409, detail="처리계획이 먼저 저장되어야 합니다.")
 
     partner = db.get(Partner, order_line.partner_id)
     if not partner:
@@ -1755,7 +1289,7 @@ def create_base_lot_from_fulfillment_plan(
     if planned_production_qty <= 0:
         raise HTTPException(
             status_code=409,
-            detail="怨꾪쉷 ?앹궛?섎웾??0?댁뼱??湲곕낯 LOT瑜??앹꽦?????놁뒿?덈떎.",
+            detail="계획 생산수량이 0이어서 기본 LOT를 생성할 수 없습니다.",
         )
 
     try:
@@ -1772,7 +1306,7 @@ def create_base_lot_from_fulfillment_plan(
         raise
     except IntegrityError:
         db.rollback()
-        raise HTTPException(status_code=409, detail="湲곕낯 LOT ?앹꽦 以?臾닿껐???ㅻ쪟媛 諛쒖깮?덉뒿?덈떎.")
+        raise HTTPException(status_code=409, detail="기본 LOT 생성 중 무결성 오류가 발생했습니다.")
 
     return OrderLineBaseLotCreateResult(
         order_line_id=order_line.order_line_id,
@@ -1899,7 +1433,7 @@ def get_order_line(order_line_id: int, db: Session = Depends(get_db)):
     if not obj or not obj.is_active:
         raise HTTPException(status_code=404, detail="OrderLine not found")
 
-    # ?④굔?먯꽌??partner/product ?쒖떆 ?꾨뱶 梨꾩슦怨??띠쑝硫?join 1???섑뻾
+    # 화면 표시용 partner/product 필드를 채워 반환한다.
     partner = db.get(Partner, obj.partner_id)
     product = db.get(Product, obj.product_id)
 
@@ -2084,7 +1618,7 @@ def update_order_line_detail(
     }:
         raise HTTPException(
             status_code=409,
-            detail="DONE ?먮뒗 CANCELED ?곹깭???섏＜???섏젙?????놁뒿?덈떎.",
+            detail="DONE 또는 CANCELED 상태의 수주는 수정할 수 없습니다.",
         )
 
     lots = (
@@ -2098,11 +1632,11 @@ def update_order_line_detail(
         .all()
     )
 
-    # 湲곕낯 寃利?
+    # 기본 검증
     if payload.order_qty <= 0:
         raise HTTPException(status_code=422, detail="order_qty must be greater than 0")
 
-    # ?섏＜ ?섏젙
+    # 수주 수정
     order_line.due_date = payload.due_date
     order_line.order_qty = payload.order_qty
     order_line.memo = payload.memo
@@ -2115,7 +1649,7 @@ def update_order_line_detail(
     partner = db.get(Partner, order_line.partner_id)
     product = db.get(Product, order_line.product_id)
 
-    # 媛깆떊 ??LOT ?ㅼ떆 議고쉶
+    # 갱신 후 LOT를 다시 조회한다.
     lots = (
         db.execute(
             select(Lot)
@@ -2207,11 +1741,11 @@ def short_close_order_line(
         raise HTTPException(status_code=404, detail="OrderLine not found")
 
     if obj.status != OrderLineStatus.CLOSED.value:
-        raise HTTPException(status_code=409, detail="遺議깆쥌猷뚮뒗 CLOSED ?곹깭 ?섏＜?먯꽌留?媛?ν빀?덈떎.")
+        raise HTTPException(status_code=409, detail="부족종료는 CLOSED 상태 수주에서만 가능합니다.")
 
     remaining_ship_qty = _get_remaining_ship_qty(db, obj)
     if remaining_ship_qty <= 0:
-        raise HTTPException(status_code=409, detail="遺議깆닔?됱씠 ?놁뼱 遺議깆쥌猷???곸씠 ?꾨떃?덈떎.")
+        raise HTTPException(status_code=409, detail="부족수량이 없어 부족종료 대상이 아닙니다.")
 
     memo_suffix = f"[SHORT_CLOSE] remaining_ship_qty={remaining_ship_qty}"
     if payload.memo and payload.memo.strip():
@@ -2243,13 +1777,13 @@ def cancel_order_line(
     if order_line.status == OrderLineStatus.DONE.value:
         raise HTTPException(
             status_code=409,
-            detail="DONE ?곹깭???섏＜??痍⑥냼?????놁뒿?덈떎.",
+            detail="DONE 상태의 수주는 취소할 수 없습니다.",
         )
 
     if order_line.status == OrderLineStatus.CANCELED.value:
         raise HTTPException(
             status_code=409,
-            detail="?대? 痍⑥냼???섏＜?낅땲??",
+            detail="이미 취소된 수주입니다.",
         )
 
     lots = (
@@ -2263,11 +1797,11 @@ def cancel_order_line(
         .all()
     )
 
-    # LOT媛 議댁옱?섎㈃ ?꾨? CANCELED?ъ빞留??섏＜痍⑥냼 媛??
+    # LOT가 존재하면 모두 CANCELED 상태여야 수주 취소가 가능하다.
     if lots and any(l.status != "CANCELED" for l in lots):
         raise HTTPException(
             status_code=409,
-            detail="痍⑥냼?섏? ?딆? LOT媛 議댁옱?섏뿬 ?섏＜瑜?痍⑥냼?????놁뒿?덈떎. 癒쇱? 紐⑤뱺 LOT瑜?痍⑥냼?섏꽭??",
+            detail="취소되지 않은 LOT가 존재하여 수주를 취소할 수 없습니다. 먼저 모든 LOT를 취소하세요.",
         )
 
     order_line.status = OrderLineStatus.CANCELED.value
@@ -2280,7 +1814,7 @@ def cancel_order_line(
     partner = db.get(Partner, order_line.partner_id)
     product = db.get(Product, order_line.product_id)
 
-    # 痍⑥냼 ???ㅼ떆 議고쉶
+    # 취소 후 다시 조회한다.
     lots = (
         db.execute(
             select(Lot)
@@ -2352,8 +1886,8 @@ def _has_any_non_canceled_lot(lots: list[Lot]) -> bool:
 
 def _sync_lot_due_date_for_not_started(db: Session, order_line_id: int, new_due_date: date) -> int:
     """
-    OrderLine.due_date 蹂寃???
-    - ?꾩쭅 ?쒖옉 ????LOT(= lot_step 以?WAITING ?꾨땶 寃껋씠 ?놁쓬)留?lot.due_date瑜??숆린??
+    OrderLine.due_date 변경 시 아직 시작하지 않은 LOT만 lot.due_date를 동기화한다.
+    시작 여부는 WAITING이 아닌 lot_step 존재 여부로 판단한다.
     """
     started_exists = (
         select(LotStep.lot_step_id)

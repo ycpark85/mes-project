@@ -36,6 +36,17 @@ class ProductInventoryMovement(Base):
         Index("ix_product_inventory_movement__order_line_id", "order_line_id"),
         Index("ix_product_inventory_movement__inspection_result_id", "inspection_result_id"),
         Index("ix_product_inventory_movement__created_at", "created_at"),
+        Index(
+            "ix_product_inventory_movement__order_line_type",
+            "order_line_id",
+            "movement_type",
+        ),
+        Index(
+            "ix_product_inventory_movement__product_type_created",
+            "product_id",
+            "movement_type",
+            "created_at",
+        ),
     )
 
     inventory_movement_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)

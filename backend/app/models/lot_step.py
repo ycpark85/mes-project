@@ -24,6 +24,7 @@ class LotStep(Base):
         ),
         Index("ix_lot_step__lot_id", "lot_id"),
         Index("ix_lot_step__process_id", "process_id"),
+        Index("ix_lot_step__lot_status", "lot_id", "status"),
     )
 
     lot_step_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)

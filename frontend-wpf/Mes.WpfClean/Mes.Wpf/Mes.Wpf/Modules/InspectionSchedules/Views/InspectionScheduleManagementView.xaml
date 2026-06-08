@@ -256,9 +256,16 @@
                     <DataGridTemplateColumn Header="묶음" Width="95">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <TextBlock Text="{Binding BundleNo}"
-                                           Style="{StaticResource CenteredTextBlockStyle}"
-                                           FontWeight="SemiBold"/>  
+                                <Button Content="{Binding BundleNo}"
+                                        Command="{Binding DataContext.OpenBundlePlateDataCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                        CommandParameter="{Binding}"
+                                        Padding="4,0"
+                                        HorizontalAlignment="Center"
+                                        Background="Transparent"
+                                        BorderThickness="0"
+                                        Foreground="#2563EB"
+                                        FontWeight="SemiBold"
+                                        Cursor="Hand" />
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>

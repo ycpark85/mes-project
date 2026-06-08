@@ -101,8 +101,8 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
 
         public ObservableCollection<OrderLineListItemDto> Items { get; }
 
-        public AsyncRelayCommand SearchCommand { get; }
-        public AsyncRelayCommand ResetCommand { get; }
+        public new AsyncRelayCommand SearchCommand { get; }
+        public new AsyncRelayCommand ResetCommand { get; }
 
         public AsyncRelayCommand ShowInProgressCommand { get; }
         public AsyncRelayCommand ShowCompletedCommand { get; }

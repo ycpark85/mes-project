@@ -46,6 +46,20 @@ class ShipmentLine(Base):
         Index("ix_shipment_line__inspection_result_id", "inspection_result_id"),
         Index("ix_shipment_line__status", "status"),
         Index("ix_shipment_line__created_at", "created_at"),
+        Index("ix_shipment_line__status_created", "status", "created_at", "shipment_line_id"),
+        Index(
+            "ix_shipment_line__inventory_lot_source_status",
+            "product_inventory_lot_id",
+            "source_type",
+            "status",
+        ),
+        Index(
+            "ix_shipment_line__order_line_source_status_result",
+            "order_line_id",
+            "source_type",
+            "status",
+            "inspection_result_id",
+        ),
     )
 
     shipment_line_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)

@@ -47,11 +47,20 @@ namespace Mes.Wpf.Modules.OrderLineList.Dtos
         [JsonPropertyName("priority")]
         public int Priority { get; set; }
 
+        [JsonPropertyName("created_at")]
+        public DateTime CreatedAt { get; set; }
+
+        [JsonPropertyName("updated_at")]
+        public DateTime UpdatedAt { get; set; }
+
         [JsonPropertyName("partner_name")]
         public string? PartnerName { get; set; }
 
         [JsonPropertyName("product_code")]
         public string? ProductCode { get; set; }
+
+        [JsonPropertyName("drawing_no")]
+        public string? DrawingNo { get; set; }
 
         [JsonPropertyName("product_name")]
         public string? ProductName { get; set; }
@@ -173,6 +182,24 @@ namespace Mes.Wpf.Modules.OrderLineList.Dtos
                 if (NeedsShortageAction)
                 {
                     return "부족처리필요";
+                }
+
+                return "-";
+            }
+        }
+
+        public string DecisionStatusDisplay
+        {
+            get
+            {
+                if (DecisionMade)
+                {
+                    return "결정완료";
+                }
+
+                if (DecisionRequired)
+                {
+                    return "결정필요";
                 }
 
                 return "-";

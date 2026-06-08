@@ -77,6 +77,7 @@ class OrderLineOut(OrderLineBase):
     partner_name: Optional[str] = None
     product_code: Optional[str] = None
     product_name: Optional[str] = None
+    drawing_no: Optional[str] = None
 
     # OrderLineList 액션 버튼 분기용
     has_lot: bool = False
@@ -274,7 +275,3 @@ class OrderLineBaseLotCreateResult(BaseModel):
 
 class OrderLineShortCloseRequest(BaseModel):
     memo: Optional[str] = None
-
-
-
-    

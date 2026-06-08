@@ -47,6 +47,8 @@ class Lot(Base):
         Index("ix_lot__lot_no", "lot_no"),
         Index("ix_lot__due_date", "due_date"),
         Index("ix_lot__material_lot_no", "material_lot_no"),
+        Index("ix_lot__parent_lot_id", "parent_lot_id"),
+        Index("ix_lot__order_line_created", "order_line_id", "created_date", "lot_id"),
     )
 
     lot_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)

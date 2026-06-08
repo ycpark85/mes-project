@@ -14,6 +14,12 @@ class ProductInventoryLot(Base):
         UniqueConstraint("product_id", "lot_no", name="uq_product_inventory_lot__product_id__lot_no"),
         Index("ix_product_inventory_lot__product_id", "product_id"),
         Index("ix_product_inventory_lot__lot_no", "lot_no"),
+        Index(
+            "ix_product_inventory_lot__product_created",
+            "product_id",
+            "created_at",
+            "product_inventory_lot_id",
+        ),
     )
 
     product_inventory_lot_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)

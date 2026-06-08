@@ -50,6 +50,14 @@ class OrderLine(Base):
         Index("ix_order_line__order_no", "order_no"),
         Index("ix_order_line__status", "status"),
         Index("ix_order_line__is_active", "is_active"),
+        Index(
+            "ix_order_line__active_status_due",
+            "is_active",
+            "status",
+            "due_date",
+            "order_no",
+            "line_no",
+        ),
     )
 
     order_line_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)

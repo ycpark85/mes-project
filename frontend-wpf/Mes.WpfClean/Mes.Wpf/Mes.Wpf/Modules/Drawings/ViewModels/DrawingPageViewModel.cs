@@ -923,7 +923,7 @@ namespace Mes.Wpf.Modules.Drawings.ViewModels
             using var content = BuildMultipartFileContent(fileKind, filePath, true);
 
             var result = await _apiClient.PostMultipartAsync<DrawingRevisionFileDto>(
-                $"{ApiRoutes.Drawings}/{EditModel.DrawingId.Value}/revisions/{revisionId}/files",
+                $"{ApiRoutes.Drawings}/{EditModel.DrawingId!.Value}/revisions/{revisionId}/files",
                 content);
 
             if (!result.Success || result.Data == null)
