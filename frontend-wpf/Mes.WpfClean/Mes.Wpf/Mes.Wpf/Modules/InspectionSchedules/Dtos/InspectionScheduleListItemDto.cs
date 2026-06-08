@@ -26,6 +26,14 @@ namespace Mes.Wpf.Modules.InspectionSchedules.Dtos
         [JsonPropertyName("diecut_status")]
         public string? DiecutStatus { get; set; }
 
+        [JsonPropertyName("plate_data_file_name")]
+        public string? PlateDataFileName { get; set; }
+
+        [JsonPropertyName("plate_data_file_path")]
+        public string? PlateDataFilePath { get; set; }
+
+        public bool HasBundle => !string.IsNullOrWhiteSpace(BundleNo);
+
         [JsonPropertyName("inspection_date")]
         public DateTime InspectionDate { get; set; }
 

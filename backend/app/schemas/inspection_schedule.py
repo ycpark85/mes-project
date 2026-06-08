@@ -55,6 +55,8 @@ class InspectionScheduleListItemOut(BaseModel):
     outsource_work_group_item_id: Optional[int] = None
     bundle_no: Optional[str] = None
     diecut_status: Optional[str] = None
+    plate_data_file_name: Optional[str] = None
+    plate_data_file_path: Optional[str] = None
     
     drawing_id: Optional[int] = None
     drawing_no: Optional[str] = None
@@ -105,4 +107,4 @@ class InspectionStockLotOut(BaseModel):
 
 class InspectionStockLotListOut(BaseModel):
     items: List[InspectionStockLotOut] = Field(default_factory=list)
-    total_stock_qty: int = 0    
+    total_stock_qty: int = 0

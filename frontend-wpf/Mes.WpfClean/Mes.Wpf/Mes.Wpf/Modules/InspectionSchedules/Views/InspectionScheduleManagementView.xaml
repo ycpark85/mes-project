@@ -254,18 +254,42 @@
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
                     <DataGridTemplateColumn Header="묶음" Width="95">
+                        <DataGridTemplateColumn.CellStyle>
+                            <Style TargetType="DataGridCell">
+                                <Setter Property="BorderThickness" Value="0"/>
+                                <Setter Property="Padding" Value="6,0"/>
+                                <Setter Property="VerticalContentAlignment" Value="Center"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding BundleNo}" Value="{x:Null}">
+                                        <Setter Property="Padding" Value="0"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding BundleNo}" Value="">
+                                        <Setter Property="Padding" Value="0"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </DataGridTemplateColumn.CellStyle>
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <Button Content="{Binding BundleNo}"
-                                        Command="{Binding DataContext.OpenBundlePlateDataCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                        CommandParameter="{Binding}"
-                                        Padding="4,0"
-                                        HorizontalAlignment="Center"
-                                        Background="Transparent"
-                                        BorderThickness="0"
-                                        Foreground="#2563EB"
-                                        FontWeight="SemiBold"
-                                        Cursor="Hand" />
+                                <TextBlock Text="{Binding BundleNo}"
+                                           Foreground="#F97316"
+                                           FontWeight="SemiBold"
+                                           Cursor="Hand"
+                                           MouseLeftButtonUp="BundleNoTextBlock_OnMouseLeftButtonUp">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource CenteredTextBlockStyle}">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding BundleNo}" Value="{x:Null}">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding BundleNo}" Value="">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
@@ -319,11 +343,17 @@
                     <DataGridTemplateColumn Header="검수일자" Width="130">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
+                                <TextBlock Text="{Binding InspectionDate, StringFormat=yyyy-MM-dd}"
+                                           Style="{StaticResource CenteredTextBlockStyle}"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                        <DataGridTemplateColumn.CellEditingTemplate>
+                            <DataTemplate>
                                 <DatePicker Style="{StaticResource CompactDatePickerStyle}"
                                             SelectedDate="{Binding InspectionDate, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                             SelectedDateChanged="RowInspectionDatePicker_OnSelectedDateChanged"/>
                             </DataTemplate>
-                        </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn.CellEditingTemplate>
                     </DataGridTemplateColumn>
 
                     <DataGridTemplateColumn Header="외주상태" Width="110">

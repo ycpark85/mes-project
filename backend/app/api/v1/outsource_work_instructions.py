@@ -1587,7 +1587,7 @@ def create_outsource_work_instruction_batch(
                     partner_id=group.customer_partner_id,
                     lot_ids=cut_lot_ids,
                     memo=group.memo,
-                    files=[],
+                    files=group.files,
                     groups=cut_groups,
                 )
             )

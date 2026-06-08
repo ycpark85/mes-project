@@ -8,13 +8,4 @@
 
         public T? Data { get; set; }
     }
-
-    public class ApiFileDownload
-    {
-        public byte[] Content { get; set; } = System.Array.Empty<byte>();
-
-        public string FileName { get; set; } = string.Empty;
-
-        public string? ContentType { get; set; }
-    }
 }

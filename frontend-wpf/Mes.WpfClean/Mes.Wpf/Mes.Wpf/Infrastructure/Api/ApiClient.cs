@@ -11,13 +11,6 @@ namespace Mes.Wpf.Infrastructure.Api
 {
     public class ApiClient : IApiClient
     {
-        private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
-            DictionaryKeyPolicy = JsonNamingPolicy.SnakeCaseLower,
-            PropertyNameCaseInsensitive = true
-        };
-
         private readonly HttpClient _httpClient;
 
         public ApiClient(string baseUrl)
@@ -106,7 +99,7 @@ namespace Mes.Wpf.Infrastructure.Api
                     };
                 }
 
-                var data = await response.Content.ReadFromJsonAsync<T>(JsonOptions);
+                var data = await response.Content.ReadFromJsonAsync<T>();
 
                 return new ApiResult<T>
                 {
@@ -130,7 +123,7 @@ namespace Mes.Wpf.Infrastructure.Api
         {
             try
             {
-                var response = await _httpClient.PostAsJsonAsync(relativeUrl, request, JsonOptions);
+                var response = await _httpClient.PostAsJsonAsync(relativeUrl, request);
 
                 if (!response.IsSuccessStatusCode)
                 {
@@ -141,7 +134,7 @@ namespace Mes.Wpf.Infrastructure.Api
                     };
                 }
 
-                var data = await response.Content.ReadFromJsonAsync<TResponse>(JsonOptions);
+                var data = await response.Content.ReadFromJsonAsync<TResponse>();
 
                 return new ApiResult<TResponse>
                 {
@@ -165,7 +158,7 @@ namespace Mes.Wpf.Infrastructure.Api
         {
             try
             {
-                var response = await _httpClient.PutAsJsonAsync(relativeUrl, request, JsonOptions);
+                var response = await _httpClient.PutAsJsonAsync(relativeUrl, request);
 
                 if (!response.IsSuccessStatusCode)
                 {
@@ -176,7 +169,7 @@ namespace Mes.Wpf.Infrastructure.Api
                     };
                 }
 
-                var data = await response.Content.ReadFromJsonAsync<TResponse>(JsonOptions);
+                var data = await response.Content.ReadFromJsonAsync<TResponse>();
 
                 return new ApiResult<TResponse>
                 {
@@ -202,7 +195,7 @@ namespace Mes.Wpf.Infrastructure.Api
             {
                 using var requestMessage = new HttpRequestMessage(HttpMethod.Patch, relativeUrl)
                 {
-                    Content = JsonContent.Create(request, options: JsonOptions)
+                    Content = JsonContent.Create(request)
                 };
 
                 var response = await _httpClient.SendAsync(requestMessage);
@@ -216,7 +209,7 @@ namespace Mes.Wpf.Infrastructure.Api
                     };
                 }
 
-                var data = await response.Content.ReadFromJsonAsync<TResponse>(JsonOptions);
+                var data = await response.Content.ReadFromJsonAsync<TResponse>();
 
                 return new ApiResult<TResponse>
                 {
@@ -284,7 +277,7 @@ namespace Mes.Wpf.Infrastructure.Api
                     };
                 }
 
-                var data = await response.Content.ReadFromJsonAsync<TResponse>(JsonOptions);
+                var data = await response.Content.ReadFromJsonAsync<TResponse>();
 
                 return new ApiResult<TResponse>
                 {
@@ -324,7 +317,7 @@ namespace Mes.Wpf.Infrastructure.Api
                     };
                 }
 
-                var data = await response.Content.ReadFromJsonAsync<TResponse>(JsonOptions);
+                var data = await response.Content.ReadFromJsonAsync<TResponse>();
 
                 return new ApiResult<TResponse>
                 {
@@ -358,50 +351,6 @@ namespace Mes.Wpf.Infrastructure.Api
             catch
             {
                 return null;
-            }
-        }
-
-        public async Task<ApiResult<ApiFileDownload>> DownloadFileAsync(string relativeUrl)
-        {
-            try
-            {
-                var response = await _httpClient.GetAsync(relativeUrl);
-
-                if (!response.IsSuccessStatusCode)
-                {
-                    return new ApiResult<ApiFileDownload>
-                    {
-                        Success = false,
-                        Message = await BuildErrorMessageAsync(response, "파일 다운로드 실패")
-                    };
-                }
-
-                var content = await response.Content.ReadAsByteArrayAsync();
-                var contentDisposition = response.Content.Headers.ContentDisposition;
-                var fileName = contentDisposition?.FileNameStar
-                    ?? contentDisposition?.FileName
-                    ?? "download.bin";
-
-                fileName = fileName.Trim().Trim('"');
-
-                return new ApiResult<ApiFileDownload>
-                {
-                    Success = true,
-                    Data = new ApiFileDownload
-                    {
-                        Content = content,
-                        FileName = fileName,
-                        ContentType = response.Content.Headers.ContentType?.MediaType
-                    }
-                };
-            }
-            catch (Exception ex)
-            {
-                return new ApiResult<ApiFileDownload>
-                {
-                    Success = false,
-                    Message = $"예외 발생: {ex.Message}"
-                };
             }
         }
 

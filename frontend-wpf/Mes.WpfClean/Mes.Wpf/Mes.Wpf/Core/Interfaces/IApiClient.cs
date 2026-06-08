@@ -17,8 +17,6 @@ namespace Mes.Wpf.Core.Interfaces
 
         Task<byte[]?> GetBytesAsync(string relativeUrl);
 
-        Task<ApiResult<ApiFileDownload>> DownloadFileAsync(string relativeUrl);
-
         string BuildAbsoluteUrl(string relativeUrl);
 
         void SetAccessToken(string? accessToken);

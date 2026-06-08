@@ -2,9 +2,11 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timezone
+from pathlib import Path
 from typing import Optional
 from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import FileResponse
 from sqlalchemy import func, select, update,exists
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -19,6 +21,7 @@ from app.models.lot_step import LotStep
 from app.models.outsource_work_group import OutsourceWorkGroup
 from app.models.outsource_work_group_item import OutsourceWorkGroupItem
 from app.models.outsource_work_instruction import OutsourceWorkInstruction
+from app.models.outsource_work_instruction_file import OutsourceWorkInstructionFile
 from app.models.outsource_purchase_order_item import OutsourcePurchaseOrderItem
 from app.models.inspection_result import InspectionResult
 from app.models.product_inventory_movement import ProductInventoryMovement
@@ -758,6 +761,27 @@ def list_inspection_schedules(
     offset: int = 0,
     db: Session = Depends(get_db),
 ):
+    plate_data_file_name_subq = (
+        select(OutsourceWorkInstructionFile.file_name)
+        .where(
+            OutsourceWorkInstructionFile.outsource_work_instruction_id
+            == OutsourceWorkInstruction.outsource_work_instruction_id
+        )
+        .order_by(OutsourceWorkInstructionFile.outsource_work_instruction_file_id.asc())
+        .limit(1)
+        .scalar_subquery()
+    )
+    plate_data_file_path_subq = (
+        select(OutsourceWorkInstructionFile.file_path)
+        .where(
+            OutsourceWorkInstructionFile.outsource_work_instruction_id
+            == OutsourceWorkInstruction.outsource_work_instruction_id
+        )
+        .order_by(OutsourceWorkInstructionFile.outsource_work_instruction_file_id.asc())
+        .limit(1)
+        .scalar_subquery()
+    )
+
     q = (
         select(
             InspectionSchedule.inspection_schedule_id,
@@ -780,6 +804,8 @@ def list_inspection_schedules(
             OutsourceWorkGroup.is_bundle,
             OutsourceWorkGroup.status.label("outsource_work_group_status"),
             OutsourceWorkInstruction.instruction_no,
+            plate_data_file_name_subq.label("plate_data_file_name"),
+            plate_data_file_path_subq.label("plate_data_file_path"),
             InspectionSchedule.memo,
         )
         .select_from(InspectionSchedule)
@@ -852,6 +878,53 @@ def list_inspection_schedules(
         items.append(row_dict)
 
     return items
+
+
+@router.get("/{inspection_schedule_id}/plate-data")
+def download_inspection_schedule_plate_data(
+    inspection_schedule_id: int,
+    db: Session = Depends(get_db),
+):
+    schedule = db.get(InspectionSchedule, inspection_schedule_id)
+
+    if not schedule:
+        raise HTTPException(status_code=404, detail="Inspection schedule not found")
+
+    if not schedule.outsource_work_group_id:
+        raise HTTPException(status_code=404, detail="Plate data file not found")
+
+    work_group = db.get(OutsourceWorkGroup, schedule.outsource_work_group_id)
+
+    if not work_group:
+        raise HTTPException(status_code=404, detail="Outsource work group not found")
+
+    file_row = (
+        db.execute(
+            select(OutsourceWorkInstructionFile)
+            .where(
+                OutsourceWorkInstructionFile.outsource_work_instruction_id
+                == work_group.outsource_work_instruction_id
+            )
+            .order_by(OutsourceWorkInstructionFile.outsource_work_instruction_file_id.asc())
+        )
+        .scalars()
+        .first()
+    )
+
+    if not file_row:
+        raise HTTPException(status_code=404, detail="Plate data file not found")
+
+    file_path = Path(file_row.file_path)
+
+    if not file_path.is_file():
+        raise HTTPException(status_code=404, detail="Plate data file is missing")
+
+    return FileResponse(
+        path=file_path,
+        media_type=file_row.content_type or "application/octet-stream",
+        filename=file_row.file_name,
+    )
+
 
 @router.get("/{inspection_schedule_id}/stock-lots", response_model=InspectionStockLotListOut)
 def get_inspection_stock_lots(

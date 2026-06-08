@@ -1,5 +1,6 @@
 ﻿using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using Mes.Wpf.Modules.InspectionSchedules.Dtos;
 using Mes.Wpf.Modules.InspectionSchedules.ViewModels;
 
@@ -29,6 +30,16 @@ namespace Mes.Wpf.Modules.InspectionSchedules.Views
                 return;
             }
 
+            if (!datePicker.IsKeyboardFocusWithin && !datePicker.IsDropDownOpen)
+            {
+                return;
+            }
+
+            if (e.RemovedItems.Count == 0)
+            {
+                return;
+            }
+
             DateTime? previousDate = null;
             if (e.RemovedItems.Count > 0 && e.RemovedItems[0] is DateTime removedDate)
             {
@@ -53,6 +64,25 @@ namespace Mes.Wpf.Modules.InspectionSchedules.Views
 
             vm.SelectedItem = item;
             await vm.ReceiveAsync();
+        }
+
+        private void BundleNoTextBlock_OnMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            if (DataContext is not InspectionScheduleManagementPageViewModel vm)
+            {
+                return;
+            }
+
+            if (sender is not TextBlock textBlock || textBlock.DataContext is not InspectionScheduleListItemDto item)
+            {
+                return;
+            }
+
+            if (vm.OpenPlateDataCommand.CanExecute(item))
+            {
+                vm.OpenPlateDataCommand.Execute(item);
+                e.Handled = true;
+            }
         }
 
         private async void InspectionActionButton_Click(object sender, RoutedEventArgs e)
