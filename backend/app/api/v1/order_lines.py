@@ -101,29 +101,50 @@ def _ensure_product_active(db: Session, product_id: int) -> Product:
     return product
 
 
-def _generate_lot_no(db: Session, created_date: date, e_fixed: str = "0") -> str:
-    yy = f"{created_date.year % 100:02d}"
-    mm = f"{created_date.month:02d}"
-    dd = f"{created_date.day:02d}"
-    prefix = f"CT{yy}{mm}{dd}{e_fixed}"
+def _get_lot_month_code(value: date) -> str:
+    month_codes = {
+        1: "A",
+        2: "B",
+        3: "C",
+        4: "D",
+        5: "E",
+        6: "F",
+        7: "G",
+        8: "H",
+        9: "I",
+        10: "J",
+        11: "K",
+        12: "L",
+    }
+    return month_codes[value.month]
 
-    last = (
+
+def _generate_lot_no(db: Session, created_date: date, e_fixed: str = "E") -> str:
+    yy = f"{created_date.year % 100:02d}"
+    dd = f"{created_date.day:02d}"
+    month_code = _get_lot_month_code(created_date)
+    fixed_code = (e_fixed or "E").strip().upper()
+    prefix = f"CT{yy}{month_code}{dd}{fixed_code}"
+    legacy_prefix = f"CT{yy}{created_date.month:02d}{dd}0"
+
+    existing_lot_nos = (
         db.execute(
             select(Lot.lot_no)
-            .where(Lot.lot_no.like(f"{prefix}%"))
+            .where(or_(Lot.lot_no.like(f"{prefix}%"), Lot.lot_no.like(f"{legacy_prefix}%")))
             .order_by(desc(Lot.lot_no))
-            .limit(1)
         )
-        .scalar_one_or_none()
+        .scalars()
+        .all()
     )
 
-    if not last:
-        nn = 1
-    else:
+    max_seq = 0
+    for lot_no in existing_lot_nos:
         try:
-            nn = int(last[-2:]) + 1
+            max_seq = max(max_seq, int(lot_no[-2:]))
         except ValueError:
-            nn = 1
+            continue
+
+    nn = max_seq + 1
 
     if nn > 99:
         raise HTTPException(status_code=409, detail="LOT sequence exceeded for the day (NN > 99)")
@@ -194,7 +215,7 @@ def _create_primary_lot_for_order_line(
     created_date = date.today()
 
     for _ in range(3):
-        lot_no = _generate_lot_no(db, created_date, e_fixed="0")
+        lot_no = _generate_lot_no(db, created_date, e_fixed="E")
 
         lot = Lot(
             lot_no=lot_no,

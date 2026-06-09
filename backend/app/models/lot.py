@@ -53,7 +53,7 @@ class Lot(Base):
 
     lot_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
 
-    # lot_no: CT + YY + MM + DD + E + NN (서비스에서 생성)
+    # lot_no: CT + YY + month code(A-L) + DD + E + NN
     lot_no: Mapped[str] = mapped_column(String(20), nullable=False, unique=True)
 
     # SSOT 참조
