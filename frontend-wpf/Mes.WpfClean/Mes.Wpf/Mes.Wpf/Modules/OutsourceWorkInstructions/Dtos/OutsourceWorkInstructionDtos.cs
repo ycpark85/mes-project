@@ -445,6 +445,11 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
             OnPropertyChanged(nameof(ExpectedOutputQty));
         }
 
+        public void RefreshFileValues()
+        {
+            OnPropertyChanged(nameof(PlateDataPath));
+        }
+
         public void Clear()
         {
             DraftId = Guid.NewGuid();
@@ -458,6 +463,7 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
             FabricLotNo = null;
             Lots.Clear();
             Files.Clear();
+            RefreshFileValues();
         }
 
         private void RecalculateSheetQty()

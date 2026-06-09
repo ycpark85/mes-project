@@ -230,6 +230,7 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
                         FilePath = upload.Data.FilePath,
                         ContentType = upload.Data.ContentType
                     });
+                SelectedDraft.RefreshFileValues();
             }
 
             OnPropertyChanged(nameof(SelectedDraft));

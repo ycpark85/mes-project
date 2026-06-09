@@ -44,7 +44,20 @@ class Settings(BaseSettings):
     @classmethod
     def _normalize_allowed_ext(cls, v):
         if isinstance(v, (list, set, tuple)):
-            return {str(x).strip().lower() for x in v if str(x).strip()}
+            normalized: Set[str] = set()
+
+            for x in v:
+                ext = str(x).strip().lower()
+
+                if not ext:
+                    continue
+
+                if not ext.startswith("."):
+                    ext = f".{ext}"
+
+                normalized.add(ext)
+
+            return normalized
         return v
 
 
