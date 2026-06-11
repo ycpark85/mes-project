@@ -7,7 +7,7 @@ from typing import Optional
 from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import FileResponse
-from sqlalchemy import func, select, update,exists
+from sqlalchemy import func, select, exists
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -47,6 +47,59 @@ router = APIRouter(prefix="/inspection-schedules", tags=["InspectionSchedule"])
 
 def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
+
+def _resequence_inspection_date(
+    db: Session,
+    target_date: date,
+    *,
+    ordered_active_ids: list[int] | None = None,
+) -> list[InspectionSchedule]:
+    rows = db.execute(
+        select(InspectionSchedule)
+        .where(
+            InspectionSchedule.inspection_date == target_date,
+            InspectionSchedule.status != "CANCELED",
+        )
+        .order_by(
+            InspectionSchedule.day_seq.asc().nulls_last(),
+            InspectionSchedule.inspection_schedule_id.asc(),
+        )
+        .with_for_update()
+    ).scalars().all()
+
+    active_rows = [
+        row for row in rows
+        if row.status in ("WAITING", "RECEIVED")
+    ]
+
+    if ordered_active_ids is not None:
+        if len(ordered_active_ids) != len(set(ordered_active_ids)):
+            raise HTTPException(status_code=409, detail="Duplicated ids in ordered_ids")
+
+        active_ids = {row.inspection_schedule_id for row in active_rows}
+        if set(ordered_active_ids) != active_ids:
+            raise HTTPException(
+                status_code=409,
+                detail="ordered_ids must match ALL schedules of that date (WAITING/RECEIVED)",
+            )
+
+        active_map = {row.inspection_schedule_id: row for row in active_rows}
+        ordered_active_rows = iter(active_map[sid] for sid in ordered_active_ids)
+        ordered_rows: list[InspectionSchedule] = []
+
+        for row in rows:
+            if row.status in ("WAITING", "RECEIVED"):
+                ordered_rows.append(next(ordered_active_rows))
+            else:
+                ordered_rows.append(row)
+    else:
+        ordered_rows = rows
+
+    for idx, row in enumerate(ordered_rows, start=1):
+        row.day_seq = idx
+
+    db.flush()
+    return ordered_rows
 
 def _get_outsource_work_group_items(
     db: Session,
@@ -360,22 +413,6 @@ def update_inspection_schedule(
     if payload.memo is not None:
         obj.memo = payload.memo
 
-    def resequence_by_date(target_date: date):
-        rows = db.execute(
-            select(InspectionSchedule)
-            .where(
-                InspectionSchedule.inspection_date == target_date,
-                InspectionSchedule.status.in_(("WAITING", "RECEIVED")),
-            )
-            .order_by(
-                InspectionSchedule.day_seq.asc(),
-                InspectionSchedule.inspection_schedule_id.asc(),
-            )
-        ).scalars().all()
-
-        for idx, row in enumerate(rows, start=1):
-            row.day_seq = idx
-
     if payload.inspection_date is not None and payload.inspection_date != obj.inspection_date:
         today_kst = datetime.now(ZoneInfo("Asia/Seoul")).date()
         if payload.inspection_date < today_kst:
@@ -404,8 +441,8 @@ def update_inspection_schedule(
             raise HTTPException(status_code=409, detail="Duplicate (lot_id, inspection_date) is not allowed")
 
         # 이동 후 old/new 날짜 각각 재정렬
-        resequence_by_date(old_date)
-        resequence_by_date(payload.inspection_date)
+        _resequence_inspection_date(db, old_date)
+        _resequence_inspection_date(db, payload.inspection_date)
 
         try:
             db.commit()
@@ -579,9 +616,6 @@ def reorder_inspection_schedules(
     payload: InspectionScheduleReorderIn,
     db: Session = Depends(get_db),
 ):
-    if len(payload.ordered_ids) != len(set(payload.ordered_ids)):
-        raise HTTPException(status_code=409, detail="Duplicated ids in ordered_ids")
-
     rows = db.execute(
         select(InspectionSchedule)
         .where(
@@ -604,35 +638,14 @@ def reorder_inspection_schedules(
         )
 
     try:
-        max_seq = db.execute(
-            select(func.coalesce(func.max(InspectionSchedule.day_seq), 0)).where(
-                InspectionSchedule.inspection_date == payload.inspection_date
-            )
-        ).scalar_one()
-
-        temp_base = int(max_seq) + 10000
-
-        for idx, sid in enumerate(req_ids, start=1):
-            db.execute(
-                update(InspectionSchedule)
-                .where(InspectionSchedule.inspection_schedule_id == sid)
-                .values(day_seq=temp_base + idx)
-            )
-
-        for idx, sid in enumerate(req_ids, start=1):
-            db.execute(
-                update(InspectionSchedule)
-                .where(InspectionSchedule.inspection_schedule_id == sid)
-                .values(day_seq=idx)
-            )
-
+        ordered_rows = _resequence_inspection_date(
+            db,
+            payload.inspection_date,
+            ordered_active_ids=req_ids,
+        )
         db.commit()
 
-        out_rows = db.execute(
-            select(InspectionSchedule).where(InspectionSchedule.inspection_schedule_id.in_(req_ids))
-        ).scalars().all()
-        out_map = {r.inspection_schedule_id: r for r in out_rows}
-        return [out_map[sid] for sid in req_ids]
+        return ordered_rows
 
     except IntegrityError:
         db.rollback()

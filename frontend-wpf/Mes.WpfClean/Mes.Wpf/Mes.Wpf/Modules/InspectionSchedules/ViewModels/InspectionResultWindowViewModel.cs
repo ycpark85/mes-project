@@ -209,7 +209,12 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
         }
 
         public int TotalQty => GoodQty + DefectShipQty + DefectQty;
-        public int SellableQty => GoodQty + DefectShipQty;
+        public int SellableQty =>
+            IsPartial
+                ? GoodQty + DefectShipQty
+                : AccumulatedGoodQty + AccumulatedDefectShipQty;
+
+        public bool IsShipmentInputEnabled => !IsPartial;
 
         public int CurrentStockQty
         {
@@ -337,7 +342,22 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
         public bool IsPartial
         {
             get => _isPartial;
-            set => SetProperty(ref _isPartial, value);
+            set
+            {
+                if (SetProperty(ref _isPartial, value))
+                {
+                    OnPropertyChanged(nameof(IsShipmentInputEnabled));
+
+                    if (value)
+                    {
+                        StockShipQty = 0;
+                        ResultShipQty = 0;
+                        StockInQty = 0;
+                    }
+
+                    RecalculateTotals();
+                }
+            }
         }
 
         public DateTime? NextInspectionDate
@@ -611,12 +631,12 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
         private void RecalculateTotals()
         {
             OnPropertyChanged(nameof(TotalQty));
-            OnPropertyChanged(nameof(SellableQty));
 
             AccumulatedGoodQty = _baseAccumulatedGoodQty + GoodQty;
             AccumulatedDefectQty = _baseAccumulatedDefectQty + DefectQty;
             AccumulatedDefectShipQty = _baseAccumulatedDefectShipQty + DefectShipQty;
             AccumulatedInspectedQty = _baseAccumulatedInspectedQty + TotalQty;
+            OnPropertyChanged(nameof(SellableQty));
 
             RecalculateInventoryPreview();
         }
@@ -633,6 +653,37 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                 _isRecalculatingInventoryPreview = true;
 
                 var sellableQty = Math.Max(SellableQty, 0);
+
+                if (IsPartial)
+                {
+                    if (_stockShipQty != 0)
+                    {
+                        _stockShipQty = 0;
+                        OnPropertyChanged(nameof(StockShipQty));
+                    }
+
+                    if (_resultShipQty != 0)
+                    {
+                        _resultShipQty = 0;
+                        OnPropertyChanged(nameof(ResultShipQty));
+                    }
+
+                    if (_stockInQty != 0)
+                    {
+                        _stockInQty = 0;
+                        OnPropertyChanged(nameof(StockInQty));
+                    }
+
+                    ExpectedShipQty = 0;
+                    ShortageQty = Math.Max(RemainingShipTargetQty, 0);
+
+                    OnPropertyChanged(nameof(ExpectedShipQty));
+                    OnPropertyChanged(nameof(ShipmentWaitingQty));
+                    OnPropertyChanged(nameof(ShortageQty));
+
+                    AllocateStockLotsByFifo();
+                    return;
+                }
 
                 var stockShipQty = Math.Max(StockShipQty, 0);
                 var resultShipQty = Math.Max(ResultShipQty, 0);
@@ -795,19 +846,19 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                 return;
             }
 
-            if (ResultShipQty + StockInQty != SellableQty)
+            if (!IsPartial && ResultShipQty + StockInQty != SellableQty)
             {
                 _messageService.ShowWarning("검수분 출하대기수량 + 재고편입수량은 판매가능수량과 같아야 합니다.");
                 return;
             }
 
-            if (StockShipQty > CurrentStockQty)
+            if (!IsPartial && StockShipQty > CurrentStockQty)
             {
                 _messageService.ShowWarning("기존재고 출하대기수량이 현재 재고수량을 초과할 수 없습니다.");
                 return;
             }
 
-            if (StockShipQty + ResultShipQty > RemainingShipTargetQty)
+            if (!IsPartial && StockShipQty + ResultShipQty > RemainingShipTargetQty)
             {
                 _messageService.ShowWarning("총 출하대기수량이 남은 출고목표수량을 초과할 수 없습니다.");
                 return;
@@ -846,9 +897,9 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                     GoodQty = GoodQty,
                     DefectShipQty = DefectShipQty,
                     DefectQty = DefectQty,
-                    StockShipQty = StockShipQty,
-                    ResultShipQty = ResultShipQty,
-                    StockInQty = StockInQty,
+                    StockShipQty = IsPartial ? 0 : StockShipQty,
+                    ResultShipQty = IsPartial ? 0 : ResultShipQty,
+                    StockInQty = IsPartial ? 0 : StockInQty,
                     IsPartial = IsPartial,
                     NextInspectionDate = IsPartial ? NextInspectionDate?.Date : null,
                     PartialReason = IsPartial ? PartialReason.Trim() : null,
@@ -922,7 +973,15 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
             {
                 _isAutoShipmentPreviewUpdating = true;
 
-                var sellableQty = Math.Max(GoodQty - DefectShipQty, 0);
+                if (IsPartial)
+                {
+                    StockShipQty = 0;
+                    ResultShipQty = 0;
+                    StockInQty = 0;
+                    return;
+                }
+
+                var sellableQty = Math.Max(SellableQty, 0);
                 var remainingTargetQty = Math.Max(RemainingShipTargetQty, 0);
                 var currentStockQty = Math.Max(CurrentStockQty, 0);
 

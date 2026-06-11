@@ -486,7 +486,7 @@ def get_lot_trace_detail(
             )
         )
 
-    inspection_row = (
+    latest_schedule_row = (
         db.execute(
             select(InspectionSchedule, InspectionResult)
             .join(
@@ -505,13 +505,71 @@ def get_lot_trace_detail(
         .one_or_none()
     )
 
+    completed_inspection_rows = (
+        db.execute(
+            select(InspectionSchedule, InspectionResult)
+            .join(
+                InspectionResult,
+                InspectionResult.inspection_schedule_id
+                == InspectionSchedule.inspection_schedule_id,
+            )
+            .where(
+                InspectionSchedule.lot_id == lot_id,
+                InspectionSchedule.status.in_(("PARTIAL_DONE", "DONE")),
+            )
+            .order_by(
+                InspectionSchedule.inspection_date.asc(),
+                InspectionSchedule.inspection_schedule_id.asc(),
+            )
+        )
+        .all()
+    )
+
     inspection: LotTraceInspectionOut | None = None
 
-    if inspection_row is not None:
-        inspection_schedule, inspection_result = inspection_row
-        defects: list[LotTraceInspectionDefectOut] = []
+    if completed_inspection_rows:
+        inspection_schedule, inspection_result = completed_inspection_rows[-1]
+    elif latest_schedule_row is not None:
+        inspection_schedule, inspection_result = latest_schedule_row
+    else:
+        inspection_schedule = None
+        inspection_result = None
 
-        if inspection_result is not None:
+    if inspection_schedule is not None:
+        defects: list[LotTraceInspectionDefectOut] = []
+        result_rows_for_totals = completed_inspection_rows
+
+        if not result_rows_for_totals and inspection_result is not None:
+            result_rows_for_totals = [(inspection_schedule, inspection_result)]
+
+        result_ids = [
+            result.inspection_result_id
+            for _, result in result_rows_for_totals
+            if result is not None
+        ]
+
+        total_inspected_qty = (
+            sum((result.inspected_qty or 0) for _, result in result_rows_for_totals)
+            if result_rows_for_totals
+            else None
+        )
+        total_good_qty = (
+            sum((result.good_qty or 0) for _, result in result_rows_for_totals)
+            if result_rows_for_totals
+            else None
+        )
+        total_defect_qty = (
+            sum((result.defect_qty or 0) for _, result in result_rows_for_totals)
+            if result_rows_for_totals
+            else None
+        )
+        total_defect_ship_qty = (
+            sum((result.defect_ship_qty or 0) for _, result in result_rows_for_totals)
+            if result_rows_for_totals
+            else None
+        )
+
+        if result_ids:
             defect_rows = (
                 db.execute(
                     select(InspectionDefect, DefectType)
@@ -522,9 +580,10 @@ def get_lot_trace_detail(
                     )
                     .where(
                         InspectionDefect.inspection_result_id
-                        == inspection_result.inspection_result_id
+                        .in_(result_ids)
                     )
                     .order_by(
+                        InspectionDefect.inspection_result_id.asc(),
                         InspectionDefect.inspection_defect_id.asc(),
                     )
                 )
@@ -598,14 +657,10 @@ def get_lot_trace_detail(
                 if inspection_result
                 else None
             ),
-            inspected_qty=inspection_result.inspected_qty if inspection_result else None,
-            good_qty=inspection_result.good_qty if inspection_result else None,
-            defect_qty=inspection_result.defect_qty if inspection_result else None,
-            defect_ship_qty=(
-                inspection_result.defect_ship_qty
-                if inspection_result
-                else None
-            ),
+            inspected_qty=total_inspected_qty,
+            good_qty=total_good_qty,
+            defect_qty=total_defect_qty,
+            defect_ship_qty=total_defect_ship_qty,
             is_partial=inspection_result.is_partial if inspection_result else None,
             next_inspection_date=(
                 inspection_result.next_inspection_date

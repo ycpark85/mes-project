@@ -264,7 +264,19 @@ def _get_inventory_summary(
 
         sellable_qty = 0
         if result is not None:
-            sellable_qty = int(result.good_qty or 0) + int(result.defect_ship_qty or 0)
+            if result.is_partial:
+                sellable_qty = 0
+            else:
+                accumulated = _get_accumulated_summary(
+                    db,
+                    inspection_schedule_id=inspection_schedule_id,
+                )
+                sellable_qty = (
+                    int(accumulated.good_qty or 0)
+                    + int(accumulated.defect_ship_qty or 0)
+                    + int(result.good_qty or 0)
+                    + int(result.defect_ship_qty or 0)
+                )
 
         current_result_stock_in_qty = max(
             sellable_qty - current_result_result_ship_qty,
