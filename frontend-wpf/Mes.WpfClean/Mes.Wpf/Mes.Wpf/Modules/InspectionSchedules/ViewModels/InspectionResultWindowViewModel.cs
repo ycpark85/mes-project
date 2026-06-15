@@ -505,9 +505,9 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                     DefectShipQty = 0;
                     DefectQty = 0;
 
-                    StockShipQty = 0;
-                    ResultShipQty = 0;
-                    StockInQty = 0;
+                    StockShipQty = CurrentResultStockShipQty;
+                    ResultShipQty = CurrentResultResultShipQty;
+                    StockInQty = CurrentResultStockInQty;
 
                     IsPartial = false;
                     NextInspectionDate = null;
@@ -516,7 +516,14 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                     Defects.Clear();
 
                     await LoadStockLotsAsync();
-                    ApplyAutoShipmentPreview();
+                    if (StockShipQty <= 0)
+                    {
+                        ApplyAutoShipmentPreview();
+                    }
+                    else
+                    {
+                        RecalculateInventoryPreview();
+                    }
                     AllocateStockLotsByFifo();
 
                     RecalculateTotals();
@@ -693,16 +700,9 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                     stockShipQty = CurrentStockQty;
                 }
 
-                var maxResultShipQtyByTarget = Math.Max(RemainingShipTargetQty - stockShipQty, 0);
-
                 if (resultShipQty > sellableQty)
                 {
                     resultShipQty = sellableQty;
-                }
-
-                if (resultShipQty > maxResultShipQtyByTarget)
-                {
-                    resultShipQty = maxResultShipQtyByTarget;
                 }
 
                 var stockInQty = Math.Max(sellableQty - resultShipQty, 0);
@@ -855,12 +855,6 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
             if (!IsPartial && StockShipQty > CurrentStockQty)
             {
                 _messageService.ShowWarning("기존재고 출하대기수량이 현재 재고수량을 초과할 수 없습니다.");
-                return;
-            }
-
-            if (!IsPartial && StockShipQty + ResultShipQty > RemainingShipTargetQty)
-            {
-                _messageService.ShowWarning("총 출하대기수량이 남은 출고목표수량을 초과할 수 없습니다.");
                 return;
             }
 

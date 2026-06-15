@@ -24,9 +24,8 @@ from app.models.outsource_work_instruction import OutsourceWorkInstruction
 from app.models.outsource_work_instruction_file import OutsourceWorkInstructionFile
 from app.models.outsource_purchase_order_item import OutsourcePurchaseOrderItem
 from app.models.inspection_result import InspectionResult
-from app.models.product_inventory_movement import ProductInventoryMovement
-from app.models.shipment_line import ShipmentLine
 from app.models.drawing import Drawing
+from app.services.inventory_fifo_service import get_available_inventory_lots_fifo
 from app.schemas.inspection_schedule import (
     InspectionScheduleCreate,
     InspectionScheduleListItemOut,
@@ -965,97 +964,33 @@ def get_inspection_stock_lots(
         .scalar_one_or_none()
     )
 
-    stock_in_rows = (
-        db.execute(
-            select(
-                Lot.lot_id,
-                Lot.lot_no,
-                Lot.created_date,
-                func.coalesce(func.sum(ProductInventoryMovement.qty), 0).label("stock_in_qty"),
-            )
-            .select_from(ProductInventoryMovement)
-            .join(
-                InspectionResult,
-                InspectionResult.inspection_result_id
-                == ProductInventoryMovement.inspection_result_id,
-            )
-            .join(
-                InspectionSchedule,
-                InspectionSchedule.inspection_schedule_id
-                == InspectionResult.inspection_schedule_id,
-            )
-            .join(Lot, Lot.lot_id == InspectionSchedule.lot_id)
-            .where(
-                ProductInventoryMovement.product_id == product_id,
-                ProductInventoryMovement.movement_type == "INSPECTION_IN",
-                ProductInventoryMovement.qty > 0,
-                Lot.lot_id != current_lot.lot_id,
-            )
-            .group_by(
-                Lot.lot_id,
-                Lot.lot_no,
-                Lot.created_date,
-            )
-            .order_by(
-                Lot.created_date.asc(),
-                Lot.lot_id.asc(),
-            )
-        )
-        .mappings()
-        .all()
-    )
-
-    shipped_or_waiting_conditions = [
-        ShipmentLine.product_id == product_id,
-        ShipmentLine.status.in_(("WAITING", "DONE")),
-        ShipmentLine.lot_id.is_not(None),
-        Lot.lot_id != current_lot.lot_id,
-    ]
-
-    if current_result is not None:
-        shipped_or_waiting_conditions.append(
-            (ShipmentLine.inspection_result_id.is_(None))
-            | (ShipmentLine.inspection_result_id != current_result)
-        )
-
-    allocated_rows = (
-        db.execute(
-            select(
-                ShipmentLine.lot_id,
-                func.coalesce(func.sum(ShipmentLine.ship_qty), 0).label("allocated_qty"),
-            )
-            .select_from(ShipmentLine)
-            .join(Lot, Lot.lot_id == ShipmentLine.lot_id)
-            .where(*shipped_or_waiting_conditions)
-            .group_by(ShipmentLine.lot_id)
-        )
-        .mappings()
-        .all()
-    )
-
-    allocated_map = {
-        int(row["lot_id"]): int(row["allocated_qty"] or 0)
-        for row in allocated_rows
-    }
-
     items: list[InspectionStockLotOut] = []
 
-    for row in stock_in_rows:
-        lot_id = int(row["lot_id"])
-        stock_in_qty = int(row["stock_in_qty"] or 0)
-        allocated_qty = allocated_map.get(lot_id, 0)
-        stock_qty = max(stock_in_qty - allocated_qty, 0)
-
-        if stock_qty <= 0:
-            continue
+    for inventory_lot, stock_qty in get_available_inventory_lots_fifo(
+        db,
+        product_id=product_id,
+        exclude_lot_no=current_lot.lot_no,
+        exclude_inspection_result_id=current_result,
+    ):
+        stock_lot_id = (
+            db.execute(
+                select(Lot.lot_id)
+                .where(
+                    Lot.product_id == product_id,
+                    Lot.lot_no == inventory_lot.lot_no,
+                )
+                .limit(1)
+            )
+            .scalar_one_or_none()
+        )
 
         items.append(
             InspectionStockLotOut(
-                lot_id=lot_id,
-                lot_no=row["lot_no"],
+                lot_id=stock_lot_id or inventory_lot.product_inventory_lot_id,
+                lot_no=inventory_lot.lot_no,
                 stock_qty=stock_qty,
                 allocated_ship_qty=0,
-                created_date=row["created_date"],
+                created_date=inventory_lot.created_at,
             )
         )
 

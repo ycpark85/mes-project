@@ -18,10 +18,11 @@ from app.models.inspection_schedule import InspectionSchedule
 from app.models.lot import Lot
 from app.models.order_line import OrderLine
 from app.models.partner import Partner
-from app.models.product_inventory import ProductInventory
 from app.models.product_inventory_movement import ProductInventoryMovement
 from app.models.shipment_line import ShipmentLine
 from app.schemas.inspection_result import InspectionInventorySummaryOut
+from app.services.inventory_fifo_service import get_available_inventory_lots_fifo
+from app.services.order_line_plan_service import get_latest_plan_history
 from app.services.ship_qty_policy import calculate_ship_qty
 
 
@@ -226,16 +227,17 @@ def _get_inventory_summary(
     partner = db.get(Partner, order_line.partner_id)
     partner_name = partner.name if partner else ""
 
-    current_stock_qty = db.execute(
-        select(func.coalesce(ProductInventory.current_qty, 0)).where(
-            ProductInventory.product_id == lot.product_id
-        )
-    ).scalar_one_or_none()
-    current_stock_qty = int(current_stock_qty or 0)
-
     current_result_stock_ship_qty = 0
     current_result_result_ship_qty = 0
     current_result_stock_in_qty = 0
+
+    available_stock_lots = get_available_inventory_lots_fifo(
+        db,
+        product_id=lot.product_id,
+        exclude_lot_no=lot.lot_no,
+        exclude_inspection_result_id=current_result_id,
+    )
+    current_stock_qty = sum(available_qty for _, available_qty in available_stock_lots)
 
     if current_result_id is not None:
         result = db.get(InspectionResult, current_result_id)
@@ -283,18 +285,13 @@ def _get_inventory_summary(
             0,
         )
 
-        current_result_inventory_in_qty = int(
-            db.execute(
-                select(func.coalesce(func.sum(ProductInventoryMovement.qty), 0)).where(
-                    ProductInventoryMovement.inspection_result_id == current_result_id,
-                    ProductInventoryMovement.movement_type == "INSPECTION_IN",
-                    ProductInventoryMovement.source_type.in_(("INSPECTION_RESULT", "INSPECTION_RESULT_IN")),
-                )
-            ).scalar_one()
-            or 0
-        )
-
-        current_stock_qty = current_stock_qty - current_result_inventory_in_qty
+    else:
+        latest_plan = get_latest_plan_history(db, order_line.order_line_id)
+        if latest_plan is not None:
+            current_result_stock_ship_qty = min(
+                int(latest_plan.stock_ship_qty or 0),
+                current_stock_qty,
+            )
 
     ship_target_qty = calculate_ship_qty(
         partner_name,

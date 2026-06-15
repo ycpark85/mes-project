@@ -17,12 +17,11 @@ from app.models.lot import Lot
 from app.models.order_line import OrderLine
 from app.schemas.inspection_result import DefectLineIn
 from sqlalchemy import func
-from app.models.partner import Partner
 from app.models.product_inventory import ProductInventory
 from app.models.product_inventory_lot import ProductInventoryLot
 from app.models.product_inventory_movement import ProductInventoryMovement
 from app.models.shipment_line import ShipmentLine
-from app.services.ship_qty_policy import calculate_ship_qty, is_stock_replenishment_partner
+from app.services.inventory_fifo_service import allocate_inventory_lots_fifo
 
 
 def _utcnow() -> datetime:
@@ -395,96 +394,18 @@ def _get_fifo_stock_lot_allocations(
     db: Session,
     *,
     product_id: int,
-    current_lot_id: int,
+    current_lot_no: str,
     inspection_result_id: int,
     stock_ship_qty: int,
-) -> list[tuple[int, int]]:
-    if stock_ship_qty <= 0:
-        return []
-
-    stock_in_rows = (
-        db.execute(
-            select(
-                Lot.lot_id,
-                Lot.created_date,
-                func.coalesce(func.sum(ProductInventoryMovement.qty), 0).label("stock_in_qty"),
-            )
-            .select_from(ProductInventoryMovement)
-            .join(
-                InspectionResult,
-                InspectionResult.inspection_result_id
-                == ProductInventoryMovement.inspection_result_id,
-            )
-            .join(
-                InspectionSchedule,
-                InspectionSchedule.inspection_schedule_id
-                == InspectionResult.inspection_schedule_id,
-            )
-            .join(Lot, Lot.lot_id == InspectionSchedule.lot_id)
-            .where(
-                ProductInventoryMovement.product_id == product_id,
-                ProductInventoryMovement.movement_type == "INSPECTION_IN",
-                ProductInventoryMovement.qty > 0,
-                Lot.lot_id != current_lot_id,
-            )
-            .group_by(
-                Lot.lot_id,
-                Lot.created_date,
-            )
-            .order_by(
-                Lot.created_date.asc(),
-                Lot.lot_id.asc(),
-            )
-        )
-        .mappings()
-        .all()
+) -> list[tuple[ProductInventoryLot, int]]:
+    allocations, remaining_qty = allocate_inventory_lots_fifo(
+        db,
+        product_id=product_id,
+        ship_qty=stock_ship_qty,
+        exclude_lot_no=current_lot_no,
+        exclude_inspection_result_id=inspection_result_id,
+        for_update=True,
     )
-
-    allocated_rows = (
-        db.execute(
-            select(
-                ShipmentLine.lot_id,
-                func.coalesce(func.sum(ShipmentLine.ship_qty), 0).label("allocated_qty"),
-            )
-            .where(
-                ShipmentLine.product_id == product_id,
-                ShipmentLine.status.in_(("WAITING", "DONE")),
-                ShipmentLine.lot_id.is_not(None),
-                ShipmentLine.lot_id != current_lot_id,
-                (ShipmentLine.inspection_result_id.is_(None))
-                | (ShipmentLine.inspection_result_id != inspection_result_id),
-            )
-            .group_by(ShipmentLine.lot_id)
-        )
-        .mappings()
-        .all()
-    )
-
-    allocated_map = {
-        int(row["lot_id"]): int(row["allocated_qty"] or 0)
-        for row in allocated_rows
-    }
-
-    remaining_qty = stock_ship_qty
-    allocations: list[tuple[int, int]] = []
-
-    for row in stock_in_rows:
-        lot_id = int(row["lot_id"])
-        stock_in_qty = int(row["stock_in_qty"] or 0)
-        allocated_qty = allocated_map.get(lot_id, 0)
-        available_qty = max(stock_in_qty - allocated_qty, 0)
-
-        if available_qty <= 0:
-            continue
-
-        ship_qty = min(available_qty, remaining_qty)
-
-        if ship_qty > 0:
-            allocations.append((lot_id, ship_qty))
-            remaining_qty -= ship_qty
-
-        if remaining_qty <= 0:
-            break
 
     if remaining_qty > 0:
         raise HTTPException(
@@ -530,36 +451,37 @@ def _create_stock_shipment_lines_by_fifo(
     *,
     order_line: OrderLine,
     product_id: int,
-    current_lot_id: int,
+    current_lot_no: str,
     inspection_result_id: int,
     stock_ship_qty: int,
 ) -> None:
     allocations = _get_fifo_stock_lot_allocations(
         db,
         product_id=product_id,
-        current_lot_id=current_lot_id,
+        current_lot_no=current_lot_no,
         inspection_result_id=inspection_result_id,
         stock_ship_qty=stock_ship_qty,
     )
 
-    for lot_id, ship_qty in allocations:
-        stock_lot = db.get(Lot, lot_id)
-        inventory_lot = None
-
-        if stock_lot is not None:
-            inventory_lot = _get_or_create_inventory_lot(
-                db,
-                product_id=product_id,
-                lot_no=stock_lot.lot_no,
+    for inventory_lot, ship_qty in allocations:
+        stock_lot = (
+            db.execute(
+                select(Lot)
+                .where(
+                    Lot.product_id == product_id,
+                    Lot.lot_no == inventory_lot.lot_no,
+                )
+                .limit(1)
             )
-
+            .scalar_one_or_none()
+        )
         db.add(
             ShipmentLine(
                 order_line_id=order_line.order_line_id,
                 product_id=product_id,
-                product_inventory_lot_id=inventory_lot.product_inventory_lot_id if inventory_lot else None,
-                stock_lot_no=stock_lot.lot_no if stock_lot else None,
-                lot_id=lot_id,
+                product_inventory_lot_id=inventory_lot.product_inventory_lot_id,
+                stock_lot_no=inventory_lot.lot_no,
+                lot_id=stock_lot.lot_id if stock_lot else None,
                 inspection_result_id=inspection_result_id,
                 source_type="STOCK",
                 status="WAITING",
@@ -593,15 +515,6 @@ def _apply_inventory_for_result(
     ).scalar_one_or_none()
     if order_line is None:
         raise HTTPException(status_code=404, detail="order_line not found")
-
-    partner = db.get(Partner, order_line.partner_id)
-    partner_name = partner.name if partner else ""
-    partner_business_no = partner.business_no if partner else ""
-
-    is_stock_replenishment = is_stock_replenishment_partner(
-        partner_name,
-        partner_business_no,
-    )
 
     inventory = db.execute(
         select(ProductInventory)
@@ -694,36 +607,6 @@ def _apply_inventory_for_result(
             detail=f"stock_ship_qty exceeds current stock. current_stock_qty={current_stock_qty_before_result_in}",
         )
 
-    if is_stock_replenishment:
-        ship_target_qty = 0
-        remaining_ship_qty = 0
-    else:
-        ship_target_qty = calculate_ship_qty(
-            partner_name,
-            int(order_line.order_qty or 0),
-        )
-
-        already_shipped_qty = int(
-            db.execute(
-                select(func.coalesce(func.sum(-ProductInventoryMovement.qty), 0)).where(
-                    ProductInventoryMovement.order_line_id == order_line.order_line_id,
-                    ProductInventoryMovement.movement_type == "SHIP_OUT",
-                )
-            ).scalar_one()
-            or 0
-        )
-
-        remaining_ship_qty = max(ship_target_qty - already_shipped_qty, 0)
-
-    if not is_stock_replenishment:
-        requested_ship_waiting_qty = int(stock_ship_qty or 0) + int(result_ship_qty or 0)
-
-        if requested_ship_waiting_qty > remaining_ship_qty:
-            raise HTTPException(
-                status_code=422,
-                detail=f"shipment waiting qty exceeds remaining ship target. remaining_ship_qty={remaining_ship_qty}",
-            )
-
     if sellable_qty > 0:
         inventory_lot = _get_or_create_inventory_lot(
             db,
@@ -754,7 +637,7 @@ def _apply_inventory_for_result(
             db,
             order_line=order_line,
             product_id=lot.product_id,
-            current_lot_id=lot.lot_id,
+            current_lot_no=lot.lot_no,
             inspection_result_id=result.inspection_result_id,
             stock_ship_qty=stock_ship_qty,
         )

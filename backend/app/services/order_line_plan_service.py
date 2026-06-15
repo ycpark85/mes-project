@@ -21,6 +21,7 @@ from app.schemas.order_line import (
     OrderLineProductionPolicy,
     OrderLineStatus,
 )
+from app.services.inventory_fifo_service import allocate_inventory_lots_fifo
 from app.services.ship_qty_policy import calculate_ship_qty, is_stock_replenishment_partner
 
 
@@ -56,68 +57,12 @@ def get_fifo_inventory_lot_allocations(
     product_id: int,
     ship_qty: int,
 ) -> tuple[list[tuple[ProductInventoryLot, int]], int]:
-    if ship_qty <= 0:
-        return [], 0
-
-    lots = (
-        db.execute(
-            select(ProductInventoryLot)
-            .where(
-                ProductInventoryLot.product_id == product_id,
-                ProductInventoryLot.current_qty > 0,
-            )
-            .order_by(ProductInventoryLot.created_at.asc(), ProductInventoryLot.product_inventory_lot_id.asc())
-            .with_for_update()
-        )
-        .scalars()
-        .all()
+    return allocate_inventory_lots_fifo(
+        db,
+        product_id=product_id,
+        ship_qty=ship_qty,
+        for_update=True,
     )
-
-    if not lots:
-        return [], ship_qty
-
-    lot_ids = [lot.product_inventory_lot_id for lot in lots]
-    allocated_rows = (
-        db.execute(
-            select(
-                ShipmentLine.product_inventory_lot_id,
-                func.coalesce(func.sum(ShipmentLine.ship_qty), 0).label("allocated_qty"),
-            )
-            .where(
-                ShipmentLine.product_inventory_lot_id.in_(lot_ids),
-                ShipmentLine.source_type == "STOCK",
-                ShipmentLine.status == "WAITING",
-            )
-            .group_by(ShipmentLine.product_inventory_lot_id)
-        )
-        .mappings()
-        .all()
-    )
-
-    allocated_map = {
-        int(row["product_inventory_lot_id"]): int(row["allocated_qty"] or 0)
-        for row in allocated_rows
-        if row["product_inventory_lot_id"] is not None
-    }
-
-    remaining_qty = ship_qty
-    allocations: list[tuple[ProductInventoryLot, int]] = []
-
-    for lot in lots:
-        allocated_qty = allocated_map.get(lot.product_inventory_lot_id, 0)
-        available_qty = max(int(lot.current_qty or 0) - allocated_qty, 0)
-
-        if available_qty <= 0:
-            continue
-
-        allocated_ship_qty = min(available_qty, remaining_qty)
-        allocations.append((lot, allocated_ship_qty))
-        remaining_qty -= allocated_ship_qty
-
-        if remaining_qty <= 0:
-            break
-
-    return allocations, remaining_qty
 
 
 def add_stock_shipment_lines_by_inventory_lot(
