@@ -336,10 +336,10 @@ def _get_inventory_summary(
 def list_inspection_results(
     date_from: date | None = None,
     date_to: date | None = None,
+    q: str | None = None,
     partner_q: str | None = None,
     product_q: str | None = None,
     lot_q: str | None = None,
-    created_by_q: str | None = None,
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
@@ -424,6 +424,16 @@ def list_inspection_results(
         stmt = stmt.where(InspectionSchedule.inspection_date >= date_from)
     if date_to is not None:
         stmt = stmt.where(InspectionSchedule.inspection_date <= date_to)
+    if q and q.strip():
+        keyword = f"%{q.strip()}%"
+        stmt = stmt.where(
+            or_(
+                Partner.name.ilike(keyword),
+                Product.product_name.ilike(keyword),
+                Product.product_code.ilike(keyword),
+                Lot.lot_no.ilike(keyword),
+            )
+        )
     if partner_q and partner_q.strip():
         stmt = stmt.where(Partner.name.ilike(f"%{partner_q.strip()}%"))
     if product_q and product_q.strip():
@@ -436,8 +446,6 @@ def list_inspection_results(
         )
     if lot_q and lot_q.strip():
         stmt = stmt.where(Lot.lot_no.ilike(f"%{lot_q.strip()}%"))
-    if created_by_q and created_by_q.strip():
-        stmt = stmt.where(InspectionResult.created_by.ilike(f"%{created_by_q.strip()}%"))
 
     stmt = stmt.order_by(
         InspectionSchedule.inspection_date.desc(),

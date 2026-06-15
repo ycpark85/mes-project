@@ -19,12 +19,9 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
         private readonly IMessageService _messageService;
 
         private bool _isLoading;
-        private DateTime? _dateFrom = DateTime.Today;
+        private DateTime? _dateFrom = DateTime.Today.AddMonths(-1);
         private DateTime? _dateTo = DateTime.Today;
-        private string _partnerQuery = string.Empty;
-        private string _productQuery = string.Empty;
-        private string _lotQuery = string.Empty;
-        private string _createdByQuery = string.Empty;
+        private string _searchKeyword = string.Empty;
         private InspectionResultManagementItemDto? _selectedItem;
         private int _totalCount;
         private int _totalGoodQty;
@@ -77,28 +74,10 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
             set => SetProperty(ref _dateTo, value);
         }
 
-        public string PartnerQuery
+        public string SearchKeyword
         {
-            get => _partnerQuery;
-            set => SetProperty(ref _partnerQuery, value);
-        }
-
-        public string ProductQuery
-        {
-            get => _productQuery;
-            set => SetProperty(ref _productQuery, value);
-        }
-
-        public string LotQuery
-        {
-            get => _lotQuery;
-            set => SetProperty(ref _lotQuery, value);
-        }
-
-        public string CreatedByQuery
-        {
-            get => _createdByQuery;
-            set => SetProperty(ref _createdByQuery, value);
+            get => _searchKeyword;
+            set => SetProperty(ref _searchKeyword, value);
         }
 
         public InspectionResultManagementItemDto? SelectedItem
@@ -194,12 +173,9 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
 
         public Task ResetAsync()
         {
-            DateFrom = DateTime.Today;
+            DateFrom = DateTime.Today.AddMonths(-1);
             DateTo = DateTime.Today;
-            PartnerQuery = string.Empty;
-            ProductQuery = string.Empty;
-            LotQuery = string.Empty;
-            CreatedByQuery = string.Empty;
+            SearchKeyword = string.Empty;
             SelectedItem = null;
 
             return LoadAsync();
@@ -251,24 +227,9 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                 queryParts.Add($"date_to={DateTo.Value:yyyy-MM-dd}");
             }
 
-            if (!string.IsNullOrWhiteSpace(PartnerQuery))
+            if (!string.IsNullOrWhiteSpace(SearchKeyword))
             {
-                queryParts.Add($"partner_q={Uri.EscapeDataString(PartnerQuery.Trim())}");
-            }
-
-            if (!string.IsNullOrWhiteSpace(ProductQuery))
-            {
-                queryParts.Add($"product_q={Uri.EscapeDataString(ProductQuery.Trim())}");
-            }
-
-            if (!string.IsNullOrWhiteSpace(LotQuery))
-            {
-                queryParts.Add($"lot_q={Uri.EscapeDataString(LotQuery.Trim())}");
-            }
-
-            if (!string.IsNullOrWhiteSpace(CreatedByQuery))
-            {
-                queryParts.Add($"created_by_q={Uri.EscapeDataString(CreatedByQuery.Trim())}");
+                queryParts.Add($"q={Uri.EscapeDataString(SearchKeyword.Trim())}");
             }
 
             return queryParts.Count == 0

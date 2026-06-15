@@ -296,7 +296,7 @@
                             <TextBlock Grid.Column="0" Style="{StaticResource LabelTextStyle}" Text="출하대기합계"/>
                             <TextBlock Grid.Column="1" Style="{StaticResource ValueTextStyle}" Text="{Binding ExpectedShipQty, StringFormat={}{0:N0}}"/>
                         </Grid>
-                        <Grid Grid.Row="10">
+                        <Grid Grid.Row="12">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="8"/>
@@ -375,6 +375,8 @@
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="8"/>
                                     <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="8"/>
+                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
 
                                 <TextBlock Grid.Row="0" FontWeight="SemiBold" Text="검수 결과"/>
@@ -431,6 +433,8 @@
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="12"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="8"/>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="8"/>
                                     <RowDefinition Height="Auto"/>

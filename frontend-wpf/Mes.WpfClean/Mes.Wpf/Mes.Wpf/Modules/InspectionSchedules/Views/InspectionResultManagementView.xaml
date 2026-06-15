@@ -49,9 +49,9 @@
             <Setter Property="CanUserSortColumns" Value="False"/>
             <Setter Property="CanUserReorderColumns" Value="False"/>
             <Setter Property="HeadersVisibility" Value="Column"/>
-            <Setter Property="GridLinesVisibility" Value="Horizontal"/>
+            <Setter Property="GridLinesVisibility" Value="All"/>
             <Setter Property="HorizontalGridLinesBrush" Value="#E5E7EB"/>
-            <Setter Property="VerticalGridLinesBrush" Value="Transparent"/>
+            <Setter Property="VerticalGridLinesBrush" Value="#EEF2F7"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="RowHeight" Value="40"/>
             <Setter Property="ColumnHeaderHeight" Value="38"/>
@@ -60,16 +60,11 @@
             <Setter Property="Background" Value="White"/>
         </Style>
 
-        <Style x:Key="CenteredTextBlockStyle" TargetType="TextBlock">
+        <Style x:Key="CellTextStyle" TargetType="TextBlock">
             <Setter Property="VerticalAlignment" Value="Center"/>
             <Setter Property="HorizontalAlignment" Value="Center"/>
             <Setter Property="TextAlignment" Value="Center"/>
-        </Style>
-
-        <Style x:Key="RightTextBlockStyle" TargetType="TextBlock">
-            <Setter Property="VerticalAlignment" Value="Center"/>
-            <Setter Property="HorizontalAlignment" Value="Right"/>
-            <Setter Property="TextAlignment" Value="Right"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
         </Style>
 
         <Style TargetType="DataGridColumnHeader">
@@ -79,13 +74,16 @@
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="BorderBrush" Value="#D0D5DD"/>
+            <Setter Property="BorderThickness" Value="0,0,1,1"/>
         </Style>
 
         <Style TargetType="DataGridCell">
-            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="BorderBrush" Value="#EEF2F7"/>
+            <Setter Property="BorderThickness" Value="0,0,1,0"/>
             <Setter Property="Padding" Value="6,0"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
         </Style>
 
         <Style TargetType="DataGridRow">
@@ -120,18 +118,9 @@
                     <ColumnDefinition Width="122"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="122"/>
-                    <ColumnDefinition Width="14"/>
+                    <ColumnDefinition Width="18"/>
                     <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="150"/>
-                    <ColumnDefinition Width="14"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="150"/>
-                    <ColumnDefinition Width="14"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="130"/>
-                    <ColumnDefinition Width="14"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="110"/>
+                    <ColumnDefinition Width="280"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
 
@@ -153,36 +142,13 @@
                 <TextBlock Grid.Column="5"
                            VerticalAlignment="Center"
                            Margin="0,0,8,0"
-                           Text="거래처"/>
+                           Text="검색"/>
                 <TextBox Grid.Column="6"
                          Height="26"
-                         Text="{Binding PartnerQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                         ToolTip="거래처, 품목, LOT 통합 검색"
+                         Text="{Binding SearchKeyword, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
 
-                <TextBlock Grid.Column="8"
-                           VerticalAlignment="Center"
-                           Margin="0,0,8,0"
-                           Text="품목"/>
-                <TextBox Grid.Column="9"
-                         Height="26"
-                         Text="{Binding ProductQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-
-                <TextBlock Grid.Column="11"
-                           VerticalAlignment="Center"
-                           Margin="0,0,8,0"
-                           Text="LOT"/>
-                <TextBox Grid.Column="12"
-                         Height="26"
-                         Text="{Binding LotQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-
-                <TextBlock Grid.Column="14"
-                           VerticalAlignment="Center"
-                           Margin="0,0,8,0"
-                           Text="등록자"/>
-                <TextBox Grid.Column="15"
-                         Height="26"
-                         Text="{Binding CreatedByQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-
-                <StackPanel Grid.Column="16"
+                <StackPanel Grid.Column="7"
                             Orientation="Horizontal"
                             HorizontalAlignment="Right">
                     <Button Margin="0,0,8,0"
@@ -211,49 +177,21 @@
                       SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
                       IsReadOnly="True">
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="순번" Width="58" Binding="{Binding RowNo}">
-                        <DataGridTextColumn.ElementStyle>
-                            <Style TargetType="TextBlock" BasedOn="{StaticResource CenteredTextBlockStyle}"/>
-                        </DataGridTextColumn.ElementStyle>
-                    </DataGridTextColumn>
-
-                    <DataGridTextColumn Header="검수일자" Width="96" Binding="{Binding InspectionDate, StringFormat=yyyy-MM-dd}">
-                        <DataGridTextColumn.ElementStyle>
-                            <Style TargetType="TextBlock" BasedOn="{StaticResource CenteredTextBlockStyle}"/>
-                        </DataGridTextColumn.ElementStyle>
-                    </DataGridTextColumn>
-
-                    <DataGridTextColumn Header="LOT" Width="112" Binding="{Binding LotNo}"/>
-                    <DataGridTextColumn Header="고객사" Width="170" Binding="{Binding PartnerName}"/>
-                    <DataGridTextColumn Header="품목명" Width="220" Binding="{Binding ProductName}"/>
-
-                    <DataGridTextColumn Header="발주수량" Width="90" Binding="{Binding OrderQty, StringFormat={}{0:N0}}">
-                        <DataGridTextColumn.ElementStyle>
-                            <Style TargetType="TextBlock" BasedOn="{StaticResource RightTextBlockStyle}"/>
-                        </DataGridTextColumn.ElementStyle>
-                    </DataGridTextColumn>
-
-                    <DataGridTextColumn Header="양품수량" Width="90" Binding="{Binding GoodQty, StringFormat={}{0:N0}}">
-                        <DataGridTextColumn.ElementStyle>
-                            <Style TargetType="TextBlock" BasedOn="{StaticResource RightTextBlockStyle}"/>
-                        </DataGridTextColumn.ElementStyle>
-                    </DataGridTextColumn>
-
-                    <DataGridTextColumn Header="출하수량" Width="90" Binding="{Binding ResultShipQty, StringFormat={}{0:N0}}">
-                        <DataGridTextColumn.ElementStyle>
-                            <Style TargetType="TextBlock" BasedOn="{StaticResource RightTextBlockStyle}"/>
-                        </DataGridTextColumn.ElementStyle>
-                    </DataGridTextColumn>
+                    <DataGridTextColumn Header="순번" Width="58" Binding="{Binding RowNo}" ElementStyle="{StaticResource CellTextStyle}"/>
+                    <DataGridTextColumn Header="검수일자" Width="96" Binding="{Binding InspectionDate, StringFormat=yyyy-MM-dd}" ElementStyle="{StaticResource CellTextStyle}"/>
+                    <DataGridTextColumn Header="LOT" Width="112" Binding="{Binding LotNo}" ElementStyle="{StaticResource CellTextStyle}"/>
+                    <DataGridTextColumn Header="고객사" Width="170" Binding="{Binding PartnerName}" ElementStyle="{StaticResource CellTextStyle}"/>
+                    <DataGridTextColumn Header="품목명" Width="230" Binding="{Binding ProductName}" ElementStyle="{StaticResource CellTextStyle}"/>
+                    <DataGridTextColumn Header="발주수량" Width="90" Binding="{Binding OrderQty, StringFormat={}{0:N0}}" ElementStyle="{StaticResource CellTextStyle}"/>
+                    <DataGridTextColumn Header="양품수량" Width="90" Binding="{Binding GoodQty, StringFormat={}{0:N0}}" ElementStyle="{StaticResource CellTextStyle}"/>
+                    <DataGridTextColumn Header="출하수량" Width="90" Binding="{Binding ResultShipQty, StringFormat={}{0:N0}}" ElementStyle="{StaticResource CellTextStyle}"/>
 
                     <DataGridTemplateColumn Header="폐기수량" Width="90">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <TextBlock Text="{Binding DiscardQty, StringFormat={}{0:N0}}"
-                                           HorizontalAlignment="Right"
-                                           TextAlignment="Right"
-                                           VerticalAlignment="Center">
+                                <TextBlock Text="{Binding DiscardQty, StringFormat={}{0:N0}}">
                                     <TextBlock.Style>
-                                        <Style TargetType="TextBlock" BasedOn="{StaticResource RightTextBlockStyle}">
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource CellTextStyle}">
                                             <Setter Property="Foreground" Value="#B42318"/>
                                             <Setter Property="FontWeight" Value="SemiBold"/>
                                             <Style.Triggers>
@@ -269,25 +207,10 @@
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
 
-                    <DataGridTextColumn Header="재고편입수량" Width="104" Binding="{Binding StockInQty, StringFormat={}{0:N0}}">
-                        <DataGridTextColumn.ElementStyle>
-                            <Style TargetType="TextBlock" BasedOn="{StaticResource RightTextBlockStyle}"/>
-                        </DataGridTextColumn.ElementStyle>
-                    </DataGridTextColumn>
-
-                    <DataGridTextColumn Header="불량수량" Width="90" Binding="{Binding DefectQty, StringFormat={}{0:N0}}">
-                        <DataGridTextColumn.ElementStyle>
-                            <Style TargetType="TextBlock" BasedOn="{StaticResource RightTextBlockStyle}"/>
-                        </DataGridTextColumn.ElementStyle>
-                    </DataGridTextColumn>
-
-                    <DataGridTextColumn Header="등록자" Width="90" Binding="{Binding CreatedBy}"/>
-                    <DataGridTextColumn Header="등록일" Width="138" Binding="{Binding CreatedAt, StringFormat=yyyy-MM-dd HH:mm}">
-                        <DataGridTextColumn.ElementStyle>
-                            <Style TargetType="TextBlock" BasedOn="{StaticResource CenteredTextBlockStyle}"/>
-                        </DataGridTextColumn.ElementStyle>
-                    </DataGridTextColumn>
-                    <DataGridTextColumn Header="메모" Width="*" Binding="{Binding Memo}"/>
+                    <DataGridTextColumn Header="재고편입수량" Width="104" Binding="{Binding StockInQty, StringFormat={}{0:N0}}" ElementStyle="{StaticResource CellTextStyle}"/>
+                    <DataGridTextColumn Header="불량수량" Width="90" Binding="{Binding DefectQty, StringFormat={}{0:N0}}" ElementStyle="{StaticResource CellTextStyle}"/>
+                    <DataGridTextColumn Header="등록자" Width="90" Binding="{Binding CreatedBy}" ElementStyle="{StaticResource CellTextStyle}"/>
+                    <DataGridTextColumn Header="등록일" Width="138" Binding="{Binding CreatedAt, StringFormat=yyyy-MM-dd HH:mm}" ElementStyle="{StaticResource CellTextStyle}"/>
                 </DataGrid.Columns>
             </DataGrid>
         </Border>
