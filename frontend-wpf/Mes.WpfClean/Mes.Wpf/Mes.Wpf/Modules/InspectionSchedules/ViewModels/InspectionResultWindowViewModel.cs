@@ -46,10 +46,12 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
         private int _currentResultStockShipQty;
         private int _currentResultResultShipQty;
         private int _currentResultStockInQty;
+        private int _currentResultDiscardQty;
 
         private int _stockShipQty;
         private int _resultShipQty;
         private int _stockInQty;
+        private int _discardQty;
 
         private int _goodQty;
         private int _defectShipQty;
@@ -282,6 +284,12 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
             set => SetProperty(ref _currentResultStockInQty, value);
         }
 
+        public int CurrentResultDiscardQty
+        {
+            get => _currentResultDiscardQty;
+            set => SetProperty(ref _currentResultDiscardQty, value);
+        }
+
         public int StockShipQty
         {
             get => _stockShipQty;
@@ -327,6 +335,21 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
             }
         }
 
+        public int DiscardQty
+        {
+            get => _discardQty;
+            set
+            {
+                if (SetProperty(ref _discardQty, value))
+                {
+                    if (!_isRecalculatingInventoryPreview)
+                    {
+                        RecalculateInventoryPreview();
+                    }
+                }
+            }
+        }
+
         public int ExpectedShipQty
         {
             get => _expectedShipQty;
@@ -353,6 +376,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                         StockShipQty = 0;
                         ResultShipQty = 0;
                         StockInQty = 0;
+                        DiscardQty = 0;
                     }
 
                     RecalculateTotals();
@@ -493,6 +517,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                 CurrentResultStockShipQty = inventory?.CurrentResultStockShipQty ?? 0;
                 CurrentResultResultShipQty = inventory?.CurrentResultResultShipQty ?? 0;
                 CurrentResultStockInQty = inventory?.CurrentResultStockInQty ?? 0;
+                CurrentResultDiscardQty = inventory?.CurrentResultDiscardQty ?? 0;
 
                 _baseAccumulatedGoodQty = accumulated?.GoodQty ?? 0;
                 _baseAccumulatedDefectQty = accumulated?.DefectQty ?? 0;
@@ -507,6 +532,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
 
                     StockShipQty = CurrentResultStockShipQty;
                     ResultShipQty = CurrentResultResultShipQty;
+                    DiscardQty = CurrentResultDiscardQty;
                     StockInQty = CurrentResultStockInQty;
 
                     IsPartial = false;
@@ -536,6 +562,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
 
                 StockShipQty = CurrentResultStockShipQty;
                 ResultShipQty = CurrentResultResultShipQty;
+                DiscardQty = dto.DiscardQty;
                 StockInQty = CurrentResultStockInQty;
 
                 IsPartial = dto.IsPartial;
@@ -681,6 +708,12 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                         OnPropertyChanged(nameof(StockInQty));
                     }
 
+                    if (_discardQty != 0)
+                    {
+                        _discardQty = 0;
+                        OnPropertyChanged(nameof(DiscardQty));
+                    }
+
                     ExpectedShipQty = 0;
                     ShortageQty = Math.Max(RemainingShipTargetQty, 0);
 
@@ -694,6 +727,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
 
                 var stockShipQty = Math.Max(StockShipQty, 0);
                 var resultShipQty = Math.Max(ResultShipQty, 0);
+                var discardQty = Math.Max(DiscardQty, 0);
 
                 if (stockShipQty > CurrentStockQty)
                 {
@@ -705,7 +739,13 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                     resultShipQty = sellableQty;
                 }
 
-                var stockInQty = Math.Max(sellableQty - resultShipQty, 0);
+                var maxDiscardQty = Math.Max(sellableQty - resultShipQty, 0);
+                if (discardQty > maxDiscardQty)
+                {
+                    discardQty = maxDiscardQty;
+                }
+
+                var stockInQty = Math.Max(sellableQty - resultShipQty - discardQty, 0);
                 var actualShipQty = stockShipQty + resultShipQty;
 
                 if (_stockShipQty != stockShipQty)
@@ -724,6 +764,12 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                 {
                     _stockInQty = stockInQty;
                     OnPropertyChanged(nameof(StockInQty));
+                }
+
+                if (_discardQty != discardQty)
+                {
+                    _discardQty = discardQty;
+                    OnPropertyChanged(nameof(DiscardQty));
                 }
 
                 ExpectedShipQty = actualShipQty;
@@ -846,9 +892,9 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                 return;
             }
 
-            if (!IsPartial && ResultShipQty + StockInQty != SellableQty)
+            if (!IsPartial && ResultShipQty + StockInQty + DiscardQty != SellableQty)
             {
-                _messageService.ShowWarning("검수분 출하대기수량 + 재고편입수량은 판매가능수량과 같아야 합니다.");
+                _messageService.ShowWarning("검수분 출하대기수량 + 폐기수량 + 재고편입수량은 판매가능수량과 같아야 합니다.");
                 return;
             }
 
@@ -894,6 +940,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                     StockShipQty = IsPartial ? 0 : StockShipQty,
                     ResultShipQty = IsPartial ? 0 : ResultShipQty,
                     StockInQty = IsPartial ? 0 : StockInQty,
+                    DiscardQty = IsPartial ? 0 : DiscardQty,
                     IsPartial = IsPartial,
                     NextInspectionDate = IsPartial ? NextInspectionDate?.Date : null,
                     PartialReason = IsPartial ? PartialReason.Trim() : null,
@@ -972,6 +1019,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                     StockShipQty = 0;
                     ResultShipQty = 0;
                     StockInQty = 0;
+                    DiscardQty = 0;
                     return;
                 }
 
@@ -985,6 +1033,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
 
                 StockShipQty = stockShipQty;
                 ResultShipQty = resultShipQty;
+                DiscardQty = 0;
                 StockInQty = stockInQty;
             }
             finally

@@ -31,6 +31,7 @@ class InspectionResult(Base):
         CheckConstraint("good_qty >= 0", name="ck_inspection_result__good_qty"),
         CheckConstraint("defect_qty >= 0", name="ck_inspection_result__defect_qty"),
         CheckConstraint("defect_ship_qty >= 0", name="ck_inspection_result__defect_ship_qty"),
+        CheckConstraint("discard_qty >= 0", name="ck_inspection_result__discard_qty"),
         CheckConstraint(
             "inspected_qty = good_qty + defect_ship_qty + defect_qty",
             name="ck_inspection_result__inspected_qty_calc_v2",
@@ -50,6 +51,7 @@ class InspectionResult(Base):
     defect_ship_qty: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     defect_qty: Mapped[int] = mapped_column(Integer, nullable=False)
     inspected_qty: Mapped[int] = mapped_column(Integer, nullable=False)
+    discard_qty: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     is_partial: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 

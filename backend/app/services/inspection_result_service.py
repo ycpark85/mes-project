@@ -33,13 +33,14 @@ def _get_prior_result_totals(
     *,
     lot_id: int,
     current_schedule_id: int,
-) -> tuple[int, int, int, int]:
+) -> tuple[int, int, int, int, int]:
     row = db.execute(
         select(
             func.coalesce(func.sum(InspectionResult.good_qty), 0),
             func.coalesce(func.sum(InspectionResult.defect_ship_qty), 0),
             func.coalesce(func.sum(InspectionResult.defect_qty), 0),
             func.coalesce(func.sum(InspectionResult.inspected_qty), 0),
+            func.coalesce(func.sum(InspectionResult.discard_qty), 0),
         )
         .select_from(InspectionResult)
         .join(
@@ -59,6 +60,7 @@ def _get_prior_result_totals(
         int(row[1] or 0),
         int(row[2] or 0),
         int(row[3] or 0),
+        int(row[4] or 0),
     )
 
 
@@ -75,6 +77,7 @@ def upsert_inspection_result(
     stock_ship_qty: int,
     result_ship_qty: int,
     stock_in_qty: int,
+    discard_qty: int,
     is_partial: bool,
     next_inspection_date: Optional[date],
     partial_reason: Optional[str],
@@ -87,7 +90,7 @@ def upsert_inspection_result(
     - inspected_qty = good_qty + defect_ship_qty + defect_qty (서버 계산)
     - sellable_qty = good_qty + defect_ship_qty
     - is_partial=true: shipment/inventory qty is ignored and kept at 0
-    - is_partial=false: result_ship_qty + stock_in_qty == accumulated sellable_qty
+    - is_partial=false: result_ship_qty + stock_in_qty + discard_qty == accumulated sellable_qty
     - defects/attachments: 전체 삭제 후 재삽입
     - is_partial=true: schedule=PARTIAL_DONE + next schedule 자동 생성(RECEIVED)
     - is_partial=false: schedule=DONE + 재고/출하 반영
@@ -100,8 +103,18 @@ def upsert_inspection_result(
     if not sch:
         raise HTTPException(status_code=404, detail="inspection_schedule not found")
 
-    if sch.status != "IN_PROGRESS":
-        raise HTTPException(status_code=409, detail="Only IN_PROGRESS schedule can be saved as result")
+    result = db.execute(
+        select(InspectionResult).where(InspectionResult.inspection_schedule_id == inspection_schedule_id)
+    ).scalar_one_or_none()
+
+    if sch.status not in ("IN_PROGRESS", "DONE"):
+        raise HTTPException(status_code=409, detail="Only IN_PROGRESS or DONE schedule can be saved as result")
+
+    if sch.status == "DONE" and result is None:
+        raise HTTPException(status_code=409, detail="DONE schedule result not found")
+
+    if sch.status == "DONE" and is_partial:
+        raise HTTPException(status_code=409, detail="DONE schedule cannot be changed to partial inspection")
 
     if is_partial:
         if not next_inspection_date:
@@ -109,13 +122,14 @@ def upsert_inspection_result(
         stock_ship_qty = 0
         result_ship_qty = 0
         stock_in_qty = 0
+        discard_qty = 0
     else:
         next_inspection_date = None
 
     inspected_qty = good_qty + defect_ship_qty + defect_qty
     sellable_qty = good_qty + defect_ship_qty
 
-    prior_good_qty, prior_defect_ship_qty, _, _ = _get_prior_result_totals(
+    prior_good_qty, prior_defect_ship_qty, _, _, _ = _get_prior_result_totals(
         db,
         lot_id=sch.lot_id,
         current_schedule_id=inspection_schedule_id,
@@ -123,18 +137,18 @@ def upsert_inspection_result(
     prior_sellable_qty = prior_good_qty + prior_defect_ship_qty
 
     if not is_partial:
-        requested_sellable_qty = result_ship_qty + stock_in_qty
+        requested_sellable_qty = result_ship_qty + stock_in_qty + discard_qty
         required_sellable_qty = sellable_qty + prior_sellable_qty
 
         if prior_sellable_qty > 0 and requested_sellable_qty == sellable_qty:
             stock_in_qty += prior_sellable_qty
-            requested_sellable_qty = result_ship_qty + stock_in_qty
+            requested_sellable_qty = result_ship_qty + stock_in_qty + discard_qty
 
         if requested_sellable_qty != required_sellable_qty:
             raise HTTPException(
                 status_code=422,
                 detail=(
-                    "result_ship_qty + stock_in_qty must equal sellable inspection qty"
+                    "result_ship_qty + stock_in_qty + discard_qty must equal sellable inspection qty"
                 ),
             )
 
@@ -152,10 +166,6 @@ def upsert_inspection_result(
 
     now = _utcnow()
 
-    result = db.execute(
-        select(InspectionResult).where(InspectionResult.inspection_schedule_id == inspection_schedule_id)
-    ).scalar_one_or_none()
-
     if result is None:
         result = InspectionResult(
             inspection_schedule_id=inspection_schedule_id,
@@ -163,6 +173,7 @@ def upsert_inspection_result(
             defect_ship_qty=defect_ship_qty,
             defect_qty=defect_qty,
             inspected_qty=inspected_qty,
+            discard_qty=discard_qty,
             is_partial=is_partial,
             next_inspection_date=next_inspection_date,
             partial_reason=partial_reason,
@@ -176,6 +187,7 @@ def upsert_inspection_result(
         result.defect_ship_qty = defect_ship_qty
         result.defect_qty = defect_qty
         result.inspected_qty = inspected_qty
+        result.discard_qty = discard_qty
         result.is_partial = is_partial
         result.next_inspection_date = next_inspection_date
         result.partial_reason = partial_reason
@@ -583,7 +595,7 @@ def _apply_inventory_for_result(
     db.flush()
 
     current_stock_qty_before_result_in = int(inventory.current_qty or 0)
-    prior_good_qty, prior_defect_ship_qty, _, _ = _get_prior_result_totals(
+    prior_good_qty, prior_defect_ship_qty, _, _, _ = _get_prior_result_totals(
         db,
         lot_id=schedule.lot_id,
         current_schedule_id=schedule.inspection_schedule_id,
@@ -595,10 +607,11 @@ def _apply_inventory_for_result(
         + int(result.defect_ship_qty or 0)
     )
 
-    if result_ship_qty + stock_in_qty != sellable_qty:
+    discard_qty = int(result.discard_qty or 0)
+    if result_ship_qty + stock_in_qty + discard_qty != sellable_qty:
         raise HTTPException(
             status_code=422,
-            detail="result_ship_qty + stock_in_qty must equal sellable_qty",
+            detail="result_ship_qty + stock_in_qty + discard_qty must equal sellable_qty",
         )
 
     if stock_ship_qty > current_stock_qty_before_result_in:
@@ -607,21 +620,23 @@ def _apply_inventory_for_result(
             detail=f"stock_ship_qty exceeds current stock. current_stock_qty={current_stock_qty_before_result_in}",
         )
 
-    if sellable_qty > 0:
+    inventory_in_qty = max(sellable_qty - discard_qty, 0)
+
+    if inventory_in_qty > 0:
         inventory_lot = _get_or_create_inventory_lot(
             db,
             product_id=lot.product_id,
             lot_no=lot.lot_no,
         )
-        inventory.current_qty += sellable_qty
-        inventory_lot.current_qty += sellable_qty
+        inventory.current_qty += inventory_in_qty
+        inventory_lot.current_qty += inventory_in_qty
         db.add(
             ProductInventoryMovement(
                 product_id=lot.product_id,
                 product_inventory_lot_id=inventory_lot.product_inventory_lot_id,
                 stock_lot_no=inventory_lot.lot_no,
                 movement_type="INSPECTION_IN",
-                qty=sellable_qty,
+                qty=inventory_in_qty,
                 balance_after=inventory.current_qty,
                 source_type="INSPECTION_RESULT_IN",
                 source_id=result.inspection_result_id,

@@ -8,6 +8,40 @@ using static Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos.OutsourcePurchaseOrd
 
 namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
 {
+    internal static class SheetQtyCalculator
+    {
+        public static int ResolveFabricWidthMultiplier(int? panelWidthMm)
+        {
+            return panelWidthMm is 250 or 300 ? 2 : 1;
+        }
+
+        public static int Calculate(decimal lengthM, int panelLengthMm, int? panelWidthMm)
+        {
+            var panelLengthMeter = panelLengthMm / 1000m;
+            if (panelLengthMeter <= 0)
+            {
+                return 0;
+            }
+
+            var usableLengthM = lengthM * 0.98m;
+            if (usableLengthM <= 0)
+            {
+                return 0;
+            }
+
+            var rawQty = usableLengthM / panelLengthMeter;
+            if (rawQty <= 0)
+            {
+                return 0;
+            }
+
+            var roundedQty = Math.Round(rawQty / 5m, 0, MidpointRounding.AwayFromZero) * 5m;
+            var sheetQty = roundedQty < 0 ? 0 : (int)roundedQty;
+
+            return sheetQty * ResolveFabricWidthMultiplier(panelWidthMm);
+        }
+    }
+
     public class OutsourceWorkInstructionFileDto
     {
         [JsonPropertyName("outsource_work_instruction_file_id")]
@@ -468,6 +502,7 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
 
         private void RecalculateSheetQty()
         {
+            var panelWidthMm = FirstLot?.PanelWidthMm;
             var panelLengthMm = FirstLot?.PanelLengthMm;
 
             if (!LengthM.HasValue || !panelLengthMm.HasValue || panelLengthMm.Value <= 0)
@@ -476,29 +511,10 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
                 return;
             }
 
-            var panelLengthMeter = panelLengthMm.Value / 1000m;
-            if (panelLengthMeter <= 0)
-            {
-                SheetQty = 0;
-                return;
-            }
-
-            var usableLengthM = LengthM.Value * 0.98m;
-            if (usableLengthM <= 0)
-            {
-                SheetQty = 0;
-                return;
-            }
-
-            var rawQty = usableLengthM / panelLengthMeter;
-            if (rawQty <= 0)
-            {
-                SheetQty = 0;
-                return;
-            }
-
-            var roundedQty = Math.Round(rawQty / 5m, 0, MidpointRounding.AwayFromZero) * 5m;
-            SheetQty = roundedQty < 0 ? 0 : (int)roundedQty;
+            SheetQty = SheetQtyCalculator.Calculate(
+                LengthM.Value,
+                panelLengthMm.Value,
+                panelWidthMm);
         }
     }
 
@@ -810,6 +826,7 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
         private string _customerPartnerName = string.Empty;
         private string _cutSpec = string.Empty;
         private int? _sheetQty;
+        private int? _panelWidthMm;
         private int? _panelLengthMm;
         private decimal? _savedLengthM;
         private int? _savedSheetQty;
@@ -923,6 +940,18 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
             set => SetProperty(ref _sheetQty, value);
         }
 
+        public int? PanelWidthMm
+        {
+            get => _panelWidthMm;
+            set
+            {
+                if (SetProperty(ref _panelWidthMm, value))
+                {
+                    RecalculateSheetQty();
+                }
+            }
+        }
+
         public int? PanelLengthMm
         {
             get => _panelLengthMm;
@@ -943,30 +972,10 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
                 return;
             }
 
-            var panelLengthMeter = PanelLengthMm.Value / 1000m;
-            if (panelLengthMeter <= 0)
-            {
-                SheetQty = null;
-                return;
-            }
-
-            var usableLengthM = LengthM.Value * 0.98m;
-            if (usableLengthM <= 0)
-            {
-                SheetQty = 0;
-                return;
-            }
-
-            var rawQty = usableLengthM / panelLengthMeter;
-            if (rawQty <= 0)
-            {
-                SheetQty = 0;
-                return;
-            }
-
-            var roundedQty = Math.Round(rawQty / 5m, 0, MidpointRounding.AwayFromZero) * 5m;
-
-            SheetQty = roundedQty < 0 ? 0 : (int)roundedQty;
+            SheetQty = SheetQtyCalculator.Calculate(
+                LengthM.Value,
+                PanelLengthMm.Value,
+                PanelWidthMm);
         }
     }
 
@@ -1102,6 +1111,7 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
                     LotSummary = lotSummary,
                     IsBundle = group.IsBundle,
                     RawMaterialText = rawMaterialText,
+                    PanelWidthMm = firstItem.PanelWidthMm,
                     PanelLengthMm = firstItem.PanelLengthMm,
                     LengthM = null,
                     SavedLengthM = firstItem.LengthM,

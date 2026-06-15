@@ -469,9 +469,36 @@
             </DataGrid>
         </Border>
 
-        <DockPanel Grid.Row="4" Margin="0,12,0,0">
-            <TextBlock VerticalAlignment="Center"
+        <Grid Grid.Row="4" Margin="0,12,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="88"/>
+                <ColumnDefinition Width="120"/>
+                <ColumnDefinition Width="95"/>
+                <ColumnDefinition Width="170"/>
+                <ColumnDefinition Width="200"/>
+                <ColumnDefinition Width="90"/>
+                <ColumnDefinition Width="90"/>
+                <ColumnDefinition Width="110"/>
+                <ColumnDefinition Width="130"/>
+                <ColumnDefinition Width="110"/>
+                <ColumnDefinition Width="90"/>
+                <ColumnDefinition Width="100"/>
+                <ColumnDefinition Width="98"/>
+                <ColumnDefinition Width="110"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Grid.Column="0"
+                       Grid.ColumnSpan="2"
+                       VerticalAlignment="Center"
                        Text="{Binding TotalCount, StringFormat=조회건수: {0}}"/>
-        </DockPanel>
+
+            <TextBlock Grid.Column="6"
+                       Grid.ColumnSpan="2"
+                       VerticalAlignment="Center"
+                       HorizontalAlignment="Center"
+                       FontWeight="SemiBold"
+                       Text="{Binding TotalShipQty, StringFormat=출고수량 합계: {0:N0}}"/>
+        </Grid>
     </Grid>
 </UserControl>

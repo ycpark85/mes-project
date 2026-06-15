@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from uuid import uuid4
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
@@ -18,6 +18,7 @@ from app.models.inspection_schedule import InspectionSchedule
 from app.models.lot import Lot
 from app.models.order_line import OrderLine
 from app.models.partner import Partner
+from app.models.product import Product
 from app.models.product_inventory_movement import ProductInventoryMovement
 from app.models.shipment_line import ShipmentLine
 from app.schemas.inspection_result import InspectionInventorySummaryOut
@@ -30,6 +31,7 @@ from app.schemas.inspection_result import (
     DefectAttachmentUploadOut,
     InspectionAccumulatedSummaryOut,
     InspectionResultGetOut,
+    InspectionResultListItemOut,
     InspectionResultUpsertIn,
     InspectionResultUpsertOut,
 )
@@ -178,6 +180,7 @@ def _get_accumulated_summary(
             func.coalesce(func.sum(InspectionResult.defect_qty), 0),
             func.coalesce(func.sum(InspectionResult.defect_ship_qty), 0),
             func.coalesce(func.sum(InspectionResult.inspected_qty), 0),
+            func.coalesce(func.sum(InspectionResult.discard_qty), 0),
         )
         .select_from(InspectionResult)
         .join(
@@ -196,6 +199,7 @@ def _get_accumulated_summary(
         defect_qty=int(row[1] or 0),
         defect_ship_qty=int(row[2] or 0),
         inspected_qty=int(row[3] or 0),
+        discard_qty=int(row[4] or 0),
     )
 
 def _get_inventory_summary(
@@ -230,6 +234,7 @@ def _get_inventory_summary(
     current_result_stock_ship_qty = 0
     current_result_result_ship_qty = 0
     current_result_stock_in_qty = 0
+    current_result_discard_qty = 0
 
     available_stock_lots = get_available_inventory_lots_fifo(
         db,
@@ -241,6 +246,8 @@ def _get_inventory_summary(
 
     if current_result_id is not None:
         result = db.get(InspectionResult, current_result_id)
+        if result is not None:
+            current_result_discard_qty = int(result.discard_qty or 0)
 
         current_result_stock_ship_qty = int(
             db.execute(
@@ -281,7 +288,7 @@ def _get_inventory_summary(
                 )
 
         current_result_stock_in_qty = max(
-            sellable_qty - current_result_result_ship_qty,
+            sellable_qty - current_result_result_ship_qty - current_result_discard_qty,
             0,
         )
 
@@ -321,7 +328,149 @@ def _get_inventory_summary(
         current_result_stock_ship_qty=current_result_stock_ship_qty,
         current_result_result_ship_qty=current_result_result_ship_qty,
         current_result_stock_in_qty=current_result_stock_in_qty,
+        current_result_discard_qty=current_result_discard_qty,
     )
+
+
+@router.get("/results/list", response_model=list[InspectionResultListItemOut])
+def list_inspection_results(
+    date_from: date | None = None,
+    date_to: date | None = None,
+    partner_q: str | None = None,
+    product_q: str | None = None,
+    lot_q: str | None = None,
+    created_by_q: str | None = None,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    _ = user
+
+    result_ship_sq = (
+        select(
+            ShipmentLine.inspection_result_id.label("inspection_result_id"),
+            func.coalesce(func.sum(ShipmentLine.ship_qty), 0).label("result_ship_qty"),
+        )
+        .where(
+            ShipmentLine.source_type == "INSPECTION_RESULT",
+            ShipmentLine.status != "CANCELED",
+        )
+        .group_by(ShipmentLine.inspection_result_id)
+        .subquery()
+    )
+
+    inventory_in_sq = (
+        select(
+            ProductInventoryMovement.inspection_result_id.label("inspection_result_id"),
+            func.coalesce(func.sum(ProductInventoryMovement.qty), 0).label("inventory_in_qty"),
+        )
+        .where(
+            ProductInventoryMovement.movement_type == "INSPECTION_IN",
+            ProductInventoryMovement.source_type == "INSPECTION_RESULT_IN",
+        )
+        .group_by(ProductInventoryMovement.inspection_result_id)
+        .subquery()
+    )
+
+    stmt = (
+        select(
+            InspectionResult.inspection_result_id,
+            InspectionSchedule.inspection_schedule_id,
+            Lot.lot_id,
+            Lot.lot_no,
+            InspectionSchedule.inspection_date,
+            OrderLine.due_date,
+            Partner.name.label("partner_name"),
+            Product.product_code,
+            Product.product_name,
+            Lot.lot_qty,
+            OrderLine.order_qty,
+            InspectionResult.good_qty,
+            func.coalesce(result_ship_sq.c.result_ship_qty, 0).label("result_ship_qty"),
+            InspectionResult.discard_qty,
+            (
+                func.coalesce(inventory_in_sq.c.inventory_in_qty, 0)
+                - func.coalesce(result_ship_sq.c.result_ship_qty, 0)
+            ).label("stock_in_qty"),
+            InspectionResult.defect_qty,
+            InspectionResult.created_by,
+            InspectionResult.created_at,
+            InspectionResult.updated_at,
+            InspectionResult.memo,
+        )
+        .select_from(InspectionResult)
+        .join(
+            InspectionSchedule,
+            InspectionSchedule.inspection_schedule_id
+            == InspectionResult.inspection_schedule_id,
+        )
+        .join(Lot, Lot.lot_id == InspectionSchedule.lot_id)
+        .join(OrderLine, OrderLine.order_line_id == Lot.order_line_id)
+        .join(Partner, Partner.partner_id == OrderLine.partner_id)
+        .join(Product, Product.product_id == Lot.product_id)
+        .outerjoin(
+            result_ship_sq,
+            result_ship_sq.c.inspection_result_id
+            == InspectionResult.inspection_result_id,
+        )
+        .outerjoin(
+            inventory_in_sq,
+            inventory_in_sq.c.inspection_result_id
+            == InspectionResult.inspection_result_id,
+        )
+        .where(InspectionSchedule.status == "DONE")
+    )
+
+    if date_from is not None:
+        stmt = stmt.where(InspectionSchedule.inspection_date >= date_from)
+    if date_to is not None:
+        stmt = stmt.where(InspectionSchedule.inspection_date <= date_to)
+    if partner_q and partner_q.strip():
+        stmt = stmt.where(Partner.name.ilike(f"%{partner_q.strip()}%"))
+    if product_q and product_q.strip():
+        product_keyword = f"%{product_q.strip()}%"
+        stmt = stmt.where(
+            or_(
+                Product.product_name.ilike(product_keyword),
+                Product.product_code.ilike(product_keyword),
+            )
+        )
+    if lot_q and lot_q.strip():
+        stmt = stmt.where(Lot.lot_no.ilike(f"%{lot_q.strip()}%"))
+    if created_by_q and created_by_q.strip():
+        stmt = stmt.where(InspectionResult.created_by.ilike(f"%{created_by_q.strip()}%"))
+
+    stmt = stmt.order_by(
+        InspectionSchedule.inspection_date.desc(),
+        InspectionResult.updated_at.desc(),
+        InspectionResult.inspection_result_id.desc(),
+    )
+
+    rows = db.execute(stmt).mappings().all()
+    return [
+        InspectionResultListItemOut(
+            inspection_result_id=int(row["inspection_result_id"]),
+            inspection_schedule_id=int(row["inspection_schedule_id"]),
+            lot_id=int(row["lot_id"]),
+            lot_no=str(row["lot_no"] or ""),
+            inspection_date=row["inspection_date"],
+            due_date=row["due_date"],
+            partner_name=str(row["partner_name"] or ""),
+            product_code=str(row["product_code"] or ""),
+            product_name=str(row["product_name"] or ""),
+            lot_qty=int(row["lot_qty"] or 0),
+            order_qty=int(row["order_qty"] or 0),
+            good_qty=int(row["good_qty"] or 0),
+            result_ship_qty=int(row["result_ship_qty"] or 0),
+            discard_qty=int(row["discard_qty"] or 0),
+            stock_in_qty=max(int(row["stock_in_qty"] or 0), 0),
+            defect_qty=int(row["defect_qty"] or 0),
+            created_by=row["created_by"],
+            created_at=row["created_at"],
+            updated_at=row["updated_at"],
+            memo=row["memo"],
+        )
+        for row in rows
+    ]
 
 
 @router.get("/{inspection_schedule_id}/result", response_model=InspectionResultGetOut)
@@ -449,6 +598,7 @@ def put_result(
             stock_ship_qty=body.stock_ship_qty,
             result_ship_qty=body.result_ship_qty,
             stock_in_qty=body.stock_in_qty,
+            discard_qty=body.discard_qty,
             is_partial=body.is_partial,
             next_inspection_date=body.next_inspection_date,
             partial_reason=body.partial_reason,

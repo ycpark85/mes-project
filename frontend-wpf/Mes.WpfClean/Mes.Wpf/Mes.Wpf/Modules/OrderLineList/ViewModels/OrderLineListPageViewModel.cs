@@ -59,13 +59,13 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
 
             Items = new ObservableCollection<OrderLineListItemDto>();
 
-            SearchCommand = new AsyncRelayCommand(async () =>
+            SearchOrderLinesCommand = new AsyncRelayCommand(async () =>
             {
                 Page = 1;
                 await SearchAsync();
             });
 
-            ResetCommand = new AsyncRelayCommand(async () =>
+            ResetOrderLineSearchCommand = new AsyncRelayCommand(async () =>
             {
                 Reset();
                 await SearchAsync();
@@ -101,8 +101,8 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
 
         public ObservableCollection<OrderLineListItemDto> Items { get; }
 
-        public AsyncRelayCommand SearchCommand { get; }
-        public AsyncRelayCommand ResetCommand { get; }
+        public AsyncRelayCommand SearchOrderLinesCommand { get; }
+        public AsyncRelayCommand ResetOrderLineSearchCommand { get; }
 
         public AsyncRelayCommand ShowInProgressCommand { get; }
         public AsyncRelayCommand ShowCompletedCommand { get; }

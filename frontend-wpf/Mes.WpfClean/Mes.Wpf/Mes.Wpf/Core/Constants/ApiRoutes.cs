@@ -25,6 +25,7 @@
 
         public const string InspectionSchedules = "api/v1/inspection-schedules";
         public const string InspectionWorkInstructionTargets = "api/v1/inspection-schedules/work-instruction-targets";
+        public const string InspectionResults = "api/v1/inspection-schedules/results/list";
 
         public const string OutsourceWorkInstructions = "api/v1/outsource-work-instructions";
         public const string OutsourceWorkInstructionCandidates = "api/v1/outsource-work-instructions/candidates";

@@ -177,12 +177,12 @@
                         <Button Grid.Column="8"
                                 Style="{StaticResource PrimaryButtonStyle}"
                                 Content="조회"
-                                Command="{Binding SearchCommand}"/>
+                                Command="{Binding SearchOrderLinesCommand}"/>
 
                         <Button Grid.Column="10"
                                 Style="{StaticResource PrimaryButtonStyle}"
                                 Content="초기화"
-                                Command="{Binding ResetCommand}"/>
+                                Command="{Binding ResetOrderLineSearchCommand}"/>
                     </Grid>
                 </Grid>
             </Border>

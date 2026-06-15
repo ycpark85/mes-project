@@ -42,11 +42,18 @@ def list_inventories(
             ProductInventory.updated_at,
         )
         .select_from(Product)
-        .outerjoin(ProductInventory, ProductInventory.product_id == Product.product_id)
+        .join(ProductInventory, ProductInventory.product_id == Product.product_id)
         .where(Product.is_active.is_(True))
+        .where(ProductInventory.current_qty > 0)
     )
 
-    count_q = select(func.count()).select_from(Product).where(Product.is_active.is_(True))
+    count_q = (
+        select(func.count())
+        .select_from(Product)
+        .join(ProductInventory, ProductInventory.product_id == Product.product_id)
+        .where(Product.is_active.is_(True))
+        .where(ProductInventory.current_qty > 0)
+    )
 
     if q:
         keyword = f"%{q.strip()}%"

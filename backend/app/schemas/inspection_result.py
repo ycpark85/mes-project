@@ -31,6 +31,7 @@ class InspectionResultUpsertIn(BaseModel):
     stock_ship_qty: int = Field(0, ge=0)
     result_ship_qty: int = Field(0, ge=0)
     stock_in_qty: int = Field(0, ge=0)
+    discard_qty: int = Field(0, ge=0)
     
     is_partial: bool = False
     next_inspection_date: Optional[date] = None
@@ -79,6 +80,7 @@ class InspectionResultOut(BaseModel):
     defect_ship_qty: int
     defect_qty: int
     inspected_qty: int
+    discard_qty: int = 0
 
     is_partial: bool
     next_inspection_date: Optional[date] = None
@@ -98,10 +100,12 @@ class InspectionAccumulatedSummaryOut(BaseModel):
     defect_qty: int = 0
     defect_ship_qty: int = 0
     inspected_qty: int = 0
+    discard_qty: int = 0
     
     current_result_stock_ship_qty: int = 0
     current_result_result_ship_qty: int = 0
     current_result_stock_in_qty: int = 0
+    current_result_discard_qty: int = 0
 
 
 class InspectionInventorySummaryOut(BaseModel):
@@ -117,6 +121,7 @@ class InspectionInventorySummaryOut(BaseModel):
     current_result_stock_ship_qty: int = 0
     current_result_result_ship_qty: int = 0
     current_result_stock_in_qty: int = 0
+    current_result_discard_qty: int = 0
 
 
 class InspectionResultGetOut(BaseModel):
@@ -129,3 +134,26 @@ class InspectionResultUpsertOut(BaseModel):
     result: InspectionResultOut
     schedule_status: str
     created_next_schedule_id: Optional[int] = None
+
+
+class InspectionResultListItemOut(BaseModel):
+    inspection_result_id: int
+    inspection_schedule_id: int
+    lot_id: int
+    lot_no: str
+    inspection_date: date
+    due_date: date
+    partner_name: str
+    product_code: str
+    product_name: str
+    lot_qty: int
+    order_qty: int
+    good_qty: int
+    result_ship_qty: int
+    discard_qty: int
+    stock_in_qty: int
+    defect_qty: int
+    created_by: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    memo: Optional[str] = None

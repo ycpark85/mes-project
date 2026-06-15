@@ -1,0 +1,316 @@
+<UserControl x:Class="Mes.Wpf.Modules.InspectionSchedules.Views.InspectionResultManagementView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d">
+
+    <UserControl.Resources>
+        <SolidColorBrush x:Key="BorderBrushColor" Color="#D0D5DD"/>
+        <SolidColorBrush x:Key="HeaderBgBrush" Color="#F3F4F6"/>
+        <SolidColorBrush x:Key="PrimaryBlueBrush" Color="#1F73E8"/>
+        <SolidColorBrush x:Key="PrimaryBlueBorderBrush" Color="#1A67D1"/>
+        <SolidColorBrush x:Key="GrayButtonBrush" Color="#F8F9FB"/>
+        <SolidColorBrush x:Key="GrayButtonBorderBrush" Color="#C7CED8"/>
+
+        <Style x:Key="PrimaryActionButtonStyle" TargetType="Button">
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="MinWidth" Value="88"/>
+            <Setter Property="Padding" Value="10,0"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Background" Value="{StaticResource PrimaryBlueBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource PrimaryBlueBorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <Style x:Key="SecondaryActionButtonStyle" TargetType="Button">
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="MinWidth" Value="76"/>
+            <Setter Property="Padding" Value="8,0"/>
+            <Setter Property="Foreground" Value="#374151"/>
+            <Setter Property="Background" Value="{StaticResource GrayButtonBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource GrayButtonBorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <Style x:Key="ResultGridStyle" TargetType="DataGrid">
+            <Setter Property="AutoGenerateColumns" Value="False"/>
+            <Setter Property="CanUserAddRows" Value="False"/>
+            <Setter Property="CanUserDeleteRows" Value="False"/>
+            <Setter Property="CanUserResizeRows" Value="False"/>
+            <Setter Property="CanUserSortColumns" Value="False"/>
+            <Setter Property="CanUserReorderColumns" Value="False"/>
+            <Setter Property="HeadersVisibility" Value="Column"/>
+            <Setter Property="GridLinesVisibility" Value="Horizontal"/>
+            <Setter Property="HorizontalGridLinesBrush" Value="#E5E7EB"/>
+            <Setter Property="VerticalGridLinesBrush" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="RowHeight" Value="40"/>
+            <Setter Property="ColumnHeaderHeight" Value="38"/>
+            <Setter Property="SelectionMode" Value="Single"/>
+            <Setter Property="SelectionUnit" Value="FullRow"/>
+            <Setter Property="Background" Value="White"/>
+        </Style>
+
+        <Style x:Key="CenteredTextBlockStyle" TargetType="TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="TextAlignment" Value="Center"/>
+        </Style>
+
+        <Style x:Key="RightTextBlockStyle" TargetType="TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="HorizontalAlignment" Value="Right"/>
+            <Setter Property="TextAlignment" Value="Right"/>
+        </Style>
+
+        <Style TargetType="DataGridColumnHeader">
+            <Setter Property="Background" Value="{StaticResource HeaderBgBrush}"/>
+            <Setter Property="Foreground" Value="#1F2937"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+
+        <Style TargetType="DataGridCell">
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="6,0"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+
+        <Style TargetType="DataGridRow">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Foreground" Value="#1F2937"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#F7FAFF"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="12"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0"
+                Padding="12"
+                BorderBrush="{StaticResource BorderBrushColor}"
+                BorderThickness="1"
+                CornerRadius="6"
+                Background="White">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="122"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="122"/>
+                    <ColumnDefinition Width="14"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="150"/>
+                    <ColumnDefinition Width="14"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="150"/>
+                    <ColumnDefinition Width="14"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="130"/>
+                    <ColumnDefinition Width="14"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="110"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0"
+                           VerticalAlignment="Center"
+                           Margin="0,0,8,0"
+                           Text="검수일"/>
+                <DatePicker Grid.Column="1"
+                            Height="26"
+                            SelectedDate="{Binding DateFrom, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                <TextBlock Grid.Column="2"
+                           VerticalAlignment="Center"
+                           Margin="6,0"
+                           Text="~"/>
+                <DatePicker Grid.Column="3"
+                            Height="26"
+                            SelectedDate="{Binding DateTo, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
+                <TextBlock Grid.Column="5"
+                           VerticalAlignment="Center"
+                           Margin="0,0,8,0"
+                           Text="거래처"/>
+                <TextBox Grid.Column="6"
+                         Height="26"
+                         Text="{Binding PartnerQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
+                <TextBlock Grid.Column="8"
+                           VerticalAlignment="Center"
+                           Margin="0,0,8,0"
+                           Text="품목"/>
+                <TextBox Grid.Column="9"
+                         Height="26"
+                         Text="{Binding ProductQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
+                <TextBlock Grid.Column="11"
+                           VerticalAlignment="Center"
+                           Margin="0,0,8,0"
+                           Text="LOT"/>
+                <TextBox Grid.Column="12"
+                         Height="26"
+                         Text="{Binding LotQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
+                <TextBlock Grid.Column="14"
+                           VerticalAlignment="Center"
+                           Margin="0,0,8,0"
+                           Text="등록자"/>
+                <TextBox Grid.Column="15"
+                         Height="26"
+                         Text="{Binding CreatedByQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
+                <StackPanel Grid.Column="16"
+                            Orientation="Horizontal"
+                            HorizontalAlignment="Right">
+                    <Button Margin="0,0,8,0"
+                            Style="{StaticResource SecondaryActionButtonStyle}"
+                            Command="{Binding RefreshCommand}"
+                            Content="조회"/>
+                    <Button Margin="0,0,8,0"
+                            Style="{StaticResource SecondaryActionButtonStyle}"
+                            Command="{Binding ResetCommand}"
+                            Content="초기화"/>
+                    <Button Style="{StaticResource PrimaryActionButtonStyle}"
+                            MinWidth="126"
+                            Command="{Binding OpenDetailCommand}"
+                            Content="검수실적 상세보기"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="2"
+                BorderBrush="{StaticResource BorderBrushColor}"
+                BorderThickness="1"
+                CornerRadius="6"
+                Background="White">
+            <DataGrid Style="{StaticResource ResultGridStyle}"
+                      ItemsSource="{Binding Items}"
+                      SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
+                      IsReadOnly="True">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="순번" Width="58" Binding="{Binding RowNo}">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource CenteredTextBlockStyle}"/>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
+
+                    <DataGridTextColumn Header="검수일자" Width="96" Binding="{Binding InspectionDate, StringFormat=yyyy-MM-dd}">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource CenteredTextBlockStyle}"/>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
+
+                    <DataGridTextColumn Header="LOT" Width="112" Binding="{Binding LotNo}"/>
+                    <DataGridTextColumn Header="고객사" Width="170" Binding="{Binding PartnerName}"/>
+                    <DataGridTextColumn Header="품목명" Width="220" Binding="{Binding ProductName}"/>
+
+                    <DataGridTextColumn Header="발주수량" Width="90" Binding="{Binding OrderQty, StringFormat={}{0:N0}}">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource RightTextBlockStyle}"/>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
+
+                    <DataGridTextColumn Header="양품수량" Width="90" Binding="{Binding GoodQty, StringFormat={}{0:N0}}">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource RightTextBlockStyle}"/>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
+
+                    <DataGridTextColumn Header="출하수량" Width="90" Binding="{Binding ResultShipQty, StringFormat={}{0:N0}}">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource RightTextBlockStyle}"/>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
+
+                    <DataGridTemplateColumn Header="폐기수량" Width="90">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding DiscardQty, StringFormat={}{0:N0}}"
+                                           HorizontalAlignment="Right"
+                                           TextAlignment="Right"
+                                           VerticalAlignment="Center">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource RightTextBlockStyle}">
+                                            <Setter Property="Foreground" Value="#B42318"/>
+                                            <Setter Property="FontWeight" Value="SemiBold"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding DiscardQty}" Value="0">
+                                                    <Setter Property="Foreground" Value="#1F2937"/>
+                                                    <Setter Property="FontWeight" Value="Normal"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <DataGridTextColumn Header="재고편입수량" Width="104" Binding="{Binding StockInQty, StringFormat={}{0:N0}}">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource RightTextBlockStyle}"/>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
+
+                    <DataGridTextColumn Header="불량수량" Width="90" Binding="{Binding DefectQty, StringFormat={}{0:N0}}">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource RightTextBlockStyle}"/>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
+
+                    <DataGridTextColumn Header="등록자" Width="90" Binding="{Binding CreatedBy}"/>
+                    <DataGridTextColumn Header="등록일" Width="138" Binding="{Binding CreatedAt, StringFormat=yyyy-MM-dd HH:mm}">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource CenteredTextBlockStyle}"/>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn Header="메모" Width="*" Binding="{Binding Memo}"/>
+                </DataGrid.Columns>
+            </DataGrid>
+        </Border>
+
+        <Border Grid.Row="3"
+                Margin="0,8,0,0"
+                Padding="0,4"
+                Background="Transparent">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Margin="0,0,22,0"
+                           Text="{Binding TotalCount, StringFormat=조회건수: {0:N0}}"/>
+                <TextBlock Margin="0,0,22,0"
+                           Text="{Binding TotalGoodQty, StringFormat=양품 합계: {0:N0}}"/>
+                <TextBlock Margin="0,0,22,0"
+                           Text="{Binding TotalResultShipQty, StringFormat=출하수량 합계: {0:N0}}"/>
+                <TextBlock Margin="0,0,22,0"
+                           Foreground="#B42318"
+                           FontWeight="SemiBold"
+                           Text="{Binding TotalDiscardQty, StringFormat=폐기수량 합계: {0:N0}}"/>
+                <TextBlock Margin="0,0,22,0"
+                           Text="{Binding TotalStockInQty, StringFormat=재고편입 합계: {0:N0}}"/>
+                <TextBlock Text="{Binding TotalDefectQty, StringFormat=불량 합계: {0:N0}}"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

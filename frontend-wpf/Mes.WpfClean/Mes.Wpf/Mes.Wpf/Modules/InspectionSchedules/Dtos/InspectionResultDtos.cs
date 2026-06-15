@@ -30,6 +30,9 @@ namespace Mes.Wpf.Modules.InspectionSchedules.Dtos
 
         [JsonPropertyName("inspected_qty")]
         public int InspectedQty { get; set; }
+
+        [JsonPropertyName("discard_qty")]
+        public int DiscardQty { get; set; }
     }
 
     public class InspectionInventorySummaryDto
@@ -63,6 +66,9 @@ namespace Mes.Wpf.Modules.InspectionSchedules.Dtos
 
         [JsonPropertyName("current_result_stock_in_qty")]
         public int CurrentResultStockInQty { get; set; }
+
+        [JsonPropertyName("current_result_discard_qty")]
+        public int CurrentResultDiscardQty { get; set; }
     }
 
     public class InspectionResultDto
@@ -81,6 +87,9 @@ namespace Mes.Wpf.Modules.InspectionSchedules.Dtos
 
         [JsonPropertyName("defect_qty")]
         public int DefectQty { get; set; }
+
+        [JsonPropertyName("discard_qty")]
+        public int DiscardQty { get; set; }
 
         [JsonPropertyName("is_partial")]
         public bool IsPartial { get; set; }
@@ -171,6 +180,9 @@ namespace Mes.Wpf.Modules.InspectionSchedules.Dtos
 
         [JsonPropertyName("stock_in_qty")]
         public int StockInQty { get; set; }
+
+        [JsonPropertyName("discard_qty")]
+        public int DiscardQty { get; set; }
 
         [JsonPropertyName("is_partial")]
         public bool IsPartial { get; set; }

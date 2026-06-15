@@ -548,6 +548,25 @@ namespace Mes.Wpf.Views.Shell
             await viewModel.InitializeAsync();
         }
 
+        private async void InspectionResultManagement_Click(object sender, RoutedEventArgs e)
+        {
+            var view = new InspectionResultManagementView();
+
+            var viewModel = new InspectionResultManagementPageViewModel(
+                _apiClient,
+                _messageService);
+
+            view.DataContext = viewModel;
+
+            MainContent.Content = view;
+            MainContent.Visibility = Visibility.Visible;
+
+            HeaderTitle.Text = "검수실적관리";
+            HeaderSubtitle.Text = "검수 완료 실적 조회 / 상세보기 / 실적 수정";
+
+            await viewModel.InitializeAsync();
+        }
+
         private async void OutsourceWorkInstruction_Click(object sender, RoutedEventArgs e)
         {
             var page = new OutsourceWorkInstructionPage();
@@ -858,6 +877,7 @@ namespace Mes.Wpf.Views.Shell
 
             SetMenuVisibility(InspectionWorkInstructionMenuButton, PermissionCodes.InspectionWorkInstructionsView);
             SetMenuVisibility(InspectionScheduleManagementMenuButton, PermissionCodes.InspectionSchedulesView);
+            SetMenuVisibility(InspectionResultManagementMenuButton, PermissionCodes.InspectionSchedulesView);
 
             SetMenuVisibility(OutsourceWorkInstructionMenuButton, PermissionCodes.OutsourceWorkInstructionsView);
             SetMenuVisibility(OutsourcePurchaseOrderMenuButton, PermissionCodes.OutsourcePurchaseOrdersView);

@@ -364,6 +364,11 @@
                                         Content="검수스케쥴관리"
                                         Style="{StaticResource SidebarMenuButtonStyle}"
                                         Click="InspectionScheduleManagement_Click"/>
+
+                                <Button x:Name="InspectionResultManagementMenuButton"
+                                        Content="검수실적관리"
+                                        Style="{StaticResource SidebarMenuButtonStyle}"
+                                        Click="InspectionResultManagement_Click"/>
                             </StackPanel>
                         </Expander>
                         <Expander Header="☑ 회원관리"

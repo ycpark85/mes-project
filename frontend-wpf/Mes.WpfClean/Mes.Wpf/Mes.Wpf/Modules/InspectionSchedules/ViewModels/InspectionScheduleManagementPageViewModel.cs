@@ -28,6 +28,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
         private string _partnerQuery = string.Empty;
         private string _productQuery = string.Empty;
         private int _totalCount;
+        private int _totalShipQty;
         private InspectionScheduleListItemDto? _selectedItem;
         private bool _isHandlingDateChange;
 
@@ -147,6 +148,12 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
             set => SetProperty(ref _totalCount, value);
         }
 
+        public int TotalShipQty
+        {
+            get => _totalShipQty;
+            set => SetProperty(ref _totalShipQty, value);
+        }
+
         public InspectionScheduleListItemDto? SelectedItem
         {
             get => _selectedItem;
@@ -211,6 +218,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                 {
                     Items.Clear();
                     TotalCount = 0;
+                    TotalShipQty = 0;
                     SelectedItem = null;
                     EditModel.Clear();
 
@@ -227,6 +235,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                 }
 
                 TotalCount = Items.Count;
+                TotalShipQty = Items.Sum(x => x.ShipQty);
 
                 if (selectedId.HasValue)
                 {
