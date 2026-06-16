@@ -51,6 +51,7 @@ class InspectionScheduleListItemOut(BaseModel):
     inspection_schedule_id: int
     lot_id: int
     lot_no: str
+    is_rework: bool = False
     outsource_work_group_id: Optional[int] = None
     outsource_work_group_item_id: Optional[int] = None
     bundle_no: Optional[str] = None

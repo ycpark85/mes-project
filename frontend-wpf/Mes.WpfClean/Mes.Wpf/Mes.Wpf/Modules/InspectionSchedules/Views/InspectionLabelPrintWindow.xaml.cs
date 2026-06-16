@@ -129,12 +129,101 @@ namespace Mes.Wpf.Modules.InspectionSchedules.Views
 
             var valueLeft = left + labelColumnWidth;
             var valueWidth = tableWidth - labelColumnWidth;
-            DrawFittedText(context, productName, productNameTypeface, 18, 7, new Rect(valueLeft + 4, top + 1, valueWidth - 8, rowHeight - 2), 2);
+            var productNamePadding = MmToDip(2.4);
+            DrawProductNameText(context, productName, productNameTypeface, 18, 7, new Rect(valueLeft + productNamePadding, top + 1, valueWidth - (productNamePadding * 2), rowHeight - 2));
             DrawFittedText(context, productSpec, valueTypeface, 22, 11, new Rect(valueLeft + 4, top + rowHeight + 1, valueWidth - 8, rowHeight - 2), 1);
             DrawFittedText(context, lotNo, valueTypeface, 22, 13, new Rect(valueLeft + 4, top + (rowHeight * 2) + 1, valueWidth - 8, rowHeight - 2), 1);
             DrawFittedText(context, qtyText, valueTypeface, 22, 13, new Rect(valueLeft + 4, top + (rowHeight * 3) + 1, valueWidth - 8, rowHeight - 2), 1);
 
             return visual;
+        }
+
+        private static void DrawProductNameText(DrawingContext context, string text, Typeface typeface, double maxFontSize, double minFontSize, Rect bounds)
+        {
+            var value = string.IsNullOrWhiteSpace(text) ? "-" : text.Trim();
+            context.PushClip(new RectangleGeometry(bounds));
+
+            for (var fontSize = maxFontSize; fontSize >= minFontSize; fontSize -= 0.5)
+            {
+                var lines = WrapTextByCharacter(value, typeface, fontSize, bounds.Width, 2);
+                if (lines.Count > 2)
+                {
+                    continue;
+                }
+
+                var formattedLines = new FormattedText[lines.Count];
+                var totalHeight = 0.0;
+                var fits = true;
+
+                for (var i = 0; i < lines.Count; i++)
+                {
+                    var formatted = CreateFormattedText(lines[i], typeface, fontSize, TextAlignment.Center);
+                    formatted.MaxTextWidth = bounds.Width;
+                    if (formatted.Width > bounds.Width)
+                    {
+                        fits = false;
+                        break;
+                    }
+
+                    formattedLines[i] = formatted;
+                    totalHeight += formatted.Height;
+                }
+
+                if (!fits || totalHeight > bounds.Height)
+                {
+                    continue;
+                }
+
+                var y = bounds.Top + ((bounds.Height - totalHeight) / 2.0);
+                foreach (var formatted in formattedLines)
+                {
+                    context.DrawText(formatted, new Point(bounds.Left, y));
+                    y += formatted.Height;
+                }
+
+                context.Pop();
+                return;
+            }
+
+            var fallback = CreateFormattedText(value, typeface, minFontSize, TextAlignment.Center);
+            fallback.MaxTextWidth = bounds.Width;
+            fallback.MaxTextHeight = bounds.Height;
+            fallback.Trimming = TextTrimming.CharacterEllipsis;
+            DrawTextAtCenter(context, fallback, bounds);
+            context.Pop();
+        }
+
+        private static System.Collections.Generic.List<string> WrapTextByCharacter(string text, Typeface typeface, double fontSize, double maxWidth, int maxLines)
+        {
+            var lines = new System.Collections.Generic.List<string>();
+            var current = string.Empty;
+
+            foreach (var ch in text)
+            {
+                var candidate = current + ch;
+                var formatted = CreateFormattedText(candidate, typeface, fontSize, TextAlignment.Center);
+
+                if (current.Length == 0 || formatted.WidthIncludingTrailingWhitespace <= maxWidth)
+                {
+                    current = candidate;
+                    continue;
+                }
+
+                lines.Add(current);
+                current = ch.ToString();
+
+                if (lines.Count > maxLines)
+                {
+                    return lines;
+                }
+            }
+
+            if (current.Length > 0)
+            {
+                lines.Add(current);
+            }
+
+            return lines;
         }
 
         private static void DrawFittedText(DrawingContext context, string text, Typeface typeface, double maxFontSize, double minFontSize, Rect bounds, int maxLines)

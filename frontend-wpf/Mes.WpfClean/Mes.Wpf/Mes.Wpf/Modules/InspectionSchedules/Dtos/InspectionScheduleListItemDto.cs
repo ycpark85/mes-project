@@ -14,6 +14,9 @@ namespace Mes.Wpf.Modules.InspectionSchedules.Dtos
         [JsonPropertyName("lot_no")]
         public string LotNo { get; set; } = string.Empty;
 
+        [JsonPropertyName("is_rework")]
+        public bool IsRework { get; set; }
+
         [JsonPropertyName("outsource_work_group_id")]
         public long? OutsourceWorkGroupId { get; set; }
 

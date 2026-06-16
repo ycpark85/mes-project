@@ -195,6 +195,10 @@
                             Margin="0,0,8,0"
                             Command="{Binding PrintLabelCommand}"
                             Content="라벨지인쇄" />
+                    <Button Width="104"
+                            Margin="0,0,8,0"
+                            Click="PrintScheduleButton_OnClick"
+                            Content="스케줄인쇄" />
                     <Button Width="90"
                             Margin="0,0,8,0"
                             Command="{Binding RefreshCommand}"
@@ -252,8 +256,20 @@
                                         HorizontalAlignment="Left"
                                         Background="Transparent"
                                         BorderThickness="0"
-                                        Foreground="#F97316"
-                                        Cursor="Hand" />    
+                                        Cursor="Hand">
+                                    <Button.Style>
+                                        <Style TargetType="Button">
+                                            <Setter Property="Foreground" Value="#F97316"/>
+                                            <Setter Property="FontWeight" Value="Normal"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsRework}" Value="True">
+                                                    <Setter Property="Foreground" Value="#991B1B"/>
+                                                    <Setter Property="FontWeight" Value="Bold"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>

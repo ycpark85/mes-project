@@ -30,6 +30,7 @@ from app.models.partner import Partner
 from app.models.product import Product
 from app.models.product_inventory import ProductInventory
 from app.models.routing_template import RoutingTemplate
+from app.services.routing_policy import is_inspection_only_template_name
 from app.schemas.outsource_work_instruction import (
     BohyunOutsourceGroupItemOut,
     BohyunOutsourceGroupListItemOut,
@@ -218,6 +219,9 @@ def _generate_instruction_no(db: Session, instruction_date: date) -> str:
 def _get_available_process_types(template_name: str | None) -> List[str]:
     name = (template_name or "").strip()
 
+    if is_inspection_only_template_name(name):
+        return []
+
     if "무지" in name:
         return ["CUT"]
 
@@ -234,7 +238,10 @@ def _get_primary_outsource_process_type(template_name: str | None) -> str:
     if "PRINT" in available_process_types:
         return "PRINT"
 
-    return "CUT"
+    if "CUT" in available_process_types:
+        return "CUT"
+
+    return ""
 
 
 
@@ -1331,6 +1338,8 @@ def get_candidate_lots(
 
     for lot, order_line, product, partner, routing_template in rows:
         available = _get_available_process_types(routing_template.template_name)
+        if not available:
+            continue
 
         if process_type and process_type not in available:
             continue
@@ -1415,6 +1424,11 @@ def create_outsource_work_instruction(
 
     for lot, order_line, product, routing_template in lots:
         available = _get_available_process_types(routing_template.template_name)
+        if not available:
+            raise HTTPException(
+                status_code=409,
+                detail=f"LOT {lot.lot_no} has no outsource process",
+            )
 
         if payload.process_type not in available:
             raise HTTPException(
@@ -1535,7 +1549,7 @@ def create_outsource_work_instruction_batch(
 
             if primary_process_type == "PRINT":
                 print_lot_ids.append(lot.lot_id)
-            else:
+            elif primary_process_type == "CUT":
                 cut_lot_ids.append(lot.lot_id)
 
         if not cut_lot_ids and not print_lot_ids:

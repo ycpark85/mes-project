@@ -26,7 +26,9 @@ from app.models.outsource_purchase_order_item import OutsourcePurchaseOrderItem
 from app.models.inspection_result import InspectionResult
 from app.models.shipment_line import ShipmentLine
 from app.models.drawing import Drawing
+from app.models.routing_template import RoutingTemplate
 from app.services.inventory_fifo_service import get_available_inventory_lots_fifo
+from app.services.routing_policy import is_inspection_only_template_name
 from app.schemas.inspection_schedule import (
     InspectionScheduleCreate,
     InspectionScheduleListItemOut,
@@ -177,6 +179,27 @@ def _to_diecut_status_label(status: str | None) -> str | None:
         return "도무송 출고완료"
 
     return status
+
+
+def _get_lot_routing_template_name(db: Session, lot_id: int) -> str | None:
+    return (
+        db.execute(
+            select(RoutingTemplate.template_name)
+            .select_from(Lot)
+            .join(Product, Product.product_id == Lot.product_id)
+            .join(
+                RoutingTemplate,
+                RoutingTemplate.routing_template_id == Product.routing_template_id,
+            )
+            .where(Lot.lot_id == lot_id)
+        )
+        .scalar_one_or_none()
+    )
+
+
+def _is_inspection_only_lot(db: Session, lot_id: int) -> bool:
+    return is_inspection_only_template_name(_get_lot_routing_template_name(db, lot_id))
+
 
 def _sync_order_line_status_from_lot(db: Session, *, lot: Lot) -> None:
     exists_not_done_lot = db.execute(
@@ -476,6 +499,17 @@ def receive_inspection_schedule(
     if obj.status != "WAITING":
         raise HTTPException(status_code=409, detail="Only WAITING schedule can be received")
 
+    if _is_inspection_only_lot(db, obj.lot_id):
+        obj.status = "RECEIVED"
+        obj.received_at = _utcnow()
+
+        db.flush()
+        _sync_lot_status_from_inspection_schedules(db, lot_id=obj.lot_id)
+
+        db.commit()
+        db.refresh(obj)
+        return obj
+
     if obj.outsource_work_group_id:
         work_group = db.get(
             OutsourceWorkGroup,
@@ -760,6 +794,78 @@ def get_inspection_work_instruction_targets(
             )
         )
 
+    existing_item_lot_ids = {int(item.lot_id) for item in items}
+
+    inspection_only_stmt = (
+        select(Lot, OrderLine, Product, Partner, RoutingTemplate)
+        .join(OrderLine, OrderLine.order_line_id == Lot.order_line_id)
+        .join(Partner, Partner.partner_id == OrderLine.partner_id)
+        .join(Product, Product.product_id == Lot.product_id)
+        .join(
+            RoutingTemplate,
+            RoutingTemplate.routing_template_id == Product.routing_template_id,
+        )
+        .where(
+            Lot.status != "CANCELED",
+            ~exists(
+                select(1)
+                .select_from(InspectionSchedule)
+                .where(
+                    InspectionSchedule.lot_id == Lot.lot_id,
+                    InspectionSchedule.status != "CANCELED",
+                )
+            ),
+        )
+    )
+
+    if partner_q:
+        inspection_only_stmt = inspection_only_stmt.where(
+            Partner.name.ilike(f"%{partner_q.strip()}%")
+        )
+
+    if product_q:
+        like = f"%{product_q.strip()}%"
+        inspection_only_stmt = inspection_only_stmt.where(
+            (Product.product_code.ilike(like))
+            | (Product.product_name.ilike(like))
+            | (Lot.lot_no.ilike(like))
+        )
+
+    inspection_only_rows = (
+        db.execute(
+            inspection_only_stmt.order_by(
+                Lot.created_date.desc(),
+                Lot.lot_no.asc(),
+            )
+            .limit(limit)
+            .offset(offset)
+        )
+        .all()
+    )
+
+    for lot, order_line, product, partner, routing_template in inspection_only_rows:
+        if int(lot.lot_id) in existing_item_lot_ids:
+            continue
+
+        if not is_inspection_only_template_name(routing_template.template_name):
+            continue
+
+        items.append(
+            InspectionWorkInstructionTargetOut(
+                lot_id=lot.lot_id,
+                lot_no=lot.lot_no,
+                outsource_work_group_id=None,
+                outsource_work_group_item_id=None,
+                bundle_no=None,
+                product_code=product.product_code,
+                product_name=product.product_name,
+                partner_name=partner.name,
+                lot_qty=lot.lot_qty,
+                due_date=lot.due_date,
+                memo=lot.memo,
+            )
+        )
+
     return InspectionWorkInstructionTargetListOut(items=items)
 
 
@@ -800,6 +906,7 @@ def list_inspection_schedules(
             InspectionSchedule.inspection_schedule_id,
             InspectionSchedule.lot_id,
             Lot.lot_no,
+            (Lot.parent_lot_id.is_not(None)).label("is_rework"),
             InspectionSchedule.inspection_date,
             InspectionSchedule.status,
             InspectionSchedule.day_seq,
