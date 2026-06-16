@@ -48,6 +48,10 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
             ResetCommand = new AsyncRelayCommand(ResetAsync, () => !IsLoading);
             ClearSelectionCommand = new AsyncRelayCommand(ClearSelectionAsync, () => !IsLoading);
 
+            PrintLabelCommand = new AsyncRelayCommand(
+                OpenLabelPrintWindowAsync,
+                () => !IsLoading && SelectedItem != null);
+
             OpenLotDetailCommand = new AsyncRelayCommand(
                 OpenLotDetailAsync,
                 () => !IsLoading && SelectedItem != null);
@@ -96,6 +100,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
         public ICommand RefreshCommand { get; }
         public ICommand ResetCommand { get; }
         public ICommand ClearSelectionCommand { get; }
+        public ICommand PrintLabelCommand { get; }
         public ICommand SelectItemCommand { get; }
         public ICommand OpenDrawingCommand { get; }
         public ICommand OpenPlateDataCommand { get; }
@@ -280,6 +285,26 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
         {
             SelectedItem = null;
             EditModel.Clear();
+            return Task.CompletedTask;
+        }
+
+        private Task OpenLabelPrintWindowAsync()
+        {
+            if (SelectedItem == null)
+            {
+                _messageService.ShowWarning("라벨을 인쇄할 스케줄 행을 선택해주세요.");
+                return Task.CompletedTask;
+            }
+
+            var window = new InspectionLabelPrintWindow(
+                SelectedItem.ProductName,
+                SelectedItem.ProductSpec ?? string.Empty,
+                SelectedItem.LotNo)
+            {
+                Owner = Application.Current?.MainWindow
+            };
+
+            window.ShowDialog();
             return Task.CompletedTask;
         }
 
@@ -847,6 +872,11 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
             if (ClearSelectionCommand is AsyncRelayCommand clearSelectionCommand)
             {
                 clearSelectionCommand.RaiseCanExecuteChanged();
+            }
+
+            if (PrintLabelCommand is AsyncRelayCommand printLabelCommand)
+            {
+                printLabelCommand.RaiseCanExecuteChanged();
             }
 
             if (SelectItemCommand is AsyncRelayCommand<InspectionScheduleListItemDto> selectItemCommand)

@@ -894,13 +894,13 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
 
             if (!IsPartial && ResultShipQty + StockInQty + DiscardQty != SellableQty)
             {
-                _messageService.ShowWarning("검수분 출하대기수량 + 폐기수량 + 재고편입수량은 판매가능수량과 같아야 합니다.");
+                _messageService.ShowWarning("생산 출고수량 + 폐기수량 + 재고편입수량은 판매가능수량과 같아야 합니다.");
                 return;
             }
 
             if (!IsPartial && StockShipQty > CurrentStockQty)
             {
-                _messageService.ShowWarning("기존재고 출하대기수량이 현재 재고수량을 초과할 수 없습니다.");
+                _messageService.ShowWarning("재고 출고수량이 현재 재고수량을 초과할 수 없습니다.");
                 return;
             }
 
@@ -976,7 +976,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                     return;
                 }
 
-                _messageService.ShowInfo("검수실적 및 출하대기가 저장되었습니다.");
+                _messageService.ShowInfo("검수실적 및 출고 이력이 저장되었습니다.");
                 CloseRequested?.Invoke(true);
             }
             finally

@@ -259,6 +259,7 @@ def _get_inventory_summary(
             ).scalar_one()
             or 0
         )
+        current_stock_qty += current_result_stock_ship_qty
 
         current_result_result_ship_qty = int(
             db.execute(

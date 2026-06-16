@@ -229,7 +229,7 @@
                     </Grid>
                 </Border>
 
-                <!-- 출하대기 / 재고 요약 -->
+                <!-- 출고 / 재고 요약 -->
                 <Border Grid.Column="4" Style="{StaticResource SectionBorderStyle}">
                     <Grid>
                         <Grid.RowDefinitions>
@@ -250,7 +250,7 @@
 
                         <TextBlock Grid.Row="0"
                                    Style="{StaticResource SectionTitleStyle}"
-                                   Text="출하대기 / 재고 요약"/>
+                                   Text="출고 / 재고 요약"/>
 
                         <Grid Grid.Row="2">
                             <Grid.ColumnDefinitions>
@@ -293,7 +293,7 @@
                                 <ColumnDefinition Width="125"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Style="{StaticResource LabelTextStyle}" Text="출하대기합계"/>
+                            <TextBlock Grid.Column="0" Style="{StaticResource LabelTextStyle}" Text="출고수량합계"/>
                             <TextBlock Grid.Column="1" Style="{StaticResource ValueTextStyle}" Text="{Binding ExpectedShipQty, StringFormat={}{0:N0}}"/>
                         </Grid>
                         <Grid Grid.Row="12">
@@ -328,7 +328,7 @@
                                 Binding="{Binding StockQty, StringFormat={}{0:N0}}"
                                 Width="90"/>
 
-                                    <DataGridTextColumn Header="출하대기 예정"
+                                    <DataGridTextColumn Header="출고 예정"
                                 Binding="{Binding AllocatedShipQty, StringFormat={}{0:N0}}"
                                 Width="110"/>
                                 </DataGrid.Columns>
@@ -338,7 +338,7 @@
                 </Border>
             </Grid>
 
-            <!-- 검수 수량 / 출하대기 입력 -->
+            <!-- 검수 수량 / 출고 입력 -->
             <Border Grid.Row="2" Style="{StaticResource SectionBorderStyle}">
                 <Grid>
                     <Grid.RowDefinitions>
@@ -349,7 +349,7 @@
 
                     <TextBlock Grid.Row="0"
                                Style="{StaticResource SectionTitleStyle}"
-                               Text="검수수량 및 출하대기 수량"/>
+                               Text="검수수량 및 출고/재고 처리"/>
 
                     <Grid Grid.Row="2">
                         <Grid.ColumnDefinitions>
@@ -427,7 +427,7 @@
                             </Grid>
                         </Border>
 
-                        <!-- 출하대기 수량 -->
+                        <!-- 출고 / 재고 처리 -->
                         <Border Grid.Column="2" Style="{StaticResource SubSectionBorderStyle}">
                             <Grid>
                                 <Grid.RowDefinitions>
@@ -444,14 +444,14 @@
                                     <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
 
-                                <TextBlock Grid.Row="0" FontWeight="SemiBold" Text="출하대기 생성"/>
+                                <TextBlock Grid.Row="0" FontWeight="SemiBold" Text="출고 / 재고 처리"/>
 
                                 <Grid Grid.Row="2">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="150"/>
                                         <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Style="{StaticResource LabelTextStyle}" Text="기존재고 출하대기"/>
+                                    <TextBlock Grid.Column="0" Style="{StaticResource LabelTextStyle}" Text="재고 출고수량"/>
                                     <TextBox Grid.Column="1"
                                              Style="{StaticResource InputTextBoxStyle}"
                                              IsEnabled="{Binding IsShipmentInputEnabled}"
@@ -463,7 +463,7 @@
                                         <ColumnDefinition Width="150"/>
                                         <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Style="{StaticResource LabelTextStyle}" Text="검수분 출하대기"/>
+                                    <TextBlock Grid.Column="0" Style="{StaticResource LabelTextStyle}" Text="생산 출고수량"/>
                                     <TextBox Grid.Column="1"
                                              Style="{StaticResource InputTextBoxStyle}"
                                              IsEnabled="{Binding IsShipmentInputEnabled}"
@@ -498,7 +498,7 @@
                                         <ColumnDefinition Width="150"/>
                                         <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Style="{StaticResource LabelTextStyle}" Text="출하대기합계"/>
+                                    <TextBlock Grid.Column="0" Style="{StaticResource LabelTextStyle}" Text="출고수량합계"/>
                                     <TextBlock Grid.Column="1"
                                                Style="{StaticResource ValueTextStyle}"
                                                Text="{Binding ExpectedShipQty, StringFormat={}{0:N0}}"/>
@@ -833,14 +833,14 @@
 
                     <TextBlock Grid.Row="4"
                    Foreground="#6B7280"
-                   Text="저장 시 판매가능수량은 재고로 입고되고, 입력한 수량만큼 출하대기가 생성됩니다. 실제 재고 차감은 출하관리에서 진행됩니다."/>
+                   Text="저장 시 입력한 출고수량은 출고 이력으로 기록되고 실제 재고가 차감됩니다. 남은 판매가능수량은 재고로 편입됩니다."/>
 
                     <StackPanel Grid.Row="6"
                     Orientation="Horizontal"
                     HorizontalAlignment="Right">
                         <Button Style="{StaticResource PrimaryButtonStyle}"
                     Margin="0,0,8,0"
-                    Content="검수실적 및 출하대기 저장"
+                    Content="검수실적 저장"
                     Command="{Binding SaveCommand}"/>
 
                         <Button Style="{StaticResource PrimaryButtonStyle}"

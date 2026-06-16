@@ -69,6 +69,7 @@ class InspectionScheduleListItemOut(BaseModel):
     partner_name: str
     product_code: str
     product_name: str
+    product_spec: Optional[str] = None
     lot_qty: int
     order_qty: int
     ship_qty: int

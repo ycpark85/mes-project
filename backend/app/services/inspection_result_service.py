@@ -503,6 +503,140 @@ def _create_stock_shipment_lines_by_fifo(
             )
         )
 
+def _add_ship_out_movement(
+    db: Session,
+    *,
+    order_line: OrderLine,
+    schedule: InspectionSchedule,
+    inventory: ProductInventory,
+    shipment_line: ShipmentLine,
+    ship_qty: int,
+    memo: str,
+) -> None:
+    db.add(
+        ProductInventoryMovement(
+            product_id=shipment_line.product_id,
+            product_inventory_lot_id=shipment_line.product_inventory_lot_id,
+            stock_lot_no=shipment_line.stock_lot_no,
+            movement_type="SHIP_OUT",
+            qty=-ship_qty,
+            balance_after=inventory.current_qty,
+            source_type="SHIPMENT_LINE",
+            source_id=shipment_line.shipment_line_id,
+            order_line_id=order_line.order_line_id,
+            inspection_schedule_id=schedule.inspection_schedule_id,
+            inspection_result_id=shipment_line.inspection_result_id,
+            memo=memo,
+        )
+    )
+
+
+def _create_completed_stock_shipment_lines_by_fifo(
+    db: Session,
+    *,
+    order_line: OrderLine,
+    schedule: InspectionSchedule,
+    inventory: ProductInventory,
+    product_id: int,
+    current_lot_no: str,
+    inspection_result_id: int,
+    stock_ship_qty: int,
+) -> None:
+    shipped_at = _utcnow()
+    allocations = _get_fifo_stock_lot_allocations(
+        db,
+        product_id=product_id,
+        current_lot_no=current_lot_no,
+        inspection_result_id=inspection_result_id,
+        stock_ship_qty=stock_ship_qty,
+    )
+
+    for inventory_lot, ship_qty in allocations:
+        stock_lot = (
+            db.execute(
+                select(Lot)
+                .where(
+                    Lot.product_id == product_id,
+                    Lot.lot_no == inventory_lot.lot_no,
+                )
+                .limit(1)
+            )
+            .scalar_one_or_none()
+        )
+
+        inventory_lot.current_qty -= ship_qty
+        inventory.current_qty -= ship_qty
+
+        shipment_line = ShipmentLine(
+            order_line_id=order_line.order_line_id,
+            product_id=product_id,
+            product_inventory_lot_id=inventory_lot.product_inventory_lot_id,
+            stock_lot_no=inventory_lot.lot_no,
+            lot_id=stock_lot.lot_id if stock_lot else None,
+            inspection_result_id=inspection_result_id,
+            source_type="STOCK",
+            status="DONE",
+            ship_qty=ship_qty,
+            shipped_qty=ship_qty,
+            shipped_at=shipped_at,
+            memo="검수실적 저장 시 기존재고 출고 처리",
+        )
+        db.add(shipment_line)
+        db.flush()
+
+        _add_ship_out_movement(
+            db,
+            order_line=order_line,
+            schedule=schedule,
+            inventory=inventory,
+            shipment_line=shipment_line,
+            ship_qty=ship_qty,
+            memo=f"검수실적 저장 기존재고 출고 / shipment_line_id={shipment_line.shipment_line_id}",
+        )
+
+
+def _create_completed_result_shipment_line(
+    db: Session,
+    *,
+    order_line: OrderLine,
+    schedule: InspectionSchedule,
+    inventory: ProductInventory,
+    inventory_lot: ProductInventoryLot,
+    lot: Lot,
+    inspection_result_id: int,
+    result_ship_qty: int,
+) -> None:
+    inventory_lot.current_qty -= result_ship_qty
+    inventory.current_qty -= result_ship_qty
+
+    shipment_line = ShipmentLine(
+        order_line_id=order_line.order_line_id,
+        product_id=lot.product_id,
+        product_inventory_lot_id=inventory_lot.product_inventory_lot_id,
+        stock_lot_no=inventory_lot.lot_no,
+        lot_id=lot.lot_id,
+        inspection_result_id=inspection_result_id,
+        source_type="INSPECTION_RESULT",
+        status="DONE",
+        ship_qty=result_ship_qty,
+        shipped_qty=result_ship_qty,
+        shipped_at=_utcnow(),
+        memo="검수실적 저장 시 생산분 출고 처리",
+    )
+    db.add(shipment_line)
+    db.flush()
+
+    _add_ship_out_movement(
+        db,
+        order_line=order_line,
+        schedule=schedule,
+        inventory=inventory,
+        shipment_line=shipment_line,
+        ship_qty=result_ship_qty,
+        memo=f"검수실적 저장 생산분 출고 / shipment_line_id={shipment_line.shipment_line_id}",
+    )
+
+
 def _apply_inventory_for_result(
     db: Session,
     *,
@@ -546,7 +680,9 @@ def _apply_inventory_for_result(
         select(ProductInventoryMovement)
         .where(
             ProductInventoryMovement.inspection_result_id == result.inspection_result_id,
-            ProductInventoryMovement.source_type.in_(("INSPECTION_RESULT", "INSPECTION_RESULT_IN")),
+            ProductInventoryMovement.source_type.in_(
+                ("INSPECTION_RESULT", "INSPECTION_RESULT_IN", "SHIPMENT_LINE")
+            ),
         )
         .with_for_update()
     ).scalars().all()
@@ -582,12 +718,6 @@ def _apply_inventory_for_result(
         )
         .with_for_update()
     ).scalars().all()
-
-    if any(line.status == "DONE" for line in existing_shipment_lines):
-        raise HTTPException(
-            status_code=409,
-            detail="이미 출하 완료된 출하대기 건이 있어 검수실적을 수정할 수 없습니다.",
-        )
 
     for line in existing_shipment_lines:
         db.delete(line)
@@ -648,9 +778,11 @@ def _apply_inventory_for_result(
         )
 
     if stock_ship_qty > 0:
-        _create_stock_shipment_lines_by_fifo(
+        _create_completed_stock_shipment_lines_by_fifo(
             db,
             order_line=order_line,
+            schedule=schedule,
+            inventory=inventory,
             product_id=lot.product_id,
             current_lot_no=lot.lot_no,
             inspection_result_id=result.inspection_result_id,
@@ -663,20 +795,15 @@ def _apply_inventory_for_result(
             product_id=lot.product_id,
             lot_no=lot.lot_no,
         )
-        db.add(
-            ShipmentLine(
-                order_line_id=order_line.order_line_id,
-                product_id=lot.product_id,
-                product_inventory_lot_id=result_inventory_lot.product_inventory_lot_id,
-                stock_lot_no=result_inventory_lot.lot_no,
-                lot_id=lot.lot_id,
-                inspection_result_id=result.inspection_result_id,
-                source_type="INSPECTION_RESULT",
-                status="WAITING",
-                ship_qty=result_ship_qty,
-                shipped_qty=0,
-                memo="검수 실적 저장 시 검수분 출하대기 생성",
-            )
+        _create_completed_result_shipment_line(
+            db,
+            order_line=order_line,
+            schedule=schedule,
+            inventory=inventory,
+            inventory_lot=result_inventory_lot,
+            lot=lot,
+            inspection_result_id=result.inspection_result_id,
+            result_ship_qty=result_ship_qty,
         )
 
     order_line.status = "DONE"

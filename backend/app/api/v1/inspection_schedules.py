@@ -24,6 +24,7 @@ from app.models.outsource_work_instruction import OutsourceWorkInstruction
 from app.models.outsource_work_instruction_file import OutsourceWorkInstructionFile
 from app.models.outsource_purchase_order_item import OutsourcePurchaseOrderItem
 from app.models.inspection_result import InspectionResult
+from app.models.shipment_line import ShipmentLine
 from app.models.drawing import Drawing
 from app.services.inventory_fifo_service import get_available_inventory_lots_fifo
 from app.schemas.inspection_schedule import (
@@ -806,6 +807,7 @@ def list_inspection_schedules(
             Partner.name.label("partner_name"),
             Product.product_code,
             Product.product_name,
+            Product.product_spec,
             Product.drawing_id,
             Drawing.drawing_no,
             Lot.lot_qty,
@@ -964,7 +966,7 @@ def get_inspection_stock_lots(
         .scalar_one_or_none()
     )
 
-    items: list[InspectionStockLotOut] = []
+    items_by_lot_no: dict[str, InspectionStockLotOut] = {}
 
     for inventory_lot, stock_qty in get_available_inventory_lots_fifo(
         db,
@@ -984,16 +986,45 @@ def get_inspection_stock_lots(
             .scalar_one_or_none()
         )
 
-        items.append(
-            InspectionStockLotOut(
-                lot_id=stock_lot_id or inventory_lot.product_inventory_lot_id,
-                lot_no=inventory_lot.lot_no,
-                stock_qty=stock_qty,
-                allocated_ship_qty=0,
-                created_date=inventory_lot.created_at,
-            )
+        items_by_lot_no[inventory_lot.lot_no] = InspectionStockLotOut(
+            lot_id=stock_lot_id or inventory_lot.product_inventory_lot_id,
+            lot_no=inventory_lot.lot_no,
+            stock_qty=stock_qty,
+            allocated_ship_qty=0,
+            created_date=inventory_lot.created_at,
         )
 
+    if current_result is not None:
+        current_stock_lines = db.execute(
+            select(ShipmentLine).where(
+                ShipmentLine.inspection_result_id == current_result,
+                ShipmentLine.source_type == "STOCK",
+                ShipmentLine.status != "CANCELED",
+            )
+        ).scalars().all()
+
+        for line in current_stock_lines:
+            lot_no = line.stock_lot_no or ""
+            if not lot_no:
+                continue
+
+            qty = int(line.ship_qty or line.shipped_qty or 0)
+            if qty <= 0:
+                continue
+
+            if lot_no in items_by_lot_no:
+                items_by_lot_no[lot_no].stock_qty += qty
+                continue
+
+            items_by_lot_no[lot_no] = InspectionStockLotOut(
+                lot_id=int(line.lot_id or line.product_inventory_lot_id or 0),
+                lot_no=lot_no,
+                stock_qty=qty,
+                allocated_ship_qty=0,
+                created_date=None,
+            )
+
+    items = list(items_by_lot_no.values())
     total_stock_qty = sum(item.stock_qty for item in items)
 
     return InspectionStockLotListOut(

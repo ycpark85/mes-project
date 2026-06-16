@@ -887,7 +887,7 @@ namespace Mes.Wpf.Views.Shell
 
             SetMenuVisibility(ProductMonitoringMenuButton, PermissionCodes.ProductMonitoringView);
             SetMenuVisibility(InventoryMenuButton, PermissionCodes.InventoriesView);
-            SetMenuVisibility(ShipmentMenuButton, PermissionCodes.ShipmentsView);
+            ShipmentMenuButton.Visibility = Visibility.Collapsed;
 
             SetMenuVisibility(UserManagementMenuButton, PermissionCodes.UsersView);
             SetMenuVisibility(RoleManagementMenuButton, PermissionCodes.RolesView);
