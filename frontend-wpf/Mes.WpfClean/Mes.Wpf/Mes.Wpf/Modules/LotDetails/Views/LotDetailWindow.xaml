@@ -54,6 +54,17 @@
             <Setter Property="TextWrapping" Value="Wrap"/>
         </Style>
 
+        <Style x:Key="SmallOutlineButtonStyle" TargetType="Button">
+            <Setter Property="Height" Value="24"/>
+            <Setter Property="Padding" Value="8,0"/>
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#CBD5E1"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Foreground" Value="#374151"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+
         <Style TargetType="DataGridColumnHeader">
             <Setter Property="Background" Value="#F8FAFC"/>
             <Setter Property="BorderBrush" Value="#E5E7EB"/>
@@ -99,10 +110,17 @@
                            FontWeight="Bold"
                            Foreground="#111827"/>
 
-                <TextBlock Text="{Binding LotNo}"
-                           Margin="0,4,0,0"
-                           FontSize="14"
-                           Foreground="#6B7280"/>
+                <StackPanel Orientation="Horizontal"
+                            Margin="0,4,0,0">
+                    <TextBlock Text="{Binding LotNo}"
+                               VerticalAlignment="Center"
+                               FontSize="14"
+                               Foreground="#6B7280"/>
+                    <Button Content="복사"
+                            Command="{Binding CopyLotNoCommand}"
+                            Style="{StaticResource SmallOutlineButtonStyle}"
+                            Margin="8,0,0,0"/>
+                </StackPanel>
             </StackPanel>
 
             <Border Grid.Column="1"
@@ -238,7 +256,13 @@
                                 </Grid.RowDefinitions>
 
                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="LOT 번호" Style="{StaticResource LabelStyle}"/>
-                                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding LotNo}" Style="{StaticResource ValueStyle}"/>
+                                <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal">
+                                    <TextBlock Text="{Binding LotNo}" Style="{StaticResource ValueStyle}"/>
+                                    <Button Content="복사"
+                                            Command="{Binding CopyLotNoCommand}"
+                                            Style="{StaticResource SmallOutlineButtonStyle}"
+                                            Margin="8,0,0,4"/>
+                                </StackPanel>
 
                                 <TextBlock Grid.Row="0" Grid.Column="2" Text="상태" Style="{StaticResource LabelStyle}"/>
                                 <TextBlock Grid.Row="0" Grid.Column="3" Text="{Binding LotStatus}" Style="{StaticResource ValueStyle}"/>

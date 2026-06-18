@@ -6,6 +6,7 @@ using Mes.Wpf.Modules.Inventories.Dtos;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace Mes.Wpf.Modules.Inventories.ViewModels
@@ -18,6 +19,7 @@ namespace Mes.Wpf.Modules.Inventories.ViewModels
         private string _searchKeyword = string.Empty;
         private string _selectedMovementType = "전체";
         private int _adjustmentQty;
+        private string _adjustmentLotNo = string.Empty;
         private string _adjustmentMemo = string.Empty;
 
         public InventoryPageViewModel(IApiClient apiClient, IMessageService messageService)
@@ -41,6 +43,7 @@ namespace Mes.Wpf.Modules.Inventories.ViewModels
 
             AdjustInCommand = new AsyncRelayCommand(AdjustInAsync);
             AdjustOutCommand = new AsyncRelayCommand(AdjustOutAsync);
+            CheckConsistencyCommand = new AsyncRelayCommand(CheckConsistencyAsync);
             OpenInitialInventoryBulkUploadCommand = new RelayCommand(OpenInitialInventoryBulkUpload);
         }
 
@@ -53,6 +56,7 @@ namespace Mes.Wpf.Modules.Inventories.ViewModels
 
         public AsyncRelayCommand AdjustInCommand { get; }
         public AsyncRelayCommand AdjustOutCommand { get; }
+        public AsyncRelayCommand CheckConsistencyCommand { get; }
 
         public string SearchKeyword
         {
@@ -82,6 +86,12 @@ namespace Mes.Wpf.Modules.Inventories.ViewModels
         {
             get => _adjustmentMemo;
             set => SetProperty(ref _adjustmentMemo, value);
+        }
+
+        public string AdjustmentLotNo
+        {
+            get => _adjustmentLotNo;
+            set => SetProperty(ref _adjustmentLotNo, value);
         }
 
         public async Task InitializeAsync()
@@ -115,6 +125,7 @@ namespace Mes.Wpf.Modules.Inventories.ViewModels
             EditModel.Clear();
             Movements.Clear();
             AdjustmentQty = 0;
+            AdjustmentLotNo = string.Empty;
             AdjustmentMemo = string.Empty;
         }
 
@@ -124,6 +135,7 @@ namespace Mes.Wpf.Modules.Inventories.ViewModels
             EditModel.Clear();
             Movements.Clear();
             AdjustmentQty = 0;
+            AdjustmentLotNo = string.Empty;
             AdjustmentMemo = string.Empty;
         }
 
@@ -190,6 +202,40 @@ namespace Mes.Wpf.Modules.Inventories.ViewModels
             await AdjustAsync("OUT");
         }
 
+        private async Task CheckConsistencyAsync()
+        {
+            IsLoading = true;
+
+            try
+            {
+                var result = await _apiClient.GetAsync<InventoryConsistencyListDto>(ApiRoutes.InventoryConsistency);
+                if (!result.Success || result.Data == null)
+                {
+                    _messageService.ShowError(result.Message ?? "재고 정합성 점검 중 오류가 발생했습니다.");
+                    return;
+                }
+
+                if (result.Data.Total == 0)
+                {
+                    _messageService.ShowInfo("재고 정합성 불일치 품목이 없습니다.");
+                    return;
+                }
+
+                var preview = string.Join(
+                    Environment.NewLine,
+                    result.Data.Items.Take(10).Select(x =>
+                        $"{x.ProductCode} / 총재고 {x.CurrentQty:N0} / LOT합계 {x.LotQty:N0} / 이력합계 {x.MovementQty:N0}"));
+
+                _messageService.ShowWarning(
+                    $"재고 정합성 불일치 품목 {result.Data.Total:N0}건이 있습니다.\n\n{preview}",
+                    "재고 정합성 점검");
+            }
+            finally
+            {
+                IsLoading = false;
+            }
+        }
+
         private async Task AdjustAsync(string direction)
         {
             if (SelectedItem == null)
@@ -204,10 +250,19 @@ namespace Mes.Wpf.Modules.Inventories.ViewModels
                 return;
             }
 
+            if (direction == "IN" && string.IsNullOrWhiteSpace(AdjustmentLotNo))
+            {
+                _messageService.ShowWarning("재고증가 시 조정 LOT를 입력하세요.");
+                return;
+            }
+
             var label = direction == "IN" ? "증가" : "감소";
+            var lotText = direction == "IN"
+                ? $"\nLOT: {AdjustmentLotNo.Trim()}"
+                : "\nLOT: FIFO 자동 차감";
 
             var confirmed = _messageService.Confirm(
-                $"[{SelectedItem.ProductCode}] {SelectedItem.ProductName} 재고를 {AdjustmentQty} {SelectedItem.Uom} {label} 처리하시겠습니까?",
+                $"[{SelectedItem.ProductCode}] {SelectedItem.ProductName} 재고를 {AdjustmentQty} {SelectedItem.Uom} {label} 처리하시겠습니까?{lotText}",
                 "재고 조정 확인");
 
             if (!confirmed)
@@ -222,6 +277,7 @@ namespace Mes.Wpf.Modules.Inventories.ViewModels
                 var request = new InventoryAdjustmentRequest
                 {
                     Qty = AdjustmentQty,
+                    StockLotNo = direction == "IN" ? AdjustmentLotNo.Trim() : null,
                     Memo = string.IsNullOrWhiteSpace(AdjustmentMemo) ? null : AdjustmentMemo.Trim()
                 };
 
@@ -255,6 +311,7 @@ namespace Mes.Wpf.Modules.Inventories.ViewModels
                 SelectedItem = reselectedItem;
 
                 AdjustmentQty = 0;
+                AdjustmentLotNo = string.Empty;
                 AdjustmentMemo = string.Empty;
 
                 _messageService.ShowInfo("재고 조정이 완료되었습니다.");

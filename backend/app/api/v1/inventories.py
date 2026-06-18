@@ -16,6 +16,8 @@ from app.schemas.inventory import (
     InitialInventoryBulkIn,
     InitialInventoryBulkResultOut,
     ProductInventoryAdjustmentIn,
+    ProductInventoryConsistencyListOut,
+    ProductInventoryConsistencyOut,
     ProductInventoryListOut,
     ProductInventoryMovementListOut,
     ProductInventoryMovementOut,
@@ -148,6 +150,59 @@ def list_inventory_movements(
     )
 
 
+@router.get("/consistency", response_model=ProductInventoryConsistencyListOut)
+def list_inventory_consistency(db: Session = Depends(get_db)):
+    lot_qty_sq = (
+        select(
+            ProductInventoryLot.product_id.label("product_id"),
+            func.coalesce(func.sum(ProductInventoryLot.current_qty), 0).label("lot_qty"),
+        )
+        .group_by(ProductInventoryLot.product_id)
+        .subquery()
+    )
+
+    movement_qty_sq = (
+        select(
+            ProductInventoryMovement.product_id.label("product_id"),
+            func.coalesce(func.sum(ProductInventoryMovement.qty), 0).label("movement_qty"),
+        )
+        .group_by(ProductInventoryMovement.product_id)
+        .subquery()
+    )
+
+    current_qty = func.coalesce(ProductInventory.current_qty, 0)
+    lot_qty = func.coalesce(lot_qty_sq.c.lot_qty, 0)
+    movement_qty = func.coalesce(movement_qty_sq.c.movement_qty, 0)
+
+    rows = (
+        db.execute(
+            select(
+                Product.product_id,
+                Product.product_code,
+                Product.product_name,
+                current_qty.label("current_qty"),
+                lot_qty.label("lot_qty"),
+                movement_qty.label("movement_qty"),
+                (current_qty - lot_qty).label("diff_qty"),
+            )
+            .select_from(Product)
+            .join(ProductInventory, ProductInventory.product_id == Product.product_id)
+            .outerjoin(lot_qty_sq, lot_qty_sq.c.product_id == Product.product_id)
+            .outerjoin(movement_qty_sq, movement_qty_sq.c.product_id == Product.product_id)
+            .where(Product.is_active.is_(True))
+            .where((current_qty != lot_qty) | (current_qty != movement_qty))
+            .order_by(Product.product_code.asc())
+        )
+        .mappings()
+        .all()
+    )
+
+    return ProductInventoryConsistencyListOut(
+        items=[ProductInventoryConsistencyOut(**dict(row)) for row in rows],
+        total=len(rows),
+    )
+
+
 @router.post(
     "/{product_id}/adjust",
     response_model=ProductInventoryMovementOut,
@@ -180,25 +235,117 @@ def adjust_inventory(
         db.add(inventory)
         db.flush()
 
-    signed_qty = payload.qty if direction == "IN" else -payload.qty
+    movements: list[ProductInventoryMovement] = []
 
-    if inventory.current_qty + signed_qty < 0:
-        raise HTTPException(status_code=409, detail="Inventory cannot be negative")
+    if direction == "IN":
+        lot_no = (payload.stock_lot_no or "").strip().upper()
+        if not lot_no:
+            raise HTTPException(status_code=422, detail="재고증가 시 조정 LOT 번호를 입력해야 합니다.")
 
-    inventory.current_qty += signed_qty
+        inventory_lot = (
+            db.execute(
+                select(ProductInventoryLot)
+                .where(
+                    ProductInventoryLot.product_id == product_id,
+                    func.upper(ProductInventoryLot.lot_no) == lot_no,
+                )
+                .with_for_update()
+            )
+            .scalar_one_or_none()
+        )
 
-    movement = ProductInventoryMovement(
-        product_id=product_id,
-        movement_type="ADJUST_IN" if direction == "IN" else "ADJUST_OUT",
-        qty=signed_qty,
-        balance_after=inventory.current_qty,
-        source_type="MANUAL_ADJUST",
-        source_id=None,
-        memo=payload.memo,
-    )
+        if inventory_lot is None:
+            inventory_lot = ProductInventoryLot(
+                product_id=product_id,
+                lot_no=lot_no,
+                current_qty=0,
+            )
+            db.add(inventory_lot)
+            db.flush()
 
-    db.add(movement)
+        inventory.current_qty = int(inventory.current_qty or 0) + payload.qty
+        inventory_lot.current_qty = int(inventory_lot.current_qty or 0) + payload.qty
+
+        movements.append(
+            ProductInventoryMovement(
+                product_id=product_id,
+                product_inventory_lot_id=inventory_lot.product_inventory_lot_id,
+                stock_lot_no=inventory_lot.lot_no,
+                movement_type="ADJUST_IN",
+                qty=payload.qty,
+                balance_after=inventory.current_qty,
+                source_type="MANUAL_ADJUST",
+                source_id=None,
+                memo=payload.memo,
+            )
+        )
+    else:
+        current_qty = int(inventory.current_qty or 0)
+        if current_qty < payload.qty:
+            raise HTTPException(
+                status_code=409,
+                detail=f"재고감소 수량이 현재 재고보다 큽니다. 현재고={current_qty}",
+            )
+
+        inventory_lots = (
+            db.execute(
+                select(ProductInventoryLot)
+                .where(
+                    ProductInventoryLot.product_id == product_id,
+                    ProductInventoryLot.current_qty > 0,
+                )
+                .order_by(
+                    ProductInventoryLot.created_at.asc(),
+                    ProductInventoryLot.product_inventory_lot_id.asc(),
+                )
+                .with_for_update()
+            )
+            .scalars()
+            .all()
+        )
+
+        remaining_qty = payload.qty
+        for inventory_lot in inventory_lots:
+            if remaining_qty <= 0:
+                break
+
+            lot_qty = int(inventory_lot.current_qty or 0)
+            adjust_qty = min(lot_qty, remaining_qty)
+            if adjust_qty <= 0:
+                continue
+
+            inventory.current_qty = int(inventory.current_qty or 0) - adjust_qty
+            inventory_lot.current_qty = lot_qty - adjust_qty
+            remaining_qty -= adjust_qty
+
+            movements.append(
+                ProductInventoryMovement(
+                    product_id=product_id,
+                    product_inventory_lot_id=inventory_lot.product_inventory_lot_id,
+                    stock_lot_no=inventory_lot.lot_no,
+                    movement_type="ADJUST_OUT",
+                    qty=-adjust_qty,
+                    balance_after=inventory.current_qty,
+                    source_type="MANUAL_ADJUST",
+                    source_id=None,
+                    memo=payload.memo,
+                )
+            )
+
+        if remaining_qty > 0:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "LOT별 재고가 부족하여 재고감소를 처리할 수 없습니다. "
+                    "재고 정합성 점검 후 보정이 필요합니다."
+                ),
+            )
+
+    for movement in movements:
+        db.add(movement)
+
     db.commit()
+    movement = movements[-1]
     db.refresh(movement)
 
     return ProductInventoryMovementOut(

@@ -19,6 +19,7 @@ from app.models.lot import Lot
 from app.models.order_line import OrderLine
 from app.models.partner import Partner
 from app.models.product import Product
+from app.models.product_inventory import ProductInventory
 from app.models.product_inventory_movement import ProductInventoryMovement
 from app.models.shipment_line import ShipmentLine
 from app.schemas.inspection_result import InspectionInventorySummaryOut
@@ -236,13 +237,23 @@ def _get_inventory_summary(
     current_result_stock_in_qty = 0
     current_result_discard_qty = 0
 
+    inventory_total_qty = int(
+        db.execute(
+            select(func.coalesce(ProductInventory.current_qty, 0)).where(
+                ProductInventory.product_id == lot.product_id
+            )
+        ).scalar_one_or_none()
+        or 0
+    )
+
     available_stock_lots = get_available_inventory_lots_fifo(
         db,
         product_id=lot.product_id,
         exclude_lot_no=lot.lot_no,
         exclude_inspection_result_id=current_result_id,
     )
-    current_stock_qty = sum(available_qty for _, available_qty in available_stock_lots)
+    lot_available_qty = sum(available_qty for _, available_qty in available_stock_lots)
+    current_stock_qty = min(max(inventory_total_qty, 0), lot_available_qty)
 
     if current_result_id is not None:
         result = db.get(InspectionResult, current_result_id)

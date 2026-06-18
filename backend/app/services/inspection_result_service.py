@@ -741,13 +741,16 @@ def _apply_inventory_for_result(
     if result_ship_qty + stock_in_qty + discard_qty != sellable_qty:
         raise HTTPException(
             status_code=422,
-            detail="result_ship_qty + stock_in_qty + discard_qty must equal sellable_qty",
+            detail="생산 출고수량 + 재고편입수량 + 폐기수량은 판매가능수량과 같아야 합니다.",
         )
 
     if stock_ship_qty > current_stock_qty_before_result_in:
         raise HTTPException(
             status_code=422,
-            detail=f"stock_ship_qty exceeds current stock. current_stock_qty={current_stock_qty_before_result_in}",
+            detail=(
+                "재고 출고수량이 현재 사용 가능한 재고보다 큽니다. "
+                f"현재 가능재고: {current_stock_qty_before_result_in}"
+            ),
         )
 
     inventory_in_qty = max(sellable_qty - discard_qty, 0)

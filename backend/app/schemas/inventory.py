@@ -53,7 +53,23 @@ class ProductInventoryMovementListOut(BaseModel):
 
 class ProductInventoryAdjustmentIn(BaseModel):
     qty: int = Field(..., gt=0)
+    stock_lot_no: Optional[str] = Field(default=None, max_length=100)
     memo: Optional[str] = None
+
+
+class ProductInventoryConsistencyOut(BaseModel):
+    product_id: int
+    product_code: str
+    product_name: str
+    current_qty: int
+    lot_qty: int
+    movement_qty: int
+    diff_qty: int
+
+
+class ProductInventoryConsistencyListOut(BaseModel):
+    items: list[ProductInventoryConsistencyOut]
+    total: int
 
 class InitialInventoryBulkItemIn(BaseModel):
     row_number: int

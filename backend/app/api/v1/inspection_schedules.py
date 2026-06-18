@@ -27,6 +27,7 @@ from app.models.inspection_result import InspectionResult
 from app.models.shipment_line import ShipmentLine
 from app.models.drawing import Drawing
 from app.models.routing_template import RoutingTemplate
+from app.models.product_inventory import ProductInventory
 from app.services.inventory_fifo_service import get_available_inventory_lots_fifo
 from app.services.routing_policy import is_inspection_only_template_name
 from app.schemas.inspection_schedule import (
@@ -1073,6 +1074,16 @@ def get_inspection_stock_lots(
         .scalar_one_or_none()
     )
 
+    inventory_total_qty = int(
+        db.execute(
+            select(func.coalesce(ProductInventory.current_qty, 0)).where(
+                ProductInventory.product_id == product_id
+            )
+        ).scalar_one_or_none()
+        or 0
+    )
+
+    remaining_display_qty = max(inventory_total_qty, 0)
     items_by_lot_no: dict[str, InspectionStockLotOut] = {}
 
     for inventory_lot, stock_qty in get_available_inventory_lots_fifo(
@@ -1081,6 +1092,13 @@ def get_inspection_stock_lots(
         exclude_lot_no=current_lot.lot_no,
         exclude_inspection_result_id=current_result,
     ):
+        if remaining_display_qty <= 0:
+            break
+
+        display_qty = min(stock_qty, remaining_display_qty)
+        if display_qty <= 0:
+            continue
+
         stock_lot_id = (
             db.execute(
                 select(Lot.lot_id)
@@ -1096,10 +1114,11 @@ def get_inspection_stock_lots(
         items_by_lot_no[inventory_lot.lot_no] = InspectionStockLotOut(
             lot_id=stock_lot_id or inventory_lot.product_inventory_lot_id,
             lot_no=inventory_lot.lot_no,
-            stock_qty=stock_qty,
+            stock_qty=display_qty,
             allocated_ship_qty=0,
             created_date=inventory_lot.created_at,
         )
+        remaining_display_qty -= display_qty
 
     if current_result is not None:
         current_stock_lines = db.execute(

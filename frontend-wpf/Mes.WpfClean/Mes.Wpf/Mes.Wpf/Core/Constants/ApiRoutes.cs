@@ -43,6 +43,7 @@
 
         public const string Inventories = "api/v1/inventories";
         public const string InventoryMovements = "api/v1/inventories/movements";
+        public const string InventoryConsistency = "api/v1/inventories/consistency";
         public const string Shipments = "api/v1/shipments";
         public const string InitialInventoryBulk = "api/v1/inventories/initial-bulk";
 

@@ -25,7 +25,11 @@
                 <Button Content="기초재고등록"
                         Width="110"
                         Command="{Binding OpenInitialInventoryBulkUploadCommand}"
-                        Margin="8,0,0,0"/>      
+                        Margin="8,0,0,0"/>
+                <Button Content="정합성점검"
+                        Width="100"
+                        Command="{Binding CheckConsistencyCommand}"
+                        Margin="8,0,0,0"/>
             </StackPanel>
         </DockPanel>
 
@@ -48,11 +52,13 @@
         <Border Grid.Row="2" Margin="0,12,0,12" Padding="12" BorderBrush="#DDD" BorderThickness="1">
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="2*"/>
+                    <ColumnDefinition Width="1.5*"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="2*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="1.5*"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
@@ -63,29 +69,38 @@
 
                 <TextBlock Grid.Column="1"
                    VerticalAlignment="Center"
-                   Text="조정수량"
+                   Text="조정 LOT"
                    Margin="12,0,8,0"/>
 
                 <TextBox Grid.Column="2"
-                 Width="100"
-                 Text="{Binding AdjustmentQty, UpdateSourceTrigger=PropertyChanged}"/>
+                 Width="130"
+                 Text="{Binding AdjustmentLotNo, UpdateSourceTrigger=PropertyChanged}"/>
 
                 <TextBlock Grid.Column="3"
+                   VerticalAlignment="Center"
+                   Text="조정수량"
+                   Margin="16,0,8,0"/>
+
+                <TextBox Grid.Column="4"
+                 Width="90"
+                 Text="{Binding AdjustmentQty, UpdateSourceTrigger=PropertyChanged}"/>
+
+                <TextBlock Grid.Column="5"
                    VerticalAlignment="Center"
                    Text="비고"
                    Margin="16,0,8,0"/>
 
-                <TextBox Grid.Column="4"
+                <TextBox Grid.Column="6"
                  Margin="0,0,8,0"
                  Text="{Binding AdjustmentMemo, UpdateSourceTrigger=PropertyChanged}"/>
 
-                <Button Grid.Column="5"
+                <Button Grid.Column="7"
                 Content="재고증가"
                 Width="90"
                 Command="{Binding AdjustInCommand}"
                 Margin="0,0,8,0"/>
 
-                <Button Grid.Column="6"
+                <Button Grid.Column="8"
                 Content="재고감소"
                 Width="90"
                 Command="{Binding AdjustOutCommand}"/>

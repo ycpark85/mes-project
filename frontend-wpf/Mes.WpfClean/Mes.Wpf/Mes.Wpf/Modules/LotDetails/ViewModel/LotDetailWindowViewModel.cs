@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using System.Windows.Input;
 using System.Diagnostics;
 using System.IO;
+using System.Windows;
 using Mes.Wpf.Core.Common;
 using Mes.Wpf.Core.Constants;
 using Mes.Wpf.Core.Interfaces;
@@ -30,6 +31,7 @@ namespace Mes.Wpf.Modules.LotDetails.ViewModels
             Defects = new ObservableCollection<LotTraceInspectionDefectDto>();
 
             CloseCommand = new RelayCommand(_ => RequestClose?.Invoke());
+            CopyLotNoCommand = new RelayCommand(_ => CopyLotNo());
 
             OpenDefectImageCommand = new RelayCommand(async parameter =>
             {
@@ -47,6 +49,7 @@ namespace Mes.Wpf.Modules.LotDetails.ViewModels
         public ObservableCollection<LotTraceInspectionDefectDto> Defects { get; }
 
         public ICommand CloseCommand { get; }
+        public ICommand CopyLotNoCommand { get; }
         public ICommand OpenDefectImageCommand { get; }
 
         public bool IsLoading
@@ -271,6 +274,20 @@ namespace Mes.Wpf.Modules.LotDetails.ViewModels
             OnPropertyChanged(nameof(PlanProductionQtyText));
             OnPropertyChanged(nameof(PlanShortCloseText));
         }
+
+        private void CopyLotNo()
+        {
+            var lotNo = LotNo?.Trim();
+            if (string.IsNullOrWhiteSpace(lotNo) || lotNo == "-")
+            {
+                _messageService.ShowWarning("복사할 LOT 번호가 없습니다.");
+                return;
+            }
+
+            Clipboard.SetText(lotNo);
+            _messageService.ShowInfo($"LOT 번호가 복사되었습니다.\n{lotNo}");
+        }
+
         private async Task OpenDefectImageAsync(LotTraceInspectionDefectDto defect)
         {
             if (defect == null || !defect.HasAttachment || defect.FirstAttachment == null)
