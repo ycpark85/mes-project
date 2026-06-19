@@ -19,6 +19,7 @@
 
         public const string InspectionWorkInstructionsView = "INSPECTION_WORK_INSTRUCTIONS.VIEW";
         public const string InspectionSchedulesView = "INSPECTION_SCHEDULES.VIEW";
+        public const string InspectionResultsView = "INSPECTION_RESULTS.VIEW";
 
         public const string OutsourceWorkInstructionsView = "OUTSOURCE_WORK_INSTRUCTIONS.VIEW";
         public const string OutsourcePurchaseOrdersView = "OUTSOURCE_PURCHASE_ORDERS.VIEW";

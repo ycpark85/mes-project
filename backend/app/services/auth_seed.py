@@ -201,6 +201,13 @@ PERMISSION_SEEDS = [
         "sort_order": 4010,
     },
     {
+        "permission_code": "INSPECTION_RESULTS.VIEW",
+        "menu_code": "INSPECTION_RESULTS",
+        "action_code": "VIEW",
+        "permission_name": "검수실적관리 조회",
+        "sort_order": 4020,
+    },
+    {
         "permission_code": "OUTSOURCE_WORK_INSTRUCTIONS.VIEW",
         "menu_code": "OUTSOURCE_WORK_INSTRUCTIONS",
         "action_code": "VIEW",

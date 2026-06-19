@@ -877,7 +877,7 @@ namespace Mes.Wpf.Views.Shell
 
             SetMenuVisibility(InspectionWorkInstructionMenuButton, PermissionCodes.InspectionWorkInstructionsView);
             SetMenuVisibility(InspectionScheduleManagementMenuButton, PermissionCodes.InspectionSchedulesView);
-            SetMenuVisibility(InspectionResultManagementMenuButton, PermissionCodes.InspectionSchedulesView);
+            SetMenuVisibility(InspectionResultManagementMenuButton, PermissionCodes.InspectionResultsView);
 
             SetMenuVisibility(OutsourceWorkInstructionMenuButton, PermissionCodes.OutsourceWorkInstructionsView);
             SetMenuVisibility(OutsourcePurchaseOrderMenuButton, PermissionCodes.OutsourcePurchaseOrdersView);

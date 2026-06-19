@@ -299,13 +299,21 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
             var window = new InspectionLabelPrintWindow(
                 SelectedItem.ProductName,
                 SelectedItem.ProductSpec ?? string.Empty,
-                SelectedItem.LotNo)
+                SelectedItem.LotNo,
+                IsManualLabelLotProduct(SelectedItem.ProductCode))
             {
                 Owner = Application.Current?.MainWindow
             };
 
             window.ShowDialog();
             return Task.CompletedTask;
+        }
+
+        private static bool IsManualLabelLotProduct(string? productCode)
+        {
+            var normalized = productCode?.Trim() ?? string.Empty;
+            return normalized.StartsWith("CU", StringComparison.OrdinalIgnoreCase) ||
+                   normalized.StartsWith("AK", StringComparison.OrdinalIgnoreCase);
         }
 
         public async Task OpenInspectionResultAsync()

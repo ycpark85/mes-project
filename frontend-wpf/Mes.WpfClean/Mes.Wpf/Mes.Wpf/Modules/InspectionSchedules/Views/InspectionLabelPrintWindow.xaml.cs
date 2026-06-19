@@ -11,19 +11,41 @@ namespace Mes.Wpf.Modules.InspectionSchedules.Views
         private const string PrinterName = "TSC TTP-244 Pro";
         private const double LabelWidthMm = 60.6;
         private const double LabelHeightMm = 40.0;
+        private readonly bool _requiresManualLotNo;
 
-        public InspectionLabelPrintWindow(string productName, string productSpec, string lotNo)
+        public InspectionLabelPrintWindow(string productName, string productSpec, string lotNo, bool requiresManualLotNo)
         {
             InitializeComponent();
 
+            _requiresManualLotNo = requiresManualLotNo;
+
             ProductNameTextBox.Text = productName;
             ProductSpecTextBox.Text = productSpec;
-            LotNoTextBox.Text = lotNo;
-            QtyTextBox.Focus();
+            LotNoTextBox.Text = requiresManualLotNo ? string.Empty : lotNo;
+            LotNoTextBox.IsReadOnly = !requiresManualLotNo;
+
+            if (requiresManualLotNo)
+            {
+                MessageBox.Show("\uBCC4\uB3C4\uC758 lot\uB97C \uAE30\uC7AC\uD558\uC5EC \uD504\uB9B0\uD2B8\uD574\uC8FC\uC2DC\uAE30 \uBC14\uB78D\uB2C8\uB2E4", "\uB77C\uBCA8 \uC778\uC1C4", MessageBoxButton.OK, MessageBoxImage.Information);
+                LotNoTextBox.SelectAll();
+                LotNoTextBox.Focus();
+            }
+            else
+            {
+                QtyTextBox.Focus();
+            }
         }
 
         private void PrintButton_Click(object sender, RoutedEventArgs e)
         {
+            var lotNo = (LotNoTextBox.Text ?? string.Empty).Trim();
+            if (_requiresManualLotNo && string.IsNullOrWhiteSpace(lotNo))
+            {
+                MessageBox.Show("LOT\uB97C \uC785\uB825\uD574\uC8FC\uC138\uC694.", "\uB77C\uBCA8 \uC778\uC1C4", MessageBoxButton.OK, MessageBoxImage.Warning);
+                LotNoTextBox.Focus();
+                return;
+            }
+
             var qtyText = (QtyTextBox.Text ?? string.Empty).Trim();
             if (string.IsNullOrWhiteSpace(qtyText))
             {
@@ -45,7 +67,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.Views
                 PrintLabels(
                     ProductNameTextBox.Text.Trim(),
                     ProductSpecTextBox.Text.Trim(),
-                    LotNoTextBox.Text.Trim(),
+                    lotNo,
                     BuildQtyText(qtyText),
                     copies);
 

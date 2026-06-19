@@ -178,6 +178,7 @@ router.include_router(
                 read_permission_codes=(
                     "INSPECTION_WORK_INSTRUCTIONS.VIEW",
                     "INSPECTION_SCHEDULES.VIEW",
+                    "INSPECTION_RESULTS.VIEW",
                 ),
                 write_permission_codes=("INSPECTIONS.WRITE",),
             )
@@ -193,6 +194,7 @@ router.include_router(
                 read_permission_codes=(
                     "INSPECTION_WORK_INSTRUCTIONS.VIEW",
                     "INSPECTION_SCHEDULES.VIEW",
+                    "INSPECTION_RESULTS.VIEW",
                 ),
                 write_permission_codes=("INSPECTIONS.WRITE",),
             )
