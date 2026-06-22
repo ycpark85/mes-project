@@ -17,6 +17,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
     {
         private readonly IApiClient _apiClient;
         private readonly IMessageService _messageService;
+        private readonly bool _canWriteInspection;
 
         private bool _isLoading;
         private DateTime? _dateFrom = DateTime.Today.AddMonths(-1);
@@ -32,10 +33,12 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
 
         public InspectionResultManagementPageViewModel(
             IApiClient apiClient,
-            IMessageService messageService)
+            IMessageService messageService,
+            bool canWriteInspection)
         {
             _apiClient = apiClient;
             _messageService = messageService;
+            _canWriteInspection = canWriteInspection;
 
             Items = new ObservableCollection<InspectionResultManagementItemDto>();
 
@@ -189,7 +192,10 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                 return;
             }
 
-            var windowVm = new InspectionResultWindowViewModel(_apiClient, _messageService);
+            var windowVm = new InspectionResultWindowViewModel(
+                _apiClient,
+                _messageService,
+                _canWriteInspection);
             await windowVm.InitializeAsync(
                 SelectedItem.InspectionScheduleId,
                 SelectedItem.LotNo,

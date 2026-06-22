@@ -389,6 +389,7 @@
                                     <TextBlock Grid.Column="0" Style="{StaticResource LabelTextStyle}" Text="양품수량"/>
                                     <TextBox Grid.Column="1"
                                              Style="{StaticResource InputTextBoxStyle}"
+                                             IsReadOnly="{Binding IsReadOnlyMode}"
                                              Text="{Binding GoodQty, UpdateSourceTrigger=PropertyChanged}"/>
                                 </Grid>
 
@@ -400,6 +401,7 @@
                                     <TextBlock Grid.Column="0" Style="{StaticResource LabelTextStyle}" Text="불량출고수량"/>
                                     <TextBox Grid.Column="1"
                                              Style="{StaticResource InputTextBoxStyle}"
+                                             IsReadOnly="{Binding IsReadOnlyMode}"
                                              Text="{Binding DefectShipQty, UpdateSourceTrigger=PropertyChanged}"/>
                                 </Grid>
 
@@ -411,6 +413,7 @@
                                     <TextBlock Grid.Column="0" Style="{StaticResource LabelTextStyle}" Text="불량수량"/>
                                     <TextBox Grid.Column="1"
                                              Style="{StaticResource InputTextBoxStyle}"
+                                             IsReadOnly="{Binding IsReadOnlyMode}"
                                              Text="{Binding DefectQty, UpdateSourceTrigger=PropertyChanged}"/>
                                 </Grid>
 
@@ -455,6 +458,7 @@
                                     <TextBox Grid.Column="1"
                                              Style="{StaticResource InputTextBoxStyle}"
                                              IsEnabled="{Binding IsShipmentInputEnabled}"
+                                             IsReadOnly="{Binding IsReadOnlyMode}"
                                              Text="{Binding StockShipQty, UpdateSourceTrigger=PropertyChanged}"/>
                                 </Grid>
 
@@ -467,6 +471,7 @@
                                     <TextBox Grid.Column="1"
                                              Style="{StaticResource InputTextBoxStyle}"
                                              IsEnabled="{Binding IsShipmentInputEnabled}"
+                                             IsReadOnly="{Binding IsReadOnlyMode}"
                                              Text="{Binding ResultShipQty, UpdateSourceTrigger=PropertyChanged}"/>
                                 </Grid>
 
@@ -479,6 +484,7 @@
                                     <TextBox Grid.Column="1"
                                              Style="{StaticResource InputTextBoxStyle}"
                                              IsEnabled="{Binding IsShipmentInputEnabled}"
+                                             IsReadOnly="{Binding IsReadOnlyMode}"
                                              Text="{Binding DiscardQty, UpdateSourceTrigger=PropertyChanged}"/>
                                 </Grid>
 
@@ -603,6 +609,7 @@
                               SelectionMode="Single"
                               SelectionUnit="FullRow"
                               RowHeaderWidth="0"
+                              IsReadOnly="{Binding IsReadOnlyMode}"
                               
                               GridLinesVisibility="Horizontal"
                               Background="White"
@@ -616,6 +623,7 @@
                                         <TextBox Height="26"
                                                  Padding="4,0"
                                                  VerticalContentAlignment="Center"
+                                                 IsReadOnly="{Binding DataContext.IsReadOnlyMode, RelativeSource={RelativeSource AncestorType=Window}}"
                                                  Text="{Binding DefectCode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                  Tag="{Binding}"
                                                  KeyDown="DefectTypeIdTextBox_KeyDown"/>    
@@ -773,6 +781,7 @@
                              Padding="8,6"
                              VerticalContentAlignment="Top"
                              AcceptsReturn="True"
+                             IsReadOnly="{Binding IsReadOnlyMode}"
                              TextWrapping="Wrap"
                              VerticalScrollBarVisibility="Auto"
                              Text="{Binding Memo, UpdateSourceTrigger=PropertyChanged}"/>
@@ -798,6 +807,7 @@
                             <CheckBox Grid.Row="2"
                           VerticalAlignment="Center"
                           Content="분할검수 사용"
+                          IsEnabled="{Binding CanEdit}"
                           IsChecked="{Binding IsPartial, Mode=TwoWay}"/>
 
                             <Grid Grid.Row="4">
@@ -814,6 +824,7 @@
 
                                 <DatePicker Grid.Column="1"
                                 Height="30"
+                                IsEnabled="{Binding CanEdit}"
                                 SelectedDate="{Binding NextInspectionDate, Mode=TwoWay}"/>
 
                                 <TextBlock Grid.Column="2"
@@ -826,6 +837,7 @@
                              Height="30"
                              Padding="6,0"
                              VerticalContentAlignment="Center"
+                             IsReadOnly="{Binding IsReadOnlyMode}"
                              Text="{Binding PartialReason, UpdateSourceTrigger=PropertyChanged}"/>
                             </Grid>
                         </Grid>

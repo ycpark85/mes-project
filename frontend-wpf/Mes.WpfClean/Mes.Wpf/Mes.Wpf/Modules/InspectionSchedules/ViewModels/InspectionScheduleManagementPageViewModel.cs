@@ -21,6 +21,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
         private readonly IApiClient _apiClient;
         private readonly IMessageService _messageService;
         private readonly IDrawingViewer _drawingViewer;
+        private readonly bool _canWriteInspection;
 
         private bool _isLoading;
         private DateTime? _searchDate = DateTime.Today;
@@ -35,11 +36,13 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
         public InspectionScheduleManagementPageViewModel(
             IApiClient apiClient,
             IMessageService messageService,
-            IDrawingViewer drawingViewer)
+            IDrawingViewer drawingViewer,
+            bool canWriteInspection)
         {
             _apiClient = apiClient;
             _messageService = messageService;
             _drawingViewer = drawingViewer;
+            _canWriteInspection = canWriteInspection;
 
             Items = new ObservableCollection<InspectionScheduleListItemDto>();
             EditModel = new InspectionScheduleManagementEditModel();
@@ -110,6 +113,8 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
         public ICommand CancelCommand { get; }
         public ICommand MoveUpCommand { get; }
         public ICommand MoveDownCommand { get; }
+
+        public bool CanWriteInspection => _canWriteInspection;
 
         public bool IsLoading
         {
@@ -330,7 +335,16 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                 return;
             }
 
-            var windowVm = new InspectionResultWindowViewModel(_apiClient, _messageService);
+            if (!_canWriteInspection)
+            {
+                _messageService.ShowWarning("검수실적을 저장할 권한이 없습니다.");
+                return;
+            }
+
+            var windowVm = new InspectionResultWindowViewModel(
+                _apiClient,
+                _messageService,
+                _canWriteInspection);
             await windowVm.InitializeAsync(
                 SelectedItem.InspectionScheduleId,
                 SelectedItem.LotNo ?? string.Empty,
@@ -808,28 +822,32 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
         private bool CanChangeDate()
         {
             return SelectedItem != null &&
+                   _canWriteInspection &&
                    (SelectedItem.Status == "WAITING" || SelectedItem.Status == "RECEIVED");
         }
 
         private bool CanReceive()
         {
-            return SelectedItem != null && SelectedItem.Status == "WAITING";
+            return SelectedItem != null && _canWriteInspection && SelectedItem.Status == "WAITING";
         }
 
         private bool CanStart()
         {
-            return SelectedItem != null && SelectedItem.Status == "RECEIVED";
+            return SelectedItem != null && _canWriteInspection && SelectedItem.Status == "RECEIVED";
         }
 
         private bool CanCancel()
         {
             return SelectedItem != null &&
+                   _canWriteInspection &&
                    (SelectedItem.Status == "WAITING" || SelectedItem.Status == "RECEIVED");
         }
 
         private bool CanMoveUp()
         {
-            if (SelectedItem == null || !(SelectedItem.Status == "WAITING" || SelectedItem.Status == "RECEIVED"))
+            if (!_canWriteInspection ||
+                SelectedItem == null ||
+                !(SelectedItem.Status == "WAITING" || SelectedItem.Status == "RECEIVED"))
             {
                 return false;
             }
@@ -848,7 +866,9 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
 
         private bool CanMoveDown()
         {
-            if (SelectedItem == null || !(SelectedItem.Status == "WAITING" || SelectedItem.Status == "RECEIVED"))
+            if (!_canWriteInspection ||
+                SelectedItem == null ||
+                !(SelectedItem.Status == "WAITING" || SelectedItem.Status == "RECEIVED"))
             {
                 return false;
             }

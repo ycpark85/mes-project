@@ -18,6 +18,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
     {
         private readonly IApiClient _apiClient;
         private readonly IMessageService _messageService;
+        private readonly bool _canEdit;
 
         private long _inspectionScheduleId;
         private string _lotNo = string.Empty;
@@ -76,20 +77,28 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
         public IApiClient ApiClient => _apiClient;
         public IMessageService MessageService => _messageService;
 
-        public InspectionResultWindowViewModel(IApiClient apiClient, IMessageService messageService)
+        public InspectionResultWindowViewModel(
+            IApiClient apiClient,
+            IMessageService messageService,
+            bool canEdit = true)
         {
             _apiClient = apiClient;
             _messageService = messageService;
+            _canEdit = canEdit;
 
             Defects = new ObservableCollection<InspectionResultDefectEditModel>();
 
-            AddDefectCommand = new RelayCommand(_ => AddDefect());
-            RemoveDefectCommand = new RelayCommand(x => RemoveDefect(x as InspectionResultDefectEditModel));
+            AddDefectCommand = new RelayCommand(_ => AddDefect(), _ => CanEdit);
+            RemoveDefectCommand = new RelayCommand(
+                x => RemoveDefect(x as InspectionResultDefectEditModel),
+                x => CanEdit && x is InspectionResultDefectEditModel);
             UploadPhotoCommand = new RelayCommand(
                 async x => await UploadPhotoAsync(x as InspectionResultDefectEditModel),
-                x => !IsLoading && x is InspectionResultDefectEditModel);
-            RemovePhotoCommand = new RelayCommand(x => RemovePhoto(x as DefectAttachmentEditModel));
-            SaveCommand = new AsyncRelayCommand(SaveAsync, () => !IsLoading);
+                x => CanEdit && !IsLoading && x is InspectionResultDefectEditModel);
+            RemovePhotoCommand = new RelayCommand(
+                x => RemovePhoto(x as DefectAttachmentEditModel),
+                x => CanEdit && x is DefectAttachmentEditModel);
+            SaveCommand = new AsyncRelayCommand(SaveAsync, () => CanEdit && !IsLoading);
             CancelCommand = new RelayCommand(_ => CloseRequested?.Invoke(false));
         }
         public ObservableCollection<InspectionStockLotDto> StockLots
@@ -216,7 +225,9 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                 ? GoodQty + DefectShipQty
                 : AccumulatedGoodQty + AccumulatedDefectShipQty;
 
-        public bool IsShipmentInputEnabled => !IsPartial;
+        public bool CanEdit => _canEdit;
+        public bool IsReadOnlyMode => !CanEdit;
+        public bool IsShipmentInputEnabled => CanEdit && !IsPartial;
 
         public int CurrentStockQty
         {
@@ -414,9 +425,24 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                         saveCommand.RaiseCanExecuteChanged();
                     }
 
+                    if (AddDefectCommand is RelayCommand addDefectCommand)
+                    {
+                        addDefectCommand.RaiseCanExecuteChanged();
+                    }
+
+                    if (RemoveDefectCommand is RelayCommand removeDefectCommand)
+                    {
+                        removeDefectCommand.RaiseCanExecuteChanged();
+                    }
+
                     if (UploadPhotoCommand is RelayCommand uploadPhotoCommand)
                     {
                         uploadPhotoCommand.RaiseCanExecuteChanged();
+                    }
+
+                    if (RemovePhotoCommand is RelayCommand removePhotoCommand)
+                    {
+                        removePhotoCommand.RaiseCanExecuteChanged();
                     }
                 }
             }
@@ -463,7 +489,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
             InspectionResultDefectEditModel defect,
             InspectionResultDefectTypeLookupDto selectedDefectType)
         {
-            if (defect == null || selectedDefectType == null)
+            if (!CanEdit || defect == null || selectedDefectType == null)
             {
                 return;
             }
@@ -477,7 +503,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
 
         public void ClearSelectedDefectType(InspectionResultDefectEditModel defect)
         {
-            if (defect == null)
+            if (!CanEdit || defect == null)
             {
                 return;
             }
@@ -789,6 +815,11 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
 
         private void AddDefect()
         {
+            if (!CanEdit)
+            {
+                return;
+            }
+
             var item = new InspectionResultDefectEditModel();
             Defects.Add(item);
             SelectedDefect = item;
@@ -796,7 +827,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
 
         private void RemoveDefect(InspectionResultDefectEditModel? item)
         {
-            if (item == null)
+            if (!CanEdit || item == null)
             {
                 return;
             }
@@ -806,7 +837,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
 
         private void RemovePhoto(DefectAttachmentEditModel? item)
         {
-            if (item == null)
+            if (!CanEdit || item == null)
             {
                 return;
             }
@@ -823,6 +854,11 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
 
         private async Task UploadPhotoAsync(InspectionResultDefectEditModel? defect)
         {
+            if (!CanEdit)
+            {
+                return;
+            }
+
             if (defect == null)
             {
                 _messageService.ShowWarning("불량내역을 선택해주세요.");
@@ -886,6 +922,11 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
 
         private async Task SaveAsync()
         {
+            if (!CanEdit)
+            {
+                return;
+            }
+
             if (TotalQty <= 0)
             {
                 _messageService.ShowWarning("검수수량을 입력해주세요.");

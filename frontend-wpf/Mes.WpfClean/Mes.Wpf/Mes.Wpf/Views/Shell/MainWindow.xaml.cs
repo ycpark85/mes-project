@@ -535,7 +535,8 @@ namespace Mes.Wpf.Views.Shell
             var viewModel = new InspectionScheduleManagementPageViewModel(
                 _apiClient,
                 _messageService,
-                _drawingViewer);
+                _drawingViewer,
+                HasPermission(PermissionCodes.InspectionsWrite));
 
             view.DataContext = viewModel;
 
@@ -554,7 +555,8 @@ namespace Mes.Wpf.Views.Shell
 
             var viewModel = new InspectionResultManagementPageViewModel(
                 _apiClient,
-                _messageService);
+                _messageService,
+                HasPermission(PermissionCodes.InspectionsWrite));
 
             view.DataContext = viewModel;
 

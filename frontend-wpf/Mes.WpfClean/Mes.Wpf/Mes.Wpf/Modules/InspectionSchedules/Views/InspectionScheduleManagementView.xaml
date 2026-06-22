@@ -235,10 +235,12 @@
                                     <StackPanel Orientation="Vertical">
                                         <Button Content="▲"
                                                 Style="{StaticResource MiniOrderButtonStyle}"
+                                                IsEnabled="{Binding DataContext.CanWriteInspection, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                                 Click="MoveUpButton_OnClick"/>
                                         <Button Content="▼"
                                                 Style="{StaticResource MiniOrderButtonStyle}"
                                                 Margin="2,2,0,0"
+                                                IsEnabled="{Binding DataContext.CanWriteInspection, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                                 Click="MoveDownButton_OnClick"/>
                                     </StackPanel>
                                 </StackPanel>
@@ -370,6 +372,7 @@
                         <DataGridTemplateColumn.CellEditingTemplate>
                             <DataTemplate>
                                 <DatePicker Style="{StaticResource CompactDatePickerStyle}"
+                                            IsEnabled="{Binding DataContext.CanWriteInspection, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                             SelectedDate="{Binding InspectionDate, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                             SelectedDateChanged="RowInspectionDatePicker_OnSelectedDateChanged"/>
                             </DataTemplate>
@@ -443,9 +446,13 @@
                                         <Style TargetType="Button" BasedOn="{StaticResource SecondaryActionButtonStyle}">
                                             <Setter Property="IsEnabled" Value="False"/>
                                             <Style.Triggers>
-                                                <DataTrigger Binding="{Binding Status}" Value="WAITING">
+                                                <MultiDataTrigger>
+                                                    <MultiDataTrigger.Conditions>
+                                                        <Condition Binding="{Binding Status}" Value="WAITING"/>
+                                                        <Condition Binding="{Binding DataContext.CanWriteInspection, RelativeSource={RelativeSource AncestorType=DataGrid}}" Value="True"/>
+                                                    </MultiDataTrigger.Conditions>
                                                     <Setter Property="IsEnabled" Value="True"/>
-                                                </DataTrigger>
+                                                </MultiDataTrigger>
                                             </Style.Triggers>
                                         </Style>
                                     </Button.Style>
@@ -467,15 +474,23 @@
                                             <Setter Property="IsEnabled" Value="False" />
 
                                             <Style.Triggers>
-                                                <DataTrigger Binding="{Binding Status}" Value="RECEIVED">
+                                                <MultiDataTrigger>
+                                                    <MultiDataTrigger.Conditions>
+                                                        <Condition Binding="{Binding Status}" Value="RECEIVED"/>
+                                                        <Condition Binding="{Binding DataContext.CanWriteInspection, RelativeSource={RelativeSource AncestorType=DataGrid}}" Value="True"/>
+                                                    </MultiDataTrigger.Conditions>
                                                     <Setter Property="Content" Value="검수시작" />
                                                     <Setter Property="IsEnabled" Value="True" />
-                                                </DataTrigger>
+                                                </MultiDataTrigger>
 
-                                                <DataTrigger Binding="{Binding Status}" Value="IN_PROGRESS">
+                                                <MultiDataTrigger>
+                                                    <MultiDataTrigger.Conditions>
+                                                        <Condition Binding="{Binding Status}" Value="IN_PROGRESS"/>
+                                                        <Condition Binding="{Binding DataContext.CanWriteInspection, RelativeSource={RelativeSource AncestorType=DataGrid}}" Value="True"/>
+                                                    </MultiDataTrigger.Conditions>
                                                     <Setter Property="Content" Value="검수완료" />
                                                     <Setter Property="IsEnabled" Value="True" />
-                                                </DataTrigger>
+                                                </MultiDataTrigger>
                                             </Style.Triggers>
                                         </Style>
                                     </Button.Style>
