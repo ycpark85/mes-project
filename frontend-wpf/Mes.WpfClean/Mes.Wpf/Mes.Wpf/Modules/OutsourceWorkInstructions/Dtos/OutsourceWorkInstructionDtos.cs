@@ -123,6 +123,7 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
     public class OutsourceWorkInstructionCandidateLotRowModel : ViewModelBase
     {
         private bool _isSelected;
+        private bool _isRepresentative;
         private int? _manualCutsPerSheet;
 
         public long LotId { get; set; }
@@ -165,6 +166,20 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
             get => _isSelected;
             set => SetProperty(ref _isSelected, value);
         }
+
+        public bool IsRepresentative
+        {
+            get => _isRepresentative;
+            set
+            {
+                if (SetProperty(ref _isRepresentative, value))
+                {
+                    OnPropertyChanged(nameof(RepresentativeMarker));
+                }
+            }
+        }
+
+        public string RepresentativeMarker => IsRepresentative ? "대표" : string.Empty;
 
         public string ProcessText => string.Join(" / ", AvailableProcessTypes);
 
@@ -257,6 +272,9 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
 
         [JsonPropertyName("fabric_lot_no")]
         public string? FabricLotNo { get; set; }
+
+        [JsonPropertyName("representative_lot_id")]
+        public long? RepresentativeLotId { get; set; }
 
         [JsonPropertyName("remark")]
         public string? Remark { get; set; }
@@ -359,6 +377,8 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
         private int _sheetQty;
         private int? _sheetCutCount;
         private string? _fabricLotNo;
+        private long? _representativeLotId;
+        private OutsourceWorkInstructionCandidateLotRowModel? _selectedLot;
 
         public Guid DraftId { get; set; } = Guid.NewGuid();
 
@@ -453,12 +473,64 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
         public string LotSummary => string.Join(", ", Lots.ConvertAll(x => x.LotNo));
 
         public OutsourceWorkInstructionCandidateLotRowModel? FirstLot => Lots.Count > 0 ? Lots[0] : null;
+        public OutsourceWorkInstructionCandidateLotRowModel? RepresentativeLot =>
+            RepresentativeLotId.HasValue
+                ? Lots.FirstOrDefault(x => x.LotId == RepresentativeLotId.Value)
+                : null;
+
+        public long? RepresentativeLotId
+        {
+            get => _representativeLotId;
+            private set
+            {
+                if (SetProperty(ref _representativeLotId, value))
+                {
+                    OnPropertyChanged(nameof(RepresentativeLot));
+                    OnPropertyChanged(nameof(RepresentativeLotText));
+                }
+            }
+        }
+
+        public OutsourceWorkInstructionCandidateLotRowModel? SelectedLot
+        {
+            get => _selectedLot;
+            set => SetProperty(ref _selectedLot, value);
+        }
 
         public string PlateDataPath => Files.Count > 0 ? Files[0].FilePath : string.Empty;
 
         public string PlateSize => FirstLot?.PlateSizeText ?? string.Empty;
         public string Spec => FirstLot?.SpecText ?? string.Empty;
         public string CutCountText => FirstLot?.CutCountText ?? string.Empty;
+        public string RepresentativeLotText => RepresentativeLot == null
+            ? "대표품목 미지정"
+            : $"{RepresentativeLot.LotNo} / {RepresentativeLot.ProductName}";
+
+        public void SetRepresentativeLot(OutsourceWorkInstructionCandidateLotRowModel lot)
+        {
+            if (!Lots.Contains(lot))
+            {
+                return;
+            }
+
+            foreach (var item in Lots)
+            {
+                item.IsRepresentative = false;
+            }
+
+            lot.IsRepresentative = true;
+            RepresentativeLotId = lot.LotId;
+        }
+
+        public void ClearRepresentativeLot()
+        {
+            foreach (var item in Lots)
+            {
+                item.IsRepresentative = false;
+            }
+
+            RepresentativeLotId = null;
+        }
 
         public void RefreshDerivedValues()
         {
@@ -473,6 +545,8 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
             OnPropertyChanged(nameof(BundleText));
             OnPropertyChanged(nameof(LotSummary));
             OnPropertyChanged(nameof(FirstLot));
+            OnPropertyChanged(nameof(RepresentativeLot));
+            OnPropertyChanged(nameof(RepresentativeLotText));
             OnPropertyChanged(nameof(PlateSize));
             OnPropertyChanged(nameof(Spec));
             OnPropertyChanged(nameof(CutCountText));
@@ -495,6 +569,8 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
             SheetQty = 0;
             SheetCutCount = null;
             FabricLotNo = null;
+            ClearRepresentativeLot();
+            SelectedLot = null;
             Lots.Clear();
             Files.Clear();
             RefreshFileValues();
@@ -604,6 +680,9 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
         [JsonPropertyName("lot_qty")]
         public int LotQty { get; set; }
 
+        [JsonPropertyName("representative_lot_id")]
+        public long? RepresentativeLotId { get; set; }
+
         [JsonPropertyName("outsource_partner_id")]
         public long OutsourcePartnerId { get; set; }
 
@@ -665,6 +744,7 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
         public long OutsourcePartnerId { get; set; }
         public string OutsourcePartnerName { get; set; } = string.Empty;
         public string InboundPartnerName { get; set; } = string.Empty;
+        public long? RepresentativeLotId { get; set; }
 
         public List<OutsourcePurchaseOrderTargetDto> Items { get; set; } = new();
         public List<OutsourceWorkInstructionFileDto> Files { get; set; } = new();

@@ -40,8 +40,7 @@ namespace Mes.Wpf.Modules.BohyunOutsourceManagement.ViewModels
             {
                 "전체",
                 "CUT",
-                "PRINT",
-                "DIECUT"
+                "PRINT"
             };
 
             StatusOptions = new ObservableCollection<string>

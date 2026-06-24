@@ -31,6 +31,12 @@ namespace Mes.Wpf.Modules.InspectionSchedules.Dtos
         [JsonPropertyName("inspected_qty")]
         public int InspectedQty { get; set; }
 
+        [JsonPropertyName("uninspected_qty")]
+        public int UninspectedQty { get; set; }
+
+        [JsonPropertyName("received_qty")]
+        public int ReceivedQty { get; set; }
+
         [JsonPropertyName("discard_qty")]
         public int DiscardQty { get; set; }
     }
@@ -87,6 +93,12 @@ namespace Mes.Wpf.Modules.InspectionSchedules.Dtos
 
         [JsonPropertyName("defect_qty")]
         public int DefectQty { get; set; }
+
+        [JsonPropertyName("uninspected_qty")]
+        public int UninspectedQty { get; set; }
+
+        [JsonPropertyName("received_qty")]
+        public int ReceivedQty { get; set; }
 
         [JsonPropertyName("discard_qty")]
         public int DiscardQty { get; set; }
@@ -171,6 +183,9 @@ namespace Mes.Wpf.Modules.InspectionSchedules.Dtos
 
         [JsonPropertyName("defect_qty")]
         public int DefectQty { get; set; }
+
+        [JsonPropertyName("uninspected_qty")]
+        public int UninspectedQty { get; set; }
 
         [JsonPropertyName("stock_ship_qty")]
         public int StockShipQty { get; set; }

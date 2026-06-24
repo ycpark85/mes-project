@@ -176,7 +176,11 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
                         OutsourcePartnerId = first.OutsourcePartnerId,
                         OutsourcePartnerName = first.OutsourcePartnerName ?? string.Empty,
                         InboundPartnerName = first.InboundPartnerName ?? string.Empty,
-                        Items = g.OrderBy(x => x.LotNo).ToList(),
+                        RepresentativeLotId = first.RepresentativeLotId,
+                        Items = g
+                            .OrderBy(x => first.RepresentativeLotId.HasValue && x.LotId == first.RepresentativeLotId.Value ? 0 : 1)
+                            .ThenBy(x => x.LotNo)
+                            .ToList(),
                         Files = fileMap.Values.ToList()
                     };
                 })
@@ -204,7 +208,6 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
                     Groups = CutGroups.ToList(),
                     Items = CutGroups
                         .SelectMany(x => x.Items)
-                        .OrderBy(x => x.LotNo)
                         .ToList(),
                     Files = CutGroups
                         .SelectMany(x => x.Files)
@@ -223,7 +226,6 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
                     Groups = PrintGroups.ToList(),
                     Items = PrintGroups
                         .SelectMany(x => x.Items)
-                        .OrderBy(x => x.LotNo)
                         .ToList(),
                     Files = PrintGroups
                         .SelectMany(x => x.Files)
@@ -486,7 +488,7 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
             }
 
             var seq = 1;
-            foreach (var item in SelectedBundle.Items.OrderBy(x => x.LotNo))
+            foreach (var item in SelectedBundle.Items)
             {
                 items.Add(new OutsourcePurchaseOrderCreateItemRequest
                 {

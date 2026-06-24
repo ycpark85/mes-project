@@ -377,6 +377,8 @@
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="8"/>
                                     <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="8"/>
+                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
 
                                 <TextBlock Grid.Row="0" FontWeight="SemiBold" Text="검수 결과"/>
@@ -422,10 +424,33 @@
                                         <ColumnDefinition Width="120"/>
                                         <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Style="{StaticResource LabelTextStyle}" Text="미검수수량"/>
+                                    <TextBox Grid.Column="1"
+                                             Style="{StaticResource InputTextBoxStyle}"
+                                             IsReadOnly="{Binding IsReadOnlyMode}"
+                                             Text="{Binding UninspectedQty, UpdateSourceTrigger=PropertyChanged}"/>
+                                </Grid>
+
+                                <Grid Grid.Row="10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="120"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0" Style="{StaticResource LabelTextStyle}" Text="판매가능수량"/>
                                     <TextBlock Grid.Column="1"
                                                Style="{StaticResource ValueTextStyle}"
                                                Text="{Binding SellableQty, StringFormat={}{0:N0}}"/>
+                                </Grid>
+
+                                <Grid Grid.Row="12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="120"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Style="{StaticResource LabelTextStyle}" Text="총입고수량"/>
+                                    <TextBlock Grid.Column="1"
+                                               Style="{StaticResource ValueTextStyle}"
+                                               Text="{Binding ReceivedQty, StringFormat={}{0:N0}}"/>
                                 </Grid>
                             </Grid>
                         </Border>
@@ -557,6 +582,15 @@
                                 </Grid>
 
                                 <Grid Grid.Row="8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="130"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Style="{StaticResource LabelTextStyle}" Text="누적입고"/>
+                                    <TextBlock Grid.Column="1" Style="{StaticResource ValueTextStyle}" Text="{Binding AccumulatedReceivedQty, StringFormat={}{0:N0}}"/>
+                                </Grid>
+
+                                <Grid Grid.Row="10">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="130"/>
                                         <ColumnDefinition Width="*"/>

@@ -243,6 +243,13 @@ PERMISSION_SEEDS = [
         "sort_order": 5040,
     },
     {
+        "permission_code": "OUTSOURCE_PROCESSING_COSTS.VIEW",
+        "menu_code": "OUTSOURCE_PROCESSING_COSTS",
+        "action_code": "VIEW",
+        "permission_name": "외주가공비 관리 조회",
+        "sort_order": 5050,
+    },
+    {
         "permission_code": "PRODUCT_MONITORING.VIEW",
         "menu_code": "PRODUCT_MONITORING",
         "action_code": "VIEW",
@@ -333,6 +340,13 @@ PERMISSION_SEEDS = [
         "action_code": "WRITE",
         "permission_name": "외주 작업관리 저장",
         "sort_order": 5001,
+    },
+    {
+        "permission_code": "OUTSOURCE_PROCESSING_COSTS.WRITE",
+        "menu_code": "OUTSOURCE_PROCESSING_COSTS",
+        "action_code": "WRITE",
+        "permission_name": "외주가공비 관리 저장",
+        "sort_order": 5051,
     },
     {
         "permission_code": "INVENTORIES.WRITE",

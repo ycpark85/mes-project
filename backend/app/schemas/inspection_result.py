@@ -27,6 +27,7 @@ class InspectionResultUpsertIn(BaseModel):
     good_qty: int = Field(..., ge=0)
     defect_ship_qty: int = Field(0, ge=0)
     defect_qty: int = Field(..., ge=0)
+    uninspected_qty: int = Field(0, ge=0)
 
     stock_ship_qty: int = Field(0, ge=0)
     result_ship_qty: int = Field(0, ge=0)
@@ -80,6 +81,8 @@ class InspectionResultOut(BaseModel):
     defect_ship_qty: int
     defect_qty: int
     inspected_qty: int
+    uninspected_qty: int = 0
+    received_qty: int = 0
     discard_qty: int = 0
 
     is_partial: bool
@@ -100,6 +103,8 @@ class InspectionAccumulatedSummaryOut(BaseModel):
     defect_qty: int = 0
     defect_ship_qty: int = 0
     inspected_qty: int = 0
+    uninspected_qty: int = 0
+    received_qty: int = 0
     discard_qty: int = 0
     
     current_result_stock_ship_qty: int = 0
@@ -149,6 +154,8 @@ class InspectionResultListItemOut(BaseModel):
     lot_qty: int
     order_qty: int
     good_qty: int
+    uninspected_qty: int
+    received_qty: int
     result_ship_qty: int
     discard_qty: int
     stock_in_qty: int

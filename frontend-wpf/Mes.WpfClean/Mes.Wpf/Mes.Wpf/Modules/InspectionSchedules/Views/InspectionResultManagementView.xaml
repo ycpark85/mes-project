@@ -184,6 +184,8 @@
                     <DataGridTextColumn Header="품목명" Width="230" Binding="{Binding ProductName}" ElementStyle="{StaticResource CellTextStyle}"/>
                     <DataGridTextColumn Header="발주수량" Width="90" Binding="{Binding OrderQty, StringFormat={}{0:N0}}" ElementStyle="{StaticResource CellTextStyle}"/>
                     <DataGridTextColumn Header="양품수량" Width="90" Binding="{Binding GoodQty, StringFormat={}{0:N0}}" ElementStyle="{StaticResource CellTextStyle}"/>
+                    <DataGridTextColumn Header="미검수수량" Width="96" Binding="{Binding UninspectedQty, StringFormat={}{0:N0}}" ElementStyle="{StaticResource CellTextStyle}"/>
+                    <DataGridTextColumn Header="총입고수량" Width="96" Binding="{Binding ReceivedQty, StringFormat={}{0:N0}}" ElementStyle="{StaticResource CellTextStyle}"/>
                     <DataGridTextColumn Header="출하수량" Width="90" Binding="{Binding ResultShipQty, StringFormat={}{0:N0}}" ElementStyle="{StaticResource CellTextStyle}"/>
 
                     <DataGridTemplateColumn Header="폐기수량" Width="90">
@@ -224,6 +226,10 @@
                            Text="{Binding TotalCount, StringFormat=조회건수: {0:N0}}"/>
                 <TextBlock Margin="0,0,22,0"
                            Text="{Binding TotalGoodQty, StringFormat=양품 합계: {0:N0}}"/>
+                <TextBlock Margin="0,0,22,0"
+                           Text="{Binding TotalUninspectedQty, StringFormat=미검수 합계: {0:N0}}"/>
+                <TextBlock Margin="0,0,22,0"
+                           Text="{Binding TotalReceivedQty, StringFormat=총입고 합계: {0:N0}}"/>
                 <TextBlock Margin="0,0,22,0"
                            Text="{Binding TotalResultShipQty, StringFormat=출하수량 합계: {0:N0}}"/>
                 <TextBlock Margin="0,0,22,0"

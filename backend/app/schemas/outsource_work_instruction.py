@@ -25,6 +25,7 @@ class OutsourceWorkInstructionGroupCreate(BaseModel):
     length_m: Optional[Decimal] = Field(default=None, ge=0)
     sheet_cut_count: Optional[int] = Field(default=None, gt=0)
     fabric_lot_no: Optional[str] = None
+    representative_lot_id: Optional[int] = None
     remark: Optional[str] = None
     items: List[OutsourceWorkInstructionGroupItemCreate] = Field(..., min_length=1)
 
@@ -140,6 +141,7 @@ class OutsourcePurchaseOrderTargetOut(BaseModel):
     product_code: str
     product_name: str
     lot_qty: int
+    representative_lot_id: Optional[int] = None
 
     outsource_partner_id: int
     outsource_partner_name: Optional[str] = None
@@ -341,6 +343,8 @@ class BohyunOutsourceGroupItemOut(BaseModel):
 class BohyunOutsourceGroupListItemOut(BaseModel):
     outsource_work_group_id: int
     outsource_work_instruction_id: int
+    representative_lot_id: Optional[int] = None
+    representative_product_name: Optional[str] = None
 
     instruction_no: str
     instruction_date: date

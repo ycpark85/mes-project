@@ -33,13 +33,14 @@ def _get_prior_result_totals(
     *,
     lot_id: int,
     current_schedule_id: int,
-) -> tuple[int, int, int, int, int]:
+) -> tuple[int, int, int, int, int, int]:
     row = db.execute(
         select(
             func.coalesce(func.sum(InspectionResult.good_qty), 0),
             func.coalesce(func.sum(InspectionResult.defect_ship_qty), 0),
             func.coalesce(func.sum(InspectionResult.defect_qty), 0),
             func.coalesce(func.sum(InspectionResult.inspected_qty), 0),
+            func.coalesce(func.sum(InspectionResult.uninspected_qty), 0),
             func.coalesce(func.sum(InspectionResult.discard_qty), 0),
         )
         .select_from(InspectionResult)
@@ -61,6 +62,7 @@ def _get_prior_result_totals(
         int(row[2] or 0),
         int(row[3] or 0),
         int(row[4] or 0),
+        int(row[5] or 0),
     )
 
 
@@ -74,6 +76,7 @@ def upsert_inspection_result(
     good_qty: int,
     defect_ship_qty: int,
     defect_qty: int,
+    uninspected_qty: int,
     stock_ship_qty: int,
     result_ship_qty: int,
     stock_in_qty: int,
@@ -123,13 +126,14 @@ def upsert_inspection_result(
         result_ship_qty = 0
         stock_in_qty = 0
         discard_qty = 0
+        uninspected_qty = 0
     else:
         next_inspection_date = None
 
     inspected_qty = good_qty + defect_ship_qty + defect_qty
     sellable_qty = good_qty + defect_ship_qty
 
-    prior_good_qty, prior_defect_ship_qty, _, _, _ = _get_prior_result_totals(
+    prior_good_qty, prior_defect_ship_qty, _, _, _, _ = _get_prior_result_totals(
         db,
         lot_id=sch.lot_id,
         current_schedule_id=inspection_schedule_id,
@@ -173,6 +177,7 @@ def upsert_inspection_result(
             defect_ship_qty=defect_ship_qty,
             defect_qty=defect_qty,
             inspected_qty=inspected_qty,
+            uninspected_qty=uninspected_qty,
             discard_qty=discard_qty,
             is_partial=is_partial,
             next_inspection_date=next_inspection_date,
@@ -187,6 +192,7 @@ def upsert_inspection_result(
         result.defect_ship_qty = defect_ship_qty
         result.defect_qty = defect_qty
         result.inspected_qty = inspected_qty
+        result.uninspected_qty = uninspected_qty
         result.discard_qty = discard_qty
         result.is_partial = is_partial
         result.next_inspection_date = next_inspection_date
@@ -725,7 +731,7 @@ def _apply_inventory_for_result(
     db.flush()
 
     current_stock_qty_before_result_in = int(inventory.current_qty or 0)
-    prior_good_qty, prior_defect_ship_qty, _, _, _ = _get_prior_result_totals(
+    prior_good_qty, prior_defect_ship_qty, _, _, _, _ = _get_prior_result_totals(
         db,
         lot_id=schedule.lot_id,
         current_schedule_id=schedule.inspection_schedule_id,

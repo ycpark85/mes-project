@@ -27,6 +27,7 @@
         public const string OutsourcePurchaseOrderListView = "OUTSOURCE_PURCHASE_ORDER_LIST.VIEW";
         public const string BohyunOutsourceManagementView = "BOHYUN_OUTSOURCE_MANAGEMENT.VIEW";
         public const string BohyunOutsourceShipmentListView = "BOHYUN_OUTSOURCE_SHIPMENT_LIST.VIEW";
+        public const string OutsourceProcessingCostsView = "OUTSOURCE_PROCESSING_COSTS.VIEW";
 
         public const string ProductMonitoringView = "PRODUCT_MONITORING.VIEW";
         public const string InventoriesView = "INVENTORIES.VIEW";

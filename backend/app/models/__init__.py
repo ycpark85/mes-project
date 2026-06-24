@@ -24,6 +24,9 @@ from .outsource_purchase_order_item import OutsourcePurchaseOrderItem
 from .outsource_work_group import OutsourceWorkGroup
 from .outsource_work_group_item import OutsourceWorkGroupItem
 from .outsource_purchase_order_group import OutsourcePurchaseOrderGroup
+from .outsource_processing_cost_group import OutsourceProcessingCostGroup
+from .outsource_processing_cost_work_group import OutsourceProcessingCostWorkGroup
+from .outsource_processing_cost_allocation import OutsourceProcessingCostAllocation
 from .product_inventory import ProductInventory
 from .product_inventory_lot import ProductInventoryLot
 from .product_inventory_movement import ProductInventoryMovement
@@ -63,6 +66,9 @@ __all__ = [
     "OutsourceWorkGroup",
     "OutsourceWorkGroupItem",
     "OutsourcePurchaseOrderGroup",
+    "OutsourceProcessingCostGroup",
+    "OutsourceProcessingCostWorkGroup",
+    "OutsourceProcessingCostAllocation",
     "ProductInventory",
     "ProductInventoryLot",
     "ProductInventoryMovement",

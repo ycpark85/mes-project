@@ -56,6 +56,10 @@ class OutsourceWorkGroup(Base):
             "ix_outsource_work_group__process_type",
             "process_type",
         ),
+        Index(
+            "ix_outsource_work_group__representative_lot_id",
+            "representative_lot_id",
+        ),
     )
 
     outsource_work_group_id: Mapped[int] = mapped_column(
@@ -80,6 +84,11 @@ class OutsourceWorkGroup(Base):
     sheet_cut_count: Mapped[int] = mapped_column(Integer, nullable=False)
     status: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
     fabric_lot_no: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    representative_lot_id: Mapped[Optional[int]] = mapped_column(
+        BigInteger,
+        ForeignKey("lot.lot_id", ondelete="RESTRICT"),
+        nullable=True,
+    )
     remark: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     vendor_received_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True),
@@ -123,6 +132,7 @@ class OutsourceWorkGroup(Base):
     )
 
     instruction = relationship("OutsourceWorkInstruction")
+    representative_lot = relationship("Lot", foreign_keys=[representative_lot_id])
 
     items: Mapped[List["OutsourceWorkGroupItem"]] = relationship(
         "OutsourceWorkGroupItem",

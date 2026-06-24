@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="980" height="560" viewBox="0 0 980 560">
+  <style>
+    .box { fill:#ffffff; stroke:#334155; stroke-width:1.5; rx:6; }
+    .title { font:700 15px Arial, sans-serif; fill:#0f172a; }
+    .text { font:12px Arial, sans-serif; fill:#334155; }
+    .line { stroke:#2563eb; stroke-width:1.6; fill:none; marker-end:url(#arrow); }
+  </style>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#2563eb" />
+    </marker>
+  </defs>
+
+  <rect class="box" x="40" y="60" width="260" height="150"/>
+  <text class="title" x="60" y="90">outsource_processing_cost_group</text>
+  <text class="text" x="60" y="118">PK outsource_processing_cost_group_id</text>
+  <text class="text" x="60" y="140">cost_group_no, settlement_month</text>
+  <text class="text" x="60" y="162">process_type, status</text>
+  <text class="text" x="60" y="184">standard_amount, actual_amount</text>
+
+  <rect class="box" x="380" y="40" width="260" height="120"/>
+  <text class="title" x="400" y="70">outsource_processing_cost_work_group</text>
+  <text class="text" x="400" y="98">FK cost_group_id</text>
+  <text class="text" x="400" y="120">FK outsource_work_group_id</text>
+
+  <rect class="box" x="720" y="40" width="220" height="142"/>
+  <text class="title" x="740" y="70">outsource_work_group</text>
+  <text class="text" x="740" y="98">PK outsource_work_group_id</text>
+  <text class="text" x="740" y="120">process_type, sheet_qty</text>
+  <text class="text" x="740" y="142">FK representative_lot_id</text>
+
+  <rect class="box" x="380" y="250" width="280" height="135"/>
+  <text class="title" x="400" y="280">outsource_processing_cost_allocation</text>
+  <text class="text" x="400" y="308">FK cost_group_id</text>
+  <text class="text" x="400" y="330">FK lot_id</text>
+  <text class="text" x="400" y="352">basis_type, basis_value, ratio</text>
+  <text class="text" x="400" y="374">standard_allocated, actual_allocated</text>
+
+  <rect class="box" x="740" y="260" width="180" height="105"/>
+  <text class="title" x="760" y="290">lot</text>
+  <text class="text" x="760" y="318">PK lot_id</text>
+  <text class="text" x="760" y="340">lot_no, product_id</text>
+
+  <rect class="box" x="40" y="430" width="310" height="100"/>
+  <text class="title" x="60" y="460">inspection_result</text>
+  <text class="text" x="60" y="488">inspected_qty = good + defect_ship + defect</text>
+  <text class="text" x="60" y="510">uninspected_qty, discard_qty</text>
+  <text class="text" x="60" y="532">received_qty = inspected + uninspected</text>
+
+  <path class="line" d="M300 110 L380 100"/>
+  <path class="line" d="M640 100 L720 100"/>
+  <path class="line" d="M300 180 L380 300"/>
+  <path class="line" d="M660 320 L740 320"/>
+  <path class="line" d="M830 182 L830 260"/>
+</svg>

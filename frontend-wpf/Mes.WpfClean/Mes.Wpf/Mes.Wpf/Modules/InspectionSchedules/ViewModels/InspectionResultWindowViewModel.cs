@@ -33,11 +33,13 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
         private int _baseAccumulatedDefectQty;
         private int _baseAccumulatedDefectShipQty;
         private int _baseAccumulatedInspectedQty;
+        private int _baseAccumulatedUninspectedQty;
 
         private int _accumulatedGoodQty;
         private int _accumulatedDefectQty;
         private int _accumulatedDefectShipQty;
         private int _accumulatedInspectedQty;
+        private int _accumulatedUninspectedQty;
 
         private int _currentStockQty;
         private int _shipTargetQty;
@@ -57,6 +59,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
         private int _goodQty;
         private int _defectShipQty;
         private int _defectQty;
+        private int _uninspectedQty;
         private bool _isPartial;
         private DateTime? _nextInspectionDate;
         private string _partialReason = string.Empty;
@@ -183,6 +186,14 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
             set => SetProperty(ref _accumulatedInspectedQty, value);
         }
 
+        public int AccumulatedUninspectedQty
+        {
+            get => _accumulatedUninspectedQty;
+            set => SetProperty(ref _accumulatedUninspectedQty, value);
+        }
+
+        public int AccumulatedReceivedQty => AccumulatedInspectedQty + AccumulatedUninspectedQty;
+
         public int GoodQty
         {
             get => _goodQty;
@@ -219,7 +230,20 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
             }
         }
 
+        public int UninspectedQty
+        {
+            get => _uninspectedQty;
+            set
+            {
+                if (SetProperty(ref _uninspectedQty, value))
+                {
+                    RecalculateTotals();
+                }
+            }
+        }
+
         public int TotalQty => GoodQty + DefectShipQty + DefectQty;
+        public int ReceivedQty => TotalQty + UninspectedQty;
         public int SellableQty =>
             IsPartial
                 ? GoodQty + DefectShipQty
@@ -388,6 +412,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                         ResultShipQty = 0;
                         StockInQty = 0;
                         DiscardQty = 0;
+                        UninspectedQty = 0;
                     }
 
                     RecalculateTotals();
@@ -549,12 +574,14 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                 _baseAccumulatedDefectQty = accumulated?.DefectQty ?? 0;
                 _baseAccumulatedDefectShipQty = accumulated?.DefectShipQty ?? 0;
                 _baseAccumulatedInspectedQty = accumulated?.InspectedQty ?? 0;
+                _baseAccumulatedUninspectedQty = accumulated?.UninspectedQty ?? 0;
 
                 if (dto == null)
                 {
                     GoodQty = 0;
                     DefectShipQty = 0;
                     DefectQty = 0;
+                    UninspectedQty = 0;
 
                     StockShipQty = CurrentResultStockShipQty;
                     ResultShipQty = CurrentResultResultShipQty;
@@ -585,6 +612,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                 GoodQty = dto.GoodQty;
                 DefectShipQty = dto.DefectShipQty;
                 DefectQty = dto.DefectQty;
+                UninspectedQty = dto.UninspectedQty;
 
                 StockShipQty = CurrentResultStockShipQty;
                 ResultShipQty = CurrentResultResultShipQty;
@@ -691,11 +719,14 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
         private void RecalculateTotals()
         {
             OnPropertyChanged(nameof(TotalQty));
+            OnPropertyChanged(nameof(ReceivedQty));
 
             AccumulatedGoodQty = _baseAccumulatedGoodQty + GoodQty;
             AccumulatedDefectQty = _baseAccumulatedDefectQty + DefectQty;
             AccumulatedDefectShipQty = _baseAccumulatedDefectShipQty + DefectShipQty;
             AccumulatedInspectedQty = _baseAccumulatedInspectedQty + TotalQty;
+            AccumulatedUninspectedQty = _baseAccumulatedUninspectedQty + UninspectedQty;
+            OnPropertyChanged(nameof(AccumulatedReceivedQty));
             OnPropertyChanged(nameof(SellableQty));
 
             RecalculateInventoryPreview();
@@ -927,9 +958,9 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                 return;
             }
 
-            if (TotalQty <= 0)
+            if (ReceivedQty <= 0)
             {
-                _messageService.ShowWarning("검수수량을 입력해주세요.");
+                _messageService.ShowWarning("검수수량 또는 미검수수량을 입력해주세요.");
                 return;
             }
 
@@ -978,6 +1009,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                     GoodQty = GoodQty,
                     DefectShipQty = DefectShipQty,
                     DefectQty = DefectQty,
+                    UninspectedQty = IsPartial ? 0 : UninspectedQty,
                     StockShipQty = IsPartial ? 0 : StockShipQty,
                     ResultShipQty = IsPartial ? 0 : ResultShipQty,
                     StockInQty = IsPartial ? 0 : StockInQty,
@@ -1061,6 +1093,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                     ResultShipQty = 0;
                     StockInQty = 0;
                     DiscardQty = 0;
+                    UninspectedQty = 0;
                     return;
                 }
 

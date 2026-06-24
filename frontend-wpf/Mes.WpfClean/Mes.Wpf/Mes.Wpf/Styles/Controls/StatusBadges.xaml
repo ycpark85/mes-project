@@ -1,0 +1,67 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Style x:Key="StatusBadgeBorderStyle" TargetType="Border">
+        <Setter Property="MinWidth" Value="62" />
+        <Setter Property="Padding" Value="8,3" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="Background" Value="{StaticResource Brush.Status.UnregisteredBackground}" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="DRAFT">
+                <Setter Property="Background" Value="{StaticResource Brush.Status.DraftBackground}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="COST_VARIANCE">
+                <Setter Property="Background" Value="{StaticResource Brush.Status.CostVarianceBackground}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="CLOSED">
+                <Setter Property="Background" Value="{StaticResource Brush.Status.ClosedBackground}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="CANCELED">
+                <Setter Property="Background" Value="{StaticResource Brush.Status.CanceledBackground}" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="StatusBadgeTextStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="TextAlignment" Value="Center" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Status.UnregisteredForeground}" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="DRAFT">
+                <Setter Property="Foreground" Value="{StaticResource Brush.Status.DraftForeground}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="COST_VARIANCE">
+                <Setter Property="Foreground" Value="{StaticResource Brush.Status.CostVarianceForeground}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="CLOSED">
+                <Setter Property="Foreground" Value="{StaticResource Brush.Status.ClosedForeground}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="CANCELED">
+                <Setter Property="Foreground" Value="{StaticResource Brush.Status.CanceledForeground}" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="StatusTextStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Status.UnregisteredForeground}" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="DRAFT">
+                <Setter Property="Foreground" Value="{StaticResource Brush.Status.DraftForeground}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="COST_VARIANCE">
+                <Setter Property="Foreground" Value="{StaticResource Brush.Status.CostVarianceForeground}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="CLOSED">
+                <Setter Property="Foreground" Value="{StaticResource Brush.Status.ClosedForeground}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="CANCELED">
+                <Setter Property="Foreground" Value="{StaticResource Brush.Status.CanceledForeground}" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+</ResourceDictionary>

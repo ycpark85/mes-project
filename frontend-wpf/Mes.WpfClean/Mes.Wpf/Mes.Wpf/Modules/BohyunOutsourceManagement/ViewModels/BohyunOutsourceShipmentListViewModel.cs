@@ -43,8 +43,7 @@ namespace Mes.Wpf.Modules.BohyunOutsourceManagement.ViewModels
             {
                 "전체",
                 "CUT",
-                "PRINT",
-                "DIECUT"
+                "PRINT"
             };
 
             SearchCommand = new AsyncRelayCommand(SearchAsync, () => !IsLoading);

@@ -424,6 +424,12 @@ def _filter_groups_for_lot_ids(
         if group.is_bundle:
             sheet_cut_count = sum(item.cuts_per_sheet for item in filtered_items)
 
+        representative_lot_id = (
+            group.representative_lot_id
+            if group.representative_lot_id in allowed_set
+            else None
+        )
+
         filtered_groups.append(
             OutsourceWorkInstructionGroupCreate(
                 group_seq=group.group_seq,
@@ -432,6 +438,7 @@ def _filter_groups_for_lot_ids(
                 length_m=group.length_m,
                 sheet_cut_count=sheet_cut_count,
                 fabric_lot_no=group.fabric_lot_no,
+                representative_lot_id=representative_lot_id,
                 remark=group.remark,
                 items=filtered_items,
             )
@@ -658,6 +665,24 @@ def _create_work_groups(
     groups: list[OutsourceWorkInstructionGroupCreate],
 ) -> None:
     for group_payload in groups:
+        group_lot_ids = {item.lot_id for item in group_payload.items}
+        representative_lot_id = group_payload.representative_lot_id
+
+        if representative_lot_id is not None and representative_lot_id not in group_lot_ids:
+            raise HTTPException(
+                status_code=409,
+                detail="Representative lot must be included in outsource work group items",
+            )
+
+        if len(group_payload.items) > 1 and representative_lot_id is None:
+            raise HTTPException(
+                status_code=409,
+                detail="Representative lot is required for bundle outsource work group",
+            )
+
+        if len(group_payload.items) == 1:
+            representative_lot_id = group_payload.items[0].lot_id
+
         sheet_cut_count = _resolve_group_sheet_cut_count(
             db=db,
             process_type=process_type,
@@ -677,6 +702,7 @@ def _create_work_groups(
                 if group_payload.fabric_lot_no and group_payload.fabric_lot_no.strip()
                 else None
             ),
+            representative_lot_id=representative_lot_id,
             remark=group_payload.remark,
         )
         db.add(work_group)
@@ -837,6 +863,18 @@ def get_bohyun_outsource_groups(
         if not target_group_item_rows:
             continue
 
+        representative_row = next(
+            (
+                row
+                for row in target_group_item_rows
+                if row[1].lot_id == work_group.representative_lot_id
+            ),
+            target_group_item_rows[0],
+        )
+        representative_lot = representative_row[1]
+        representative_product = representative_row[3]
+        representative_product_name = representative_product.product_name
+
         group_items: list[BohyunOutsourceGroupItemOut] = []
         lot_nos: list[str] = []
         product_names: list[str] = []
@@ -865,10 +903,18 @@ def get_bohyun_outsource_groups(
                 )
             )
 
+        display_product_names = (
+            [representative_product_name]
+            if representative_product_name
+            else list(dict.fromkeys(product_names))
+        )
+
         result_items.append(
             BohyunOutsourceGroupListItemOut(
                 outsource_work_group_id=work_group.outsource_work_group_id,
                 outsource_work_instruction_id=instruction.outsource_work_instruction_id,
+                representative_lot_id=representative_lot.lot_id,
+                representative_product_name=representative_product_name,
                 instruction_no=instruction.instruction_no,
                 instruction_date=instruction.instruction_date,
                 process_type=work_group.process_type,
@@ -888,7 +934,7 @@ def get_bohyun_outsource_groups(
                 outsource_processing_fee=work_group.outsource_processing_fee,
                 work_done_remark=work_group.work_done_remark,
                 lot_nos=lot_nos,
-                product_names=list(dict.fromkeys(product_names)),
+                product_names=display_product_names,
                 items=group_items,
             )
         )
@@ -1792,6 +1838,7 @@ def get_purchase_order_targets(
                 product_id=product.product_id,
                 product_code=product.product_code,
                 product_name=product.product_name,
+                representative_lot_id=work_group.representative_lot_id,
                 customer_partner_id=source_partner.partner_id,
                 customer_partner_name=source_partner.name,
                 lot_qty=lot.lot_qty,

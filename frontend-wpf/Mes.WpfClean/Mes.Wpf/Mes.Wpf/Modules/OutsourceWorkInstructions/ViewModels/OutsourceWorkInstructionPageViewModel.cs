@@ -33,6 +33,7 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
 
             AddDraftCommand = new RelayCommand(AddDraft);
             RemoveDraftCommand = new RelayCommand(RemoveDraft);
+            SetRepresentativeLotCommand = new RelayCommand(SetRepresentativeLot);
             UploadFileCommand = new AsyncRelayCommand(UploadFileAsync);
             SaveCommand = new AsyncRelayCommand(SaveAsync);
             ResetCommand = new AsyncRelayCommand(ResetAsync);
@@ -45,6 +46,8 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
         public RelayCommand AddDraftCommand { get; }
 
         public RelayCommand RemoveDraftCommand { get; }
+
+        public RelayCommand SetRepresentativeLotCommand { get; }
 
         public AsyncRelayCommand UploadFileCommand { get; }
 
@@ -135,6 +138,7 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
             foreach (var lot in selectedLots)
             {
                 lot.IsSelected = false;
+                lot.IsRepresentative = false;
                 lot.ManualCutsPerSheet = null;
                 draft.Lots.Add(lot);
             }
@@ -142,6 +146,10 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
             if (!draft.IsBundle)
             {
                 draft.SheetCutCount = draft.FirstLot?.CutQtyPerPanel;
+                if (draft.FirstLot != null)
+                {
+                    draft.SetRepresentativeLot(draft.FirstLot);
+                }
             }
 
             draft.RefreshDerivedValues();
@@ -169,6 +177,7 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
             foreach (var lot in SelectedDraft.Lots)
             {
                 lot.IsSelected = false;
+                lot.IsRepresentative = false;
                 lot.ManualCutsPerSheet = null;
                 CandidateLots.Add(lot);
             }
@@ -178,6 +187,23 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
 
             OnPropertyChanged(nameof(Drafts));
             OnPropertyChanged(nameof(SelectedDraft));
+        }
+
+        private void SetRepresentativeLot()
+        {
+            if (SelectedDraft == null)
+            {
+                _messageService.ShowWarning("대표품목을 지정할 작업지시를 선택하세요.");
+                return;
+            }
+
+            if (SelectedDraft.SelectedLot == null)
+            {
+                _messageService.ShowWarning("선택 LOT 목록에서 대표로 지정할 행을 선택하세요.");
+                return;
+            }
+
+            SelectedDraft.SetRepresentativeLot(SelectedDraft.SelectedLot);
         }
 
         private async Task UploadFileAsync()
@@ -281,6 +307,12 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
 
                 if (draft.IsBundle)
                 {
+                    if (!draft.RepresentativeLotId.HasValue)
+                    {
+                        _messageService.ShowWarning($"묶음 작업지시는 대표품목을 지정해야 합니다.\nLOT: {draft.LotSummary}");
+                        return;
+                    }
+
                     if (!draft.SheetCutCount.HasValue || draft.SheetCutCount.Value <= 0)
                     {
                         _messageService.ShowWarning($"묶음 작업지시는 총 절수를 입력해야 합니다.\nLOT: {draft.LotSummary}");
@@ -387,6 +419,7 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
                 FabricLotNo = string.IsNullOrWhiteSpace(draft.FabricLotNo)
                     ? null
                     : draft.FabricLotNo.Trim(),
+                RepresentativeLotId = draft.RepresentativeLotId,
                 Remark = string.IsNullOrWhiteSpace(draft.Memo)
                     ? null
                     : draft.Memo.Trim()

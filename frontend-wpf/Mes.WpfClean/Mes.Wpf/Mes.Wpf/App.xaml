@@ -10,6 +10,7 @@
                 <ResourceDictionary Source="Styles/Controls/Buttons.xaml" />
                 <ResourceDictionary Source="Styles/Controls/Inputs.xaml" />
                 <ResourceDictionary Source="Styles/Controls/DataGrid.xaml" />
+                <ResourceDictionary Source="Styles/Controls/StatusBadges.xaml" />
 
                 <ResourceDictionary Source="Styles/Layout/Shell.xaml" />
                 <ResourceDictionary Source="Styles/Layout/CrudPage.xaml" />

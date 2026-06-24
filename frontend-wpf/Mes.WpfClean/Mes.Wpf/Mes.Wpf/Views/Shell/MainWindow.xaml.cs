@@ -26,6 +26,8 @@ using Mes.Wpf.Modules.OrderLines.ViewModels;
 using Mes.Wpf.Modules.OrderLines.Views;
 using Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels;
 using Mes.Wpf.Modules.OutsourceWorkInstructions.Views;
+using Mes.Wpf.Modules.OutsourceProcessingCosts.ViewModels;
+using Mes.Wpf.Modules.OutsourceProcessingCosts.Views;
 using Mes.Wpf.Modules.Partners.ViewModels;
 using Mes.Wpf.Modules.Partners.Views;
 using Mes.Wpf.Modules.Processes.ViewModels;
@@ -684,6 +686,25 @@ namespace Mes.Wpf.Views.Shell
             await viewModel.InitializeAsync();
         }
 
+        private async void OutsourceProcessingCost_Click(object sender, RoutedEventArgs e)
+        {
+            var view = new OutsourceProcessingCostManagementView();
+
+            var viewModel = new OutsourceProcessingCostManagementViewModel(
+                _apiClient,
+                _messageService);
+
+            view.DataContext = viewModel;
+
+            MainContent.Content = view;
+            MainContent.Visibility = Visibility.Visible;
+
+            HeaderTitle.Text = "외주가공비 관리";
+            HeaderSubtitle.Text = "표준작업비 · 실제가공비 등록 / LOT별 배부 / 월마감";
+
+            await viewModel.InitializeAsync();
+        }
+
         private async void Inventory_Click(object sender, RoutedEventArgs e)
         {
             var page = new InventoryPage();
@@ -888,6 +909,7 @@ namespace Mes.Wpf.Views.Shell
             SetMenuVisibility(BohyunOutsourceShipmentListMenuButton, PermissionCodes.BohyunOutsourceShipmentListView);
 
             SetMenuVisibility(ProductMonitoringMenuButton, PermissionCodes.ProductMonitoringView);
+            SetMenuVisibility(OutsourceProcessingCostMenuButton, PermissionCodes.OutsourceProcessingCostsView);
             SetMenuVisibility(InventoryMenuButton, PermissionCodes.InventoriesView);
             ShipmentMenuButton.Visibility = Visibility.Collapsed;
 

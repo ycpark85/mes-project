@@ -309,6 +309,11 @@
                                         Style="{StaticResource SidebarMenuButtonStyle}"
                                         Click="ProductMonitoring_Click"/>
 
+                                <Button x:Name="OutsourceProcessingCostMenuButton"
+                                        Content="외주가공비 관리"
+                                        Style="{StaticResource SidebarMenuButtonStyle}"
+                                        Click="OutsourceProcessingCost_Click"/>
+
                                 <Button x:Name="InventoryMenuButton"
                                         Content="재고 관리"
                                         Style="{StaticResource SidebarMenuButtonStyle}"

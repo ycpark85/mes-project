@@ -43,6 +43,12 @@ namespace Mes.Wpf.Modules.InspectionSchedules.Dtos
         [JsonPropertyName("good_qty")]
         public int GoodQty { get; set; }
 
+        [JsonPropertyName("uninspected_qty")]
+        public int UninspectedQty { get; set; }
+
+        [JsonPropertyName("received_qty")]
+        public int ReceivedQty { get; set; }
+
         [JsonPropertyName("result_ship_qty")]
         public int ResultShipQty { get; set; }
 

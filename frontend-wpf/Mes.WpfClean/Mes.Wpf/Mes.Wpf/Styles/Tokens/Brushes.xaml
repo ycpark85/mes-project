@@ -19,5 +19,22 @@
     <SolidColorBrush x:Key="Brush.Success" Color="{StaticResource Color.Success}" />
     <SolidColorBrush x:Key="Brush.Warning" Color="{StaticResource Color.Warning}" />
     <SolidColorBrush x:Key="Brush.Danger" Color="{StaticResource Color.Danger}" />
+    <SolidColorBrush x:Key="Brush.SuccessHover" Color="{StaticResource Color.SuccessHover}" />
+    <SolidColorBrush x:Key="Brush.SuccessPressed" Color="{StaticResource Color.SuccessPressed}" />
+    <SolidColorBrush x:Key="Brush.WarningHover" Color="{StaticResource Color.WarningHover}" />
+    <SolidColorBrush x:Key="Brush.WarningPressed" Color="{StaticResource Color.WarningPressed}" />
+    <SolidColorBrush x:Key="Brush.DangerHover" Color="{StaticResource Color.DangerHover}" />
+    <SolidColorBrush x:Key="Brush.DangerPressed" Color="{StaticResource Color.DangerPressed}" />
+
+    <SolidColorBrush x:Key="Brush.Status.UnregisteredBackground" Color="{StaticResource Color.Status.UnregisteredBackground}" />
+    <SolidColorBrush x:Key="Brush.Status.UnregisteredForeground" Color="{StaticResource Color.Status.UnregisteredForeground}" />
+    <SolidColorBrush x:Key="Brush.Status.DraftBackground" Color="{StaticResource Color.Status.DraftBackground}" />
+    <SolidColorBrush x:Key="Brush.Status.DraftForeground" Color="{StaticResource Color.Status.DraftForeground}" />
+    <SolidColorBrush x:Key="Brush.Status.CostVarianceBackground" Color="{StaticResource Color.Status.CostVarianceBackground}" />
+    <SolidColorBrush x:Key="Brush.Status.CostVarianceForeground" Color="{StaticResource Color.Status.CostVarianceForeground}" />
+    <SolidColorBrush x:Key="Brush.Status.ClosedBackground" Color="{StaticResource Color.Status.ClosedBackground}" />
+    <SolidColorBrush x:Key="Brush.Status.ClosedForeground" Color="{StaticResource Color.Status.ClosedForeground}" />
+    <SolidColorBrush x:Key="Brush.Status.CanceledBackground" Color="{StaticResource Color.Status.CanceledBackground}" />
+    <SolidColorBrush x:Key="Brush.Status.CanceledForeground" Color="{StaticResource Color.Status.CanceledForeground}" />
 
 </ResourceDictionary>

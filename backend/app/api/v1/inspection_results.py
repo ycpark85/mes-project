@@ -181,6 +181,7 @@ def _get_accumulated_summary(
             func.coalesce(func.sum(InspectionResult.defect_qty), 0),
             func.coalesce(func.sum(InspectionResult.defect_ship_qty), 0),
             func.coalesce(func.sum(InspectionResult.inspected_qty), 0),
+            func.coalesce(func.sum(InspectionResult.uninspected_qty), 0),
             func.coalesce(func.sum(InspectionResult.discard_qty), 0),
         )
         .select_from(InspectionResult)
@@ -200,7 +201,9 @@ def _get_accumulated_summary(
         defect_qty=int(row[1] or 0),
         defect_ship_qty=int(row[2] or 0),
         inspected_qty=int(row[3] or 0),
-        discard_qty=int(row[4] or 0),
+        uninspected_qty=int(row[4] or 0),
+        received_qty=int(row[3] or 0) + int(row[4] or 0),
+        discard_qty=int(row[5] or 0),
     )
 
 def _get_inventory_summary(
@@ -397,6 +400,11 @@ def list_inspection_results(
             Lot.lot_qty,
             OrderLine.order_qty,
             InspectionResult.good_qty,
+            InspectionResult.uninspected_qty,
+            (
+                InspectionResult.inspected_qty
+                + InspectionResult.uninspected_qty
+            ).label("received_qty"),
             func.coalesce(result_ship_sq.c.result_ship_qty, 0).label("result_ship_qty"),
             InspectionResult.discard_qty,
             (
@@ -480,6 +488,8 @@ def list_inspection_results(
             lot_qty=int(row["lot_qty"] or 0),
             order_qty=int(row["order_qty"] or 0),
             good_qty=int(row["good_qty"] or 0),
+            uninspected_qty=int(row["uninspected_qty"] or 0),
+            received_qty=int(row["received_qty"] or 0),
             result_ship_qty=int(row["result_ship_qty"] or 0),
             discard_qty=int(row["discard_qty"] or 0),
             stock_in_qty=max(int(row["stock_in_qty"] or 0), 0),
@@ -615,6 +625,7 @@ def put_result(
             good_qty=body.good_qty,
             defect_ship_qty=body.defect_ship_qty,
             defect_qty=body.defect_qty,
+            uninspected_qty=body.uninspected_qty,
             stock_ship_qty=body.stock_ship_qty,
             result_ship_qty=body.result_ship_qty,
             stock_in_qty=body.stock_in_qty,

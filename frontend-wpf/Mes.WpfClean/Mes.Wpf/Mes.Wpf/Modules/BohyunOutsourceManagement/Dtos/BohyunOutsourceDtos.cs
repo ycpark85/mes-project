@@ -23,6 +23,12 @@ namespace Mes.Wpf.Modules.BohyunOutsourceManagement.Dtos
         [JsonPropertyName("outsource_work_instruction_id")]
         public long OutsourceWorkInstructionId { get; set; }
 
+        [JsonPropertyName("representative_lot_id")]
+        public long? RepresentativeLotId { get; set; }
+
+        [JsonPropertyName("representative_product_name")]
+        public string? RepresentativeProductName { get; set; }
+
         [JsonPropertyName("instruction_no")]
         public string InstructionNo { get; set; } = string.Empty;
 
@@ -138,6 +144,8 @@ namespace Mes.Wpf.Modules.BohyunOutsourceManagement.Dtos
 
         public long OutsourceWorkGroupId { get; set; }
         public long OutsourceWorkInstructionId { get; set; }
+        public long? RepresentativeLotId { get; set; }
+        public string? RepresentativeProductName { get; set; }
 
         public string InstructionNo { get; set; } = string.Empty;
         public DateTime? InstructionDate { get; set; }
@@ -196,7 +204,7 @@ namespace Mes.Wpf.Modules.BohyunOutsourceManagement.Dtos
             : string.Join(", ", LotNos);
 
         public string ProductNamesText => ProductNames == null || ProductNames.Count == 0
-            ? string.Empty
+            ? RepresentativeProductName ?? string.Empty
             : string.Join(", ", ProductNames.Distinct());
 
         public bool CanInbound => Status == "WAITING_INBOUND";
@@ -209,6 +217,8 @@ namespace Mes.Wpf.Modules.BohyunOutsourceManagement.Dtos
             {
                 OutsourceWorkGroupId = dto.OutsourceWorkGroupId,
                 OutsourceWorkInstructionId = dto.OutsourceWorkInstructionId,
+                RepresentativeLotId = dto.RepresentativeLotId,
+                RepresentativeProductName = dto.RepresentativeProductName,
                 InstructionNo = dto.InstructionNo,
                 InstructionDate = dto.InstructionDate,
                 ProcessType = dto.ProcessType,

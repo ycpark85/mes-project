@@ -918,7 +918,8 @@ namespace Mes.Wpf.Modules.Products.ViewModels
                 throw new FileNotFoundException("선택한 파일을 찾을 수 없습니다.", filePath);
             }
 
-            using var workbook = new XLWorkbook(filePath);
+            using var workbookStream = OpenReadOnlySharedStream(filePath);
+            using var workbook = new XLWorkbook(workbookStream);
             var worksheet = workbook.Worksheets.First();
 
             var headerMap = BuildHeaderMap(worksheet);
@@ -965,6 +966,20 @@ namespace Mes.Wpf.Modules.Products.ViewModels
             }
 
             return rows;
+        }
+
+        private static MemoryStream OpenReadOnlySharedStream(string filePath)
+        {
+            using var fileStream = new FileStream(
+                filePath,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete);
+
+            var workbookStream = new MemoryStream();
+            fileStream.CopyTo(workbookStream);
+            workbookStream.Position = 0;
+            return workbookStream;
         }
 
         private Dictionary<string, int> BuildHeaderMap(IXLWorksheet worksheet)

@@ -26,6 +26,8 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
         private InspectionResultManagementItemDto? _selectedItem;
         private int _totalCount;
         private int _totalGoodQty;
+        private int _totalUninspectedQty;
+        private int _totalReceivedQty;
         private int _totalResultShipQty;
         private int _totalDiscardQty;
         private int _totalStockInQty;
@@ -105,6 +107,18 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
         {
             get => _totalGoodQty;
             set => SetProperty(ref _totalGoodQty, value);
+        }
+
+        public int TotalUninspectedQty
+        {
+            get => _totalUninspectedQty;
+            set => SetProperty(ref _totalUninspectedQty, value);
+        }
+
+        public int TotalReceivedQty
+        {
+            get => _totalReceivedQty;
+            set => SetProperty(ref _totalReceivedQty, value);
         }
 
         public int TotalResultShipQty
@@ -247,6 +261,8 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
         {
             TotalCount = Items.Count;
             TotalGoodQty = Items.Sum(x => x.GoodQty);
+            TotalUninspectedQty = Items.Sum(x => x.UninspectedQty);
+            TotalReceivedQty = Items.Sum(x => x.ReceivedQty);
             TotalResultShipQty = Items.Sum(x => x.ResultShipQty);
             TotalDiscardQty = Items.Sum(x => x.DiscardQty);
             TotalStockInQty = Items.Sum(x => x.StockInQty);

@@ -257,26 +257,66 @@
                                  Text="{Binding SelectedDraft.Memo, UpdateSourceTrigger=PropertyChanged}" />
 
                         <!-- 선택 LOT -->
-                        <TextBlock Grid.Row="10"
-                                   Text="선택 LOT"
-                                   FontWeight="SemiBold"
-                                   Margin="0,0,0,4"
-                                   VerticalAlignment="Top" />
+                        <Grid Grid.Row="10">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="8" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
 
-                        <DataGrid Grid.Row="10"
-                                  Margin="0,24,0,0"
-                                  ItemsSource="{Binding SelectedDraft.Lots}"
-                                  AutoGenerateColumns="False"
-                                  CanUserAddRows="False">
-                            <DataGrid.Columns>
-                                <DataGridTextColumn Header="LOT" Binding="{Binding LotNo}" Width="110" />
-                                <DataGridTextColumn Header="품목명" Binding="{Binding ProductName}" Width="180" />
-                                <DataGridTextColumn Header="수량" Binding="{Binding LotQty, StringFormat={}{0:N0}}" Width="70" />
-                                <DataGridTextColumn Header="공정" Binding="{Binding ProcessText}" Width="90" />
-                                <DataGridTextColumn Header="기본컷수" Binding="{Binding CutCountText}" Width="70" />
-                                <DataGridTextColumn Header="묶음컷수" Binding="{Binding ManualCutsPerSheet, UpdateSourceTrigger=PropertyChanged}" Width="80" />
-                            </DataGrid.Columns>
-                        </DataGrid>
+                            <Border Grid.Row="0"
+                                    Padding="10,8"
+                                    Background="#F8FAFC"
+                                    BorderBrush="#D0D7DE"
+                                    BorderThickness="1">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="12" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="12" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <TextBlock Grid.Column="0"
+                                               Text="선택 LOT"
+                                               FontWeight="SemiBold"
+                                               VerticalAlignment="Center" />
+
+                                    <TextBlock Grid.Column="2"
+                                               Foreground="#374151"
+                                               VerticalAlignment="Center"
+                                               Text="{Binding SelectedDraft.RepresentativeLotText}"
+                                               TextTrimming="CharacterEllipsis" />
+
+                                    <Button Grid.Column="4"
+                                            Width="128"
+                                            Height="32"
+                                            Style="{StaticResource PrimaryButtonStyle}"
+                                            Content="대표품목 지정"
+                                            Command="{Binding SetRepresentativeLotCommand}" />
+                                </Grid>
+                            </Border>
+
+                            <DataGrid Grid.Row="2"
+                                      ItemsSource="{Binding SelectedDraft.Lots}"
+                                      SelectedItem="{Binding SelectedDraft.SelectedLot, Mode=TwoWay}"
+                                      AutoGenerateColumns="False"
+                                      CanUserAddRows="False">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="대표"
+                                                        Binding="{Binding RepresentativeMarker}"
+                                                        Width="55"
+                                                        IsReadOnly="True" />
+                                    <DataGridTextColumn Header="LOT" Binding="{Binding LotNo}" Width="110" />
+                                    <DataGridTextColumn Header="품목명" Binding="{Binding ProductName}" Width="180" />
+                                    <DataGridTextColumn Header="수량" Binding="{Binding LotQty, StringFormat={}{0:N0}}" Width="70" />
+                                    <DataGridTextColumn Header="공정" Binding="{Binding ProcessText}" Width="90" />
+                                    <DataGridTextColumn Header="기본컷수" Binding="{Binding CutCountText}" Width="70" />
+                                    <DataGridTextColumn Header="묶음컷수" Binding="{Binding ManualCutsPerSheet, UpdateSourceTrigger=PropertyChanged}" Width="80" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
                     </Grid>
                 </GroupBox>
             </Grid>

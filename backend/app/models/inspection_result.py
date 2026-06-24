@@ -32,6 +32,7 @@ class InspectionResult(Base):
         CheckConstraint("defect_qty >= 0", name="ck_inspection_result__defect_qty"),
         CheckConstraint("defect_ship_qty >= 0", name="ck_inspection_result__defect_ship_qty"),
         CheckConstraint("discard_qty >= 0", name="ck_inspection_result__discard_qty"),
+        CheckConstraint("uninspected_qty >= 0", name="ck_inspection_result__uninspected_qty"),
         CheckConstraint(
             "inspected_qty = good_qty + defect_ship_qty + defect_qty",
             name="ck_inspection_result__inspected_qty_calc_v2",
@@ -51,6 +52,7 @@ class InspectionResult(Base):
     defect_ship_qty: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     defect_qty: Mapped[int] = mapped_column(Integer, nullable=False)
     inspected_qty: Mapped[int] = mapped_column(Integer, nullable=False)
+    uninspected_qty: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     discard_qty: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     is_partial: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
@@ -75,3 +77,7 @@ class InspectionResult(Base):
         back_populates="inspection_result",
         cascade="all, delete-orphan",
     )
+
+    @property
+    def received_qty(self) -> int:
+        return int(self.inspected_qty or 0) + int(self.uninspected_qty or 0)
