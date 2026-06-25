@@ -34,6 +34,8 @@ using Mes.Wpf.Modules.Processes.ViewModels;
 using Mes.Wpf.Modules.Processes.Views;
 using Mes.Wpf.Modules.Products.ViewModels;
 using Mes.Wpf.Modules.Products.Views;
+using Mes.Wpf.Modules.ProductionDaily.ViewModels;
+using Mes.Wpf.Modules.ProductionDaily.Views;
 using Mes.Wpf.Modules.Roles.ViewModels;
 using Mes.Wpf.Modules.Roles.Views;
 using Mes.Wpf.Modules.RoutingTemplates.ViewModels;
@@ -510,6 +512,24 @@ namespace Mes.Wpf.Views.Shell
             await viewModel.InitializeAsync();
         }
 
+        private async void ProductionDaily_Click(object sender, RoutedEventArgs e)
+        {
+            var page = new ProductionDailyPage();
+            var viewModel = new ProductionDailyPageViewModel(
+                _apiClient,
+                _messageService);
+
+            page.DataContext = viewModel;
+
+            MainContent.Content = page;
+            MainContent.Visibility = Visibility.Visible;
+
+            HeaderTitle.Text = "생산진행현황";
+            HeaderSubtitle.Text = "검수 완료 전 생산 진행현황";
+
+            await viewModel.InitializeAsync();
+        }
+
         private async void InspectionWorkInstruction_Click(object sender, RoutedEventArgs e)
         {
             var inspectionWorkInstructionPage = new InspectionWorkInstructionPage();
@@ -897,6 +917,7 @@ namespace Mes.Wpf.Views.Shell
             SetMenuVisibility(OrderLineListMenuButton, PermissionCodes.OrderLineListView);
 
             SetMenuVisibility(LotProcessMenuButton, PermissionCodes.LotsView);
+            SetMenuVisibility(ProductionDailyMenuButton, PermissionCodes.ProductionDailyView);
 
             SetMenuVisibility(InspectionWorkInstructionMenuButton, PermissionCodes.InspectionWorkInstructionsView);
             SetMenuVisibility(InspectionScheduleManagementMenuButton, PermissionCodes.InspectionSchedulesView);

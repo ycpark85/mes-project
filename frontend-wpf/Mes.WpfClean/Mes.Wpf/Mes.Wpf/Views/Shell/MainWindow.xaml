@@ -299,6 +299,11 @@
                                   Style="{StaticResource SidebarCategoryExpanderStyle}"
                                   IsExpanded="False">
                             <StackPanel>
+                                <Button x:Name="ProductionDailyMenuButton"
+                                        Content="생산진행현황"
+                                        Style="{StaticResource SidebarMenuButtonStyle}"
+                                        Click="ProductionDaily_Click"/>
+
                                 <Button x:Name="LotProcessMenuButton"
                                         Content="LOT 관리"
                                         Style="{StaticResource SidebarMenuButtonStyle}"

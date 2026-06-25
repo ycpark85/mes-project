@@ -16,6 +16,7 @@
         public const string OrderLineListView = "ORDER_LINE_LIST.VIEW";
 
         public const string LotsView = "LOTS.VIEW";
+        public const string ProductionDailyView = "PRODUCTION_DAILY.VIEW";
 
         public const string InspectionWorkInstructionsView = "INSPECTION_WORK_INSTRUCTIONS.VIEW";
         public const string InspectionSchedulesView = "INSPECTION_SCHEDULES.VIEW";

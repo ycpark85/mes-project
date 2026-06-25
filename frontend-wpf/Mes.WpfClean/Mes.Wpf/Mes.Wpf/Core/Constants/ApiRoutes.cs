@@ -22,6 +22,7 @@
 
         public const string Lots = "api/v1/lots";
         public const string LotSteps = "api/v1/lot-steps";
+        public const string ProductionDaily = "api/v1/production-daily";
 
         public const string InspectionSchedules = "api/v1/inspection-schedules";
         public const string InspectionWorkInstructionTargets = "api/v1/inspection-schedules/work-instruction-targets";

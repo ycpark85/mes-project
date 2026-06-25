@@ -1,5 +1,42 @@
 # Database Architecture
 
+## Production Progress Snapshot Read Model
+
+### `production_progress_snapshot`
+
+Production progress status uses a read model table instead of recalculating current progress from all source tables on every screen query.
+
+The source of truth remains the operational tables:
+
+- `order_line`
+- `lot`
+- `outsource_work_group`
+- `outsource_work_group_item`
+- `inspection_schedule`
+- `inspection_result`
+- `product_inventory`
+- `shipment_line`
+
+Important columns:
+
+- `order_line_id`: unique business key for one production progress row per order line.
+- order, partner, and product display snapshots: used for fast grid rendering and keyword search.
+- `status`: `IN_PROGRESS` or `COMPLETED`.
+- `work_type`: `BASIC` or `REWORK`.
+- `current_process`: one of the production progress process states.
+- `current_process_order`: numeric order for bottleneck sorting.
+- `progress_rate`: display progress from 0 to 100.
+- `order_qty`, `available_inventory_qty`, `production_qty`.
+- `lot_count`, `target_lot_count`, `completed_lot_count`, `lot_nos_text`.
+
+Due slack (`D-3`, `D-DAY`, `D+1`) is not stored because it changes every day. The application calculates it from `due_date` at query time.
+
+Update policy:
+
+- The application refreshes the affected order line snapshot when LOT, outsource, inspection, or stock-reservation events change production progress.
+- Existing or repaired data can be rebuilt from source tables by running the production progress snapshot rebuild script.
+- If the snapshot and source tables ever disagree, source tables win and the snapshot must be regenerated.
+
 ## Inspection Result Quantity Extension
 
 ### `inspection_result`

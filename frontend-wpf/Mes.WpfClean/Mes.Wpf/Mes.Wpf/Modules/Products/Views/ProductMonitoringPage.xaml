@@ -187,10 +187,13 @@
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="70"/>
-                    <ColumnDefinition Width="300"/>
-                    <ColumnDefinition Width="30"/>
+                    <ColumnDefinition Width="220"/>
+                    <ColumnDefinition Width="24"/>
+                    <ColumnDefinition Width="50"/>
+                    <ColumnDefinition Width="240"/>
+                    <ColumnDefinition Width="24"/>
                     <ColumnDefinition Width="80"/>
-                    <ColumnDefinition Width="150"/>
+                    <ColumnDefinition Width="130"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="110"/>
                     <ColumnDefinition Width="8"/>
@@ -199,27 +202,35 @@
 
                 <TextBlock Grid.Column="0"
                            Style="{StaticResource SearchLabelStyle}"
-                           Text="검색어"/>
+                           Text="거래처"/>
 
                 <TextBox Grid.Column="1"
                          Style="{StaticResource InputTextBoxStyle}"
-                         Text="{Binding SearchKeyword, UpdateSourceTrigger=PropertyChanged}"/>
+                         Text="{Binding PartnerKeyword, UpdateSourceTrigger=PropertyChanged}"/>
 
                 <TextBlock Grid.Column="3"
                            Style="{StaticResource SearchLabelStyle}"
+                           Text="품목"/>
+
+                <TextBox Grid.Column="4"
+                         Style="{StaticResource InputTextBoxStyle}"
+                         Text="{Binding SearchKeyword, UpdateSourceTrigger=PropertyChanged}"/>
+
+                <TextBlock Grid.Column="6"
+                           Style="{StaticResource SearchLabelStyle}"
                            Text="사용여부"/>
 
-                <ComboBox Grid.Column="4"
+                <ComboBox Grid.Column="7"
                           Style="{StaticResource InputComboBoxStyle}"
                           ItemsSource="{Binding UseYnOptions}"
                           SelectedItem="{Binding SelectedUseYn}"/>
 
-                <Button Grid.Column="6"
+                <Button Grid.Column="9"
                         Style="{StaticResource PrimaryButtonStyle}"
                         Content="조회"
                         Command="{Binding SearchCommand}"/>
 
-                <Button Grid.Column="8"
+                <Button Grid.Column="11"
                         Style="{StaticResource SecondaryButtonStyle}"
                         Content="초기화"
                         Command="{Binding ResetCommand}"/>

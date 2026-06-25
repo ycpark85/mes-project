@@ -30,6 +30,10 @@ from app.models.partner import Partner
 from app.models.product import Product
 from app.models.product_inventory import ProductInventory
 from app.models.routing_template import RoutingTemplate
+from app.services.production_daily_query import (
+    refresh_order_line_snapshots_for_lots,
+    refresh_order_line_snapshots_for_work_groups,
+)
 from app.services.routing_policy import is_inspection_only_template_name
 from app.schemas.outsource_work_instruction import (
     BohyunOutsourceGroupItemOut,
@@ -985,6 +989,8 @@ def ship_bohyun_outsource_groups(
         work_group.status = BOHYUN_DB_STATUS_SHIPPED
         work_group.shipped_at = now
 
+    refresh_order_line_snapshots_for_work_groups(db, requested_group_ids)
+
     db.commit()
 
     return {"success": True}
@@ -1023,6 +1029,8 @@ def inbound_bohyun_outsource_group(
 
     work_group.status = BOHYUN_DB_STATUS_VENDOR_RECEIVED
     work_group.vendor_received_at = datetime.now()
+
+    refresh_order_line_snapshots_for_work_groups(db, {work_group.outsource_work_group_id})
 
     db.commit()
 
@@ -1088,6 +1096,8 @@ def complete_bohyun_outsource_group_work(
     work_group.work_done_sheet_qty = payload.work_done_sheet_qty
     work_group.outsource_processing_fee = payload.outsource_processing_fee
     work_group.work_done_remark = payload.remark
+
+    refresh_order_line_snapshots_for_work_groups(db, {work_group.outsource_work_group_id})
 
     db.commit()
 
@@ -1536,6 +1546,8 @@ def create_outsource_work_instruction(
             )
         )
 
+    refresh_order_line_snapshots_for_lots(db, set(payload.lot_ids))
+
     db.commit()
     db.refresh(instruction)
 
@@ -1665,6 +1677,11 @@ def create_outsource_work_instruction_batch(
                     groups=print_groups,
                 )
             )
+
+    refresh_order_line_snapshots_for_lots(
+        db,
+        {lot_id for group in payload.groups for lot_id in group.lot_ids},
+    )
 
     db.commit()
 
@@ -2048,6 +2065,8 @@ def vendor_receive_outsource_purchase_order_item(
     item.status = "VENDOR_RECEIVED"
     item.vendor_received_at = _utcnow()
 
+    refresh_order_line_snapshots_for_lots(db, {item.lot_id})
+
     db.commit()
     db.refresh(item)
 
@@ -2105,6 +2124,8 @@ def work_done_outsource_purchase_order_item(
     item.bad_qty = payload.bad_qty
     item.work_done_remark = payload.work_done_remark
 
+    refresh_order_line_snapshots_for_lots(db, {item.lot_id})
+
     db.commit()
     db.refresh(item)
 
@@ -2154,6 +2175,8 @@ def ship_outsource_purchase_order_item(
 
     item.status = "SHIPPED"
     item.shipped_at = _utcnow()
+
+    refresh_order_line_snapshots_for_lots(db, {item.lot_id})
 
     db.commit()
     db.refresh(item)

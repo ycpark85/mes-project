@@ -22,6 +22,10 @@ from app.models.product_inventory_lot import ProductInventoryLot
 from app.models.product_inventory_movement import ProductInventoryMovement
 from app.models.shipment_line import ShipmentLine
 from app.services.inventory_fifo_service import allocate_inventory_lots_fifo
+from app.services.production_daily_query import (
+    refresh_order_line_snapshots_for_lots,
+    refresh_order_line_snapshots_for_product,
+)
 
 
 def _utcnow() -> datetime:
@@ -239,6 +243,11 @@ def upsert_inspection_result(
         
         db.flush()
         
+
+    refresh_order_line_snapshots_for_lots(db, {sch.lot_id})
+    lot = db.get(Lot, sch.lot_id)
+    if lot is not None:
+        refresh_order_line_snapshots_for_product(db, lot.product_id)
 
     return result, sch.status, created_next_id
 

@@ -49,6 +49,7 @@ from app.services.order_line_plan_service import (
 from app.services.ship_qty_policy import calculate_ship_qty, is_stock_replenishment_partner
 from app.services.bulk.order_line_bulk_service import order_line_bulk_service
 from app.services.order_line_display import to_plan_type_display
+from app.services.production_daily_query import refresh_order_line_snapshot
 
 from app.schemas.order_line import (
     OrderLineCreate,
@@ -242,6 +243,7 @@ def _create_primary_lot_for_order_line(
 
                 db.flush()
                 db.refresh(lot)
+                refresh_order_line_snapshot(db, order_line.order_line_id)
 
                 return lot
 

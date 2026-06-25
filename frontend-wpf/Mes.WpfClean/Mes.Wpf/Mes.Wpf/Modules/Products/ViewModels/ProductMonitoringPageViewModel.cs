@@ -17,6 +17,7 @@ namespace Mes.Wpf.Modules.Products.ViewModels
         private readonly IMessageService _messageService;
         private readonly IDrawingViewer _drawingViewer;
 
+        private string _partnerKeyword = string.Empty;
         private string _searchKeyword = string.Empty;
         private string _selectedUseYn = "사용";
         private bool _isLoading;
@@ -64,6 +65,12 @@ namespace Mes.Wpf.Modules.Products.ViewModels
         {
             get => _searchKeyword;
             set => SetProperty(ref _searchKeyword, value);
+        }
+
+        public string PartnerKeyword
+        {
+            get => _partnerKeyword;
+            set => SetProperty(ref _partnerKeyword, value);
         }
 
         public string SelectedUseYn
@@ -177,6 +184,7 @@ namespace Mes.Wpf.Modules.Products.ViewModels
 
         private Task ResetAsync()
         {
+            PartnerKeyword = string.Empty;
             SearchKeyword = string.Empty;
             SelectedUseYn = "사용";
 
@@ -293,7 +301,13 @@ namespace Mes.Wpf.Modules.Products.ViewModels
         {
             var route = $"{ApiRoutes.Products}?page=1&size=100";
 
+            var partnerKeyword = PartnerKeyword?.Trim();
             var keyword = SearchKeyword?.Trim();
+
+            if (!string.IsNullOrWhiteSpace(partnerKeyword))
+            {
+                route += $"&partner_q={Uri.EscapeDataString(partnerKeyword)}";
+            }
 
             if (!string.IsNullOrWhiteSpace(keyword))
             {

@@ -14,6 +14,10 @@ from app.models.product_inventory_lot import ProductInventoryLot
 from app.models.product_inventory_movement import ProductInventoryMovement
 from app.models.shipment_line import ShipmentLine
 from app.schemas.shipment import ShipmentConfirmResult
+from app.services.production_daily_query import (
+    refresh_order_line_snapshot,
+    refresh_order_line_snapshots_for_product,
+)
 from app.services.ship_qty_policy import calculate_ship_qty
 
 
@@ -105,6 +109,7 @@ def confirm_shipment_lines_in_session(
 
     confirmed_ids: list[int] = []
     affected_order_line_ids: set[int] = set()
+    affected_product_ids: set[int] = set()
 
     for line in lines:
         ship_qty = int(line.ship_qty or 0)
@@ -171,6 +176,7 @@ def confirm_shipment_lines_in_session(
 
         confirmed_ids.append(line.shipment_line_id)
         affected_order_line_ids.add(line.order_line_id)
+        affected_product_ids.add(line.product_id)
 
     for order_line_id in affected_order_line_ids:
         order_line = (
@@ -184,6 +190,10 @@ def confirm_shipment_lines_in_session(
 
         if order_line is not None:
             _sync_order_line_status_after_shipment(db, order_line)
+            refresh_order_line_snapshot(db, order_line.order_line_id)
+
+    for product_id in affected_product_ids:
+        refresh_order_line_snapshots_for_product(db, product_id)
 
     return ShipmentConfirmResult(
         confirmed_count=len(confirmed_ids),

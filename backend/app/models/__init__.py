@@ -31,6 +31,7 @@ from .product_inventory import ProductInventory
 from .product_inventory_lot import ProductInventoryLot
 from .product_inventory_movement import ProductInventoryMovement
 from .shipment_line import ShipmentLine
+from .production_progress_snapshot import ProductionProgressSnapshot
 from .user import User
 from .role import Role
 from .user_role import UserRole
@@ -73,6 +74,7 @@ __all__ = [
     "ProductInventoryLot",
     "ProductInventoryMovement",
     "ShipmentLine",
+    "ProductionProgressSnapshot",
     "User",
     "Role",
     "UserRole",

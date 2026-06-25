@@ -290,7 +290,7 @@
 
                     <Grid>
                         <Border Width="382"
-                                Height="510"
+                                Height="528"
                                 Background="White"
                                 CornerRadius="20"
                                 Padding="34,28"
@@ -306,6 +306,7 @@
 
                             <Grid>
                                 <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
@@ -468,7 +469,16 @@
                                     </Border>
                                 </StackPanel>
 
-                                <TextBlock Grid.Row="6"
+                                <CheckBox Grid.Row="6"
+                                          Content="ID 저장"
+                                          IsChecked="{Binding RememberLoginId, Mode=TwoWay}"
+                                          Foreground="#475569"
+                                          FontSize="12"
+                                          VerticalContentAlignment="Center"
+                                          TabIndex="2"
+                                          Margin="0,0,0,10" />
+
+                                <TextBlock Grid.Row="7"
                                            Text="{Binding ErrorMessage}"
                                            Foreground="#DC2626"
                                            FontSize="12"
@@ -477,13 +487,13 @@
                                            Margin="0,0,0,12" /> 
 
                                 <!-- 로그인 버튼 -->
-                                <Button Grid.Row="7"
+                                <Button Grid.Row="8"
                                         Content="로그인"
                                         Style="{StaticResource LoginButtonStyle}"
-                                        TabIndex="2"
+                                        TabIndex="3"
                                         Click="LoginButton_Click" />
 
-                                <TextBlock Grid.Row="8"
+                                <TextBlock Grid.Row="9"
                                            Text="권한 기반 MES 접속"
                                            Foreground="#94A3B8"
                                            FontSize="11"

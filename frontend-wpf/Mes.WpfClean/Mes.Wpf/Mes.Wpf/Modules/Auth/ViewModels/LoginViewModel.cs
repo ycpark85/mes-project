@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Threading.Tasks;
 using Mes.Wpf.Core.Common;
+using Mes.Wpf.Core.Configuration;
 using Mes.Wpf.Core.Constants;
 using Mes.Wpf.Core.Interfaces;
 using Mes.Wpf.Modules.Auth.Dtos;
@@ -11,10 +12,12 @@ namespace Mes.Wpf.Modules.Auth.ViewModels
     {
         private readonly IApiClient _apiClient;
         private readonly IMessageService _messageService;
+        private readonly UserPreferences _userPreferences;
 
         private string _loginId = string.Empty;
         private string _password = string.Empty;
         private string _errorMessage = string.Empty;
+        private bool _rememberLoginId;
         private bool _isLoading;
 
         public LoginViewModel(
@@ -23,6 +26,9 @@ namespace Mes.Wpf.Modules.Auth.ViewModels
         {
             _apiClient = apiClient;
             _messageService = messageService;
+            _userPreferences = UserPreferences.Load();
+            _loginId = _userPreferences.SavedLoginId?.Trim() ?? string.Empty;
+            _rememberLoginId = !string.IsNullOrWhiteSpace(_loginId);
 
             LoginCommand = new AsyncRelayCommand(LoginAsync, CanLogin);
         }
@@ -61,6 +67,12 @@ namespace Mes.Wpf.Modules.Auth.ViewModels
         {
             get => _errorMessage;
             set => SetProperty(ref _errorMessage, value);
+        }
+
+        public bool RememberLoginId
+        {
+            get => _rememberLoginId;
+            set => SetProperty(ref _rememberLoginId, value);
         }
 
         public bool IsLoading
@@ -127,6 +139,7 @@ namespace Mes.Wpf.Modules.Auth.ViewModels
                 _apiClient.SetAccessToken(result.Data.AccessToken);
 
                 LoginResponse = result.Data;
+                SaveLoginIdPreference();
                 LoginSucceeded?.Invoke(this, EventArgs.Empty);
             }
             finally
@@ -138,6 +151,21 @@ namespace Mes.Wpf.Modules.Auth.ViewModels
         private void Normalize()
         {
             LoginId = LoginId.Trim();
+        }
+
+        private void SaveLoginIdPreference()
+        {
+            try
+            {
+                _userPreferences.SavedLoginId = RememberLoginId ? LoginId : null;
+                _userPreferences.Save();
+            }
+            catch (System.IO.IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
         }
 
         private bool Validate()

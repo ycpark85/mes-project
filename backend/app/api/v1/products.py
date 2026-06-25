@@ -6,6 +6,8 @@ from sqlalchemy.exc import IntegrityError
 from app.db.session import get_db
 from app.models.product import Product
 from app.models.drawing import Drawing
+from app.models.order_line import OrderLine
+from app.models.partner import Partner
 from app.models.routing_template import RoutingTemplate
 from app.models.product_inventory import ProductInventory
 from app.schemas.product import (
@@ -67,6 +69,78 @@ def _ensure_fk_exists(db: Session, drawing_id: int, routing_template_id: int):
     _ensure_routing_template_exists(db, routing_template_id)
 
 
+def _list_products_paged(
+    db: Session,
+    *,
+    page: int,
+    size: int,
+    q: str | None,
+    partner_q: str | None,
+    is_active: bool | None,
+) -> tuple[list[Product], int]:
+    if not partner_q or not partner_q.strip():
+        return product_crud.list_paged(
+            db,
+            page=page,
+            size=size,
+            q=q,
+            is_active=is_active,
+        )
+
+    base = (
+        db.query(Product)
+        .join(OrderLine, OrderLine.product_id == Product.product_id)
+        .join(Partner, Partner.partner_id == OrderLine.partner_id)
+        .filter(OrderLine.is_active == True)  # noqa: E712
+    )
+
+    if is_active is not None:
+        base = base.filter(Product.is_active == is_active)
+
+    if q and q.strip():
+        keyword = f"%{q.strip()}%"
+        base = base.filter(
+            (Product.product_code.ilike(keyword))
+            | (Product.product_name.ilike(keyword))
+        )
+
+    partner_keyword = f"%{partner_q.strip()}%"
+    base = base.filter(
+        (Partner.name.ilike(partner_keyword))
+        | (Partner.business_no.ilike(partner_keyword))
+    )
+
+    total = (
+        base.with_entities(func.count(func.distinct(Product.product_id)))
+        .scalar()
+        or 0
+    )
+
+    product_ids = [
+        product_id
+        for (product_id,) in (
+            base.with_entities(Product.product_id)
+            .distinct()
+            .order_by(Product.product_id.desc())
+            .offset((page - 1) * size)
+            .limit(size)
+            .all()
+        )
+    ]
+
+    if not product_ids:
+        return [], int(total)
+
+    items = (
+        db.query(Product)
+        .filter(Product.product_id.in_(product_ids))
+        .order_by(Product.product_id.desc())
+        .all()
+    )
+
+    return items, int(total)
+
+
 @router.post("", response_model=ProductOut, status_code=status.HTTP_201_CREATED)
 def create_product(payload: ProductCreate, db: Session = Depends(get_db)):
     _ensure_fk_exists(db, payload.drawing_id, payload.routing_template_id)
@@ -123,10 +197,18 @@ def list_products(
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
     q: str | None = Query(None),
+    partner_q: str | None = Query(None),
     is_active: bool | None = Query(True),
     db: Session = Depends(get_db),
 ):
-    items, total = product_crud.list_paged(db, page=page, size=size, q=q, is_active=is_active)
+    items, total = _list_products_paged(
+        db,
+        page=page,
+        size=size,
+        q=q,
+        partner_q=partner_q,
+        is_active=is_active,
+    )
     return {
         "items": [_to_product_out(db, item) for item in items],
         "total": total,

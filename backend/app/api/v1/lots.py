@@ -28,6 +28,7 @@ from app.models.outsource_work_group import OutsourceWorkGroup
 from app.models.outsource_work_group_item import OutsourceWorkGroupItem
 from app.models.outsource_work_instruction import OutsourceWorkInstruction
 from app.models.order_line_plan_history import OrderLinePlanHistory
+from app.services.production_daily_query import refresh_order_line_snapshot
 
 from app.schemas.lot import (
     LotCreate,
@@ -267,6 +268,7 @@ def create_lot(payload: LotCreate, db: Session = Depends(get_db)):
         try:
             lot_crud.create(db, lot)
             _create_lot_steps_from_routing(db, lot.lot_id, product.routing_template_id)
+            refresh_order_line_snapshot(db, ol.order_line_id)
             db.commit()
             db.refresh(lot)
             break

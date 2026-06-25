@@ -24,6 +24,13 @@ namespace Mes.Wpf.Modules.Auth.Views
         {
             Dispatcher.BeginInvoke(new Action(() =>
             {
+                if (_viewModel.RememberLoginId && !string.IsNullOrWhiteSpace(_viewModel.LoginId))
+                {
+                    PasswordBox.Focus();
+                    Keyboard.Focus(PasswordBox);
+                    return;
+                }
+
                 LoginIdTextBox.Focus();
                 LoginIdTextBox.SelectAll();
                 Keyboard.Focus(LoginIdTextBox);

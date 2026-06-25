@@ -58,6 +58,77 @@ Stock usage rules:
 - When inspection result is saved for partial stock plus production, the reserved stock shipment lines are consumed first and changed to `DONE`; only any remaining requested stock shipment quantity is allocated from FIFO available inventory.
 - Unused stock reservations for the order line are canceled when final inspection settlement no longer uses them.
 
+## Production Progress Status
+
+The Production Management menu includes `생산진행현황` (`Production Progress Status`).
+
+This menu is an operational progress view, not a completed-history report.
+
+- The screen reads from `production_progress_snapshot`, a production progress read model.
+- Source tables remain the system of record. The snapshot is regenerated from source data when needed.
+- Run `python scripts/rebuild_production_progress_snapshots.py` from the backend directory after introducing the table to existing data, after bulk data repair, or when snapshot drift is suspected.
+- Default status filter is `IN_PROGRESS`.
+- `IN_PROGRESS` means inspection result registration is not completed.
+- `COMPLETED` means inspection result registration is completed.
+- Shipment and delivery status are outside this menu's completion rule.
+- Default sort order is due-date urgency:
+  - overdue due dates first
+  - D-DAY
+  - D-1, D-2, D-3
+  - later due dates in ascending due-date order
+
+Top filters:
+
+- partner
+- product
+- status (`IN_PROGRESS`, `COMPLETED`)
+
+Grid columns:
+
+- due date
+- due slack
+- partner
+- product
+- order quantity
+- available inventory
+- production quantity
+- work type
+- current process
+- progress rate
+
+Due slack display:
+
+- `D-4` or more: relaxed, green text.
+- `D-3` through `D-1`: imminent, orange text.
+- `D-DAY` and overdue (`D+N`): urgent, red text.
+
+Current process has seven display states:
+
+- `LOT_CREATED`: LOT created.
+- `OUTSOURCE_ORDERED`: outsource work instruction is registered.
+- `DIECUT_RECEIVED`: Bohyun/vendor inbound is completed.
+- `OUTSOURCE_DONE`: Bohyun/vendor work is completed.
+- `INSPECTION_WAITING`: company inbound is completed and inspection is waiting.
+- `INSPECTION_IN_PROGRESS`: inspection is in progress.
+- `COMPLETED`: inspection result registration is completed.
+
+Work type display:
+
+- `BASIC`: 기본작업
+- `REWORK`: 재작업
+
+Rework LOTs can be created only after the original LOT work is completed. Therefore, original LOTs and rework LOTs are not expected to progress at the same time. If a rework LOT exists and is still active, production progress status displays the rework LOT's current process. If rework was completed, completed rows display `REWORK` so users can identify that the order was completed through rework.
+
+For order lines with multiple LOTs in the same work type, the current process is the earliest unfinished bottleneck process among those LOTs.
+
+## Product History Monitoring
+
+Product history monitoring is a product-to-LOT trace view.
+
+- The product search can filter by product keyword and partner keyword.
+- Partner keyword filtering uses historical order lines. It returns products that have active order line history for matching partner names or business numbers.
+- After selecting a product, the user loads the latest LOT history for that product.
+
 ## Outsource Processing Cost Management
 
 The Production Management menu includes `Outsource Processing Cost Management`.

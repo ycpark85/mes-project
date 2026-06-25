@@ -187,6 +187,13 @@ PERMISSION_SEEDS = [
         "sort_order": 3000,
     },
     {
+        "permission_code": "PRODUCTION_DAILY.VIEW",
+        "menu_code": "PRODUCTION_DAILY",
+        "action_code": "VIEW",
+        "permission_name": "생산진행현황 조회",
+        "sort_order": 3010,
+    },
+    {
         "permission_code": "INSPECTION_WORK_INSTRUCTIONS.VIEW",
         "menu_code": "INSPECTION_WORK_INSTRUCTIONS",
         "action_code": "VIEW",

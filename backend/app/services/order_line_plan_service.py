@@ -22,6 +22,10 @@ from app.schemas.order_line import (
     OrderLineStatus,
 )
 from app.services.inventory_fifo_service import allocate_inventory_lots_fifo
+from app.services.production_daily_query import (
+    refresh_order_line_snapshot,
+    refresh_order_line_snapshots_for_product,
+)
 from app.services.shipment_confirm_service import confirm_shipment_lines_in_session
 from app.services.ship_qty_policy import calculate_ship_qty, is_stock_replenishment_partner
 
@@ -448,5 +452,8 @@ def confirm_order_line_plan_decision(
         memo=payload.memo,
         actor=actor,
     )
+
+    refresh_order_line_snapshot(db, order_line.order_line_id)
+    refresh_order_line_snapshots_for_product(db, order_line.product_id)
 
     return order_line, history, partner, product

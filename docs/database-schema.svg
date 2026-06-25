@@ -1,22 +1,27 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="980" height="560" viewBox="0 0 980 560">
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="720" viewBox="0 0 1180 720">
   <style>
     .box { fill:#ffffff; stroke:#334155; stroke-width:1.5; rx:6; }
+    .read { fill:#f0fdf4; stroke:#15803d; stroke-width:1.8; rx:6; }
     .title { font:700 15px Arial, sans-serif; fill:#0f172a; }
     .text { font:12px Arial, sans-serif; fill:#334155; }
     .line { stroke:#2563eb; stroke-width:1.6; fill:none; marker-end:url(#arrow); }
+    .readline { stroke:#16a34a; stroke-width:1.8; fill:none; marker-end:url(#greenArrow); stroke-dasharray:5 4; }
   </style>
   <defs>
     <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
       <path d="M0,0 L0,6 L9,3 z" fill="#2563eb" />
     </marker>
+    <marker id="greenArrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#16a34a" />
+    </marker>
   </defs>
 
-  <rect class="box" x="40" y="60" width="260" height="150"/>
-  <text class="title" x="60" y="90">outsource_processing_cost_group</text>
-  <text class="text" x="60" y="118">PK outsource_processing_cost_group_id</text>
-  <text class="text" x="60" y="140">cost_group_no, settlement_month</text>
-  <text class="text" x="60" y="162">process_type, status</text>
-  <text class="text" x="60" y="184">standard_amount, actual_amount</text>
+  <rect class="box" x="40" y="50" width="260" height="150"/>
+  <text class="title" x="60" y="80">outsource_processing_cost_group</text>
+  <text class="text" x="60" y="108">PK outsource_processing_cost_group_id</text>
+  <text class="text" x="60" y="130">cost_group_no, settlement_month</text>
+  <text class="text" x="60" y="152">process_type, status</text>
+  <text class="text" x="60" y="174">standard_amount, actual_amount</text>
 
   <rect class="box" x="380" y="40" width="260" height="120"/>
   <text class="title" x="400" y="70">outsource_processing_cost_work_group</text>
@@ -26,7 +31,7 @@
   <rect class="box" x="720" y="40" width="220" height="142"/>
   <text class="title" x="740" y="70">outsource_work_group</text>
   <text class="text" x="740" y="98">PK outsource_work_group_id</text>
-  <text class="text" x="740" y="120">process_type, sheet_qty</text>
+  <text class="text" x="740" y="120">process_type, status</text>
   <text class="text" x="740" y="142">FK representative_lot_id</text>
 
   <rect class="box" x="380" y="250" width="280" height="135"/>
@@ -39,17 +44,53 @@
   <rect class="box" x="740" y="260" width="180" height="105"/>
   <text class="title" x="760" y="290">lot</text>
   <text class="text" x="760" y="318">PK lot_id</text>
-  <text class="text" x="760" y="340">lot_no, product_id</text>
+  <text class="text" x="760" y="340">order_line_id, product_id</text>
 
-  <rect class="box" x="40" y="430" width="310" height="100"/>
-  <text class="title" x="60" y="460">inspection_result</text>
-  <text class="text" x="60" y="488">inspected_qty = good + defect_ship + defect</text>
-  <text class="text" x="60" y="510">uninspected_qty, discard_qty</text>
-  <text class="text" x="60" y="532">received_qty = inspected + uninspected</text>
+  <rect class="box" x="980" y="250" width="170" height="105"/>
+  <text class="title" x="1000" y="280">order_line</text>
+  <text class="text" x="1000" y="308">PK order_line_id</text>
+  <text class="text" x="1000" y="330">partner_id, product_id</text>
 
-  <path class="line" d="M300 110 L380 100"/>
-  <path class="line" d="M640 100 L720 100"/>
-  <path class="line" d="M300 180 L380 300"/>
+  <rect class="read" x="40" y="250" width="300" height="150"/>
+  <text class="title" x="60" y="280">production_progress_snapshot</text>
+  <text class="text" x="60" y="308">UNIQUE order_line_id</text>
+  <text class="text" x="60" y="330">status, work_type</text>
+  <text class="text" x="60" y="352">current_process, progress_rate</text>
+  <text class="text" x="60" y="374">due_date, display snapshots</text>
+
+  <rect class="box" x="40" y="560" width="310" height="100"/>
+  <text class="title" x="60" y="590">inspection_result</text>
+  <text class="text" x="60" y="618">inspected_qty = good + defect_ship + defect</text>
+  <text class="text" x="60" y="640">uninspected_qty, discard_qty</text>
+  <text class="text" x="60" y="662">received_qty = inspected + uninspected</text>
+
+  <rect class="box" x="430" y="540" width="230" height="105"/>
+  <text class="title" x="450" y="570">inspection_schedule</text>
+  <text class="text" x="450" y="598">PK inspection_schedule_id</text>
+  <text class="text" x="450" y="620">FK lot_id</text>
+
+  <rect class="box" x="740" y="500" width="220" height="105"/>
+  <text class="title" x="760" y="530">shipment_line</text>
+  <text class="text" x="760" y="558">order_line_id, product_id</text>
+  <text class="text" x="760" y="580">source_type, status, ship_qty</text>
+
+  <rect class="box" x="980" y="500" width="170" height="105"/>
+  <text class="title" x="1000" y="530">product_inventory</text>
+  <text class="text" x="1000" y="558">product_id UNIQUE</text>
+  <text class="text" x="1000" y="580">current_qty</text>
+
+  <path class="line" d="M300 100 L380 95"/>
+  <path class="line" d="M640 95 L720 95"/>
+  <path class="line" d="M300 170 L380 300"/>
   <path class="line" d="M660 320 L740 320"/>
   <path class="line" d="M830 182 L830 260"/>
+  <path class="line" d="M920 312 L980 312"/>
+  <path class="line" d="M545 540 L760 365"/>
+  <path class="line" d="M195 560 L430 600"/>
+  <path class="line" d="M960 552 L980 552"/>
+
+  <path class="readline" d="M340 320 L740 320"/>
+  <path class="readline" d="M340 300 L980 300"/>
+  <path class="readline" d="M340 370 L430 570"/>
+  <path class="readline" d="M340 390 L740 552"/>
 </svg>

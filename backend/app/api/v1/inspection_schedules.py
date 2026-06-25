@@ -29,6 +29,7 @@ from app.models.drawing import Drawing
 from app.models.routing_template import RoutingTemplate
 from app.models.product_inventory import ProductInventory
 from app.services.inventory_fifo_service import get_available_inventory_lots_fifo
+from app.services.production_daily_query import refresh_order_line_snapshots_for_lots
 from app.services.routing_policy import is_inspection_only_template_name
 from app.schemas.inspection_schedule import (
     InspectionScheduleCreate,
@@ -506,6 +507,7 @@ def receive_inspection_schedule(
 
         db.flush()
         _sync_lot_status_from_inspection_schedules(db, lot_id=obj.lot_id)
+        refresh_order_line_snapshots_for_lots(db, {obj.lot_id})
 
         db.commit()
         db.refresh(obj)
@@ -564,6 +566,11 @@ def receive_inspection_schedule(
         for lot_id in {schedule.lot_id for schedule in group_schedules}:
             _sync_lot_status_from_inspection_schedules(db, lot_id=lot_id)
 
+        refresh_order_line_snapshots_for_lots(
+            db,
+            {schedule.lot_id for schedule in group_schedules},
+        )
+
         db.commit()
         db.refresh(obj)
         return obj
@@ -588,6 +595,7 @@ def receive_inspection_schedule(
 
     db.flush()
     _sync_lot_status_from_inspection_schedules(db, lot_id=obj.lot_id)
+    refresh_order_line_snapshots_for_lots(db, {obj.lot_id})
 
     db.commit()
     db.refresh(obj)
@@ -616,6 +624,7 @@ def start_inspection_schedule(
 
     db.flush()
     _sync_lot_status_from_inspection_schedules(db, lot_id=obj.lot_id)
+    refresh_order_line_snapshots_for_lots(db, {obj.lot_id})
 
     db.commit()
     db.refresh(obj)
@@ -640,6 +649,7 @@ def cancel_inspection_schedule(
 
     db.flush()
     _sync_lot_status_from_inspection_schedules(db, lot_id=lot_id)
+    refresh_order_line_snapshots_for_lots(db, {lot_id})
 
     db.commit()
     db.refresh(obj)
