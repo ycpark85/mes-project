@@ -14,6 +14,7 @@ from app.models.partner import Partner
 from app.models.product import Product
 from app.models.product_inventory import ProductInventory
 from app.models.product_inventory_movement import ProductInventoryMovement
+from app.models.shipment_line import ShipmentLine
 from app.services.order_line_display import to_plan_type_display
 from app.services.ship_qty_policy import calculate_ship_qty
 
@@ -43,6 +44,19 @@ def list_order_lines_for_grid(
         .subquery()
     )
 
+    reserved_inventory_sq = (
+        select(
+            ShipmentLine.product_id.label("product_id"),
+            func.coalesce(func.sum(ShipmentLine.ship_qty), 0).label("reserved_qty"),
+        )
+        .where(
+            ShipmentLine.source_type == "STOCK",
+            ShipmentLine.status == "WAITING",
+        )
+        .group_by(ShipmentLine.product_id)
+        .subquery()
+    )
+
     stmt = (
         select(
             OrderLine,
@@ -51,12 +65,14 @@ def list_order_lines_for_grid(
             Product.product_name.label("product_name"),
             Drawing.drawing_no.label("drawing_no"),
             func.coalesce(ProductInventory.current_qty, 0).label("current_qty"),
+            func.coalesce(reserved_inventory_sq.c.reserved_qty, 0).label("reserved_qty"),
             func.coalesce(lot_agg_sq.c.lot_count, 0).label("lot_count"),
         )
         .join(Partner, Partner.partner_id == OrderLine.partner_id)
         .join(Product, Product.product_id == OrderLine.product_id)
         .outerjoin(Drawing, Drawing.drawing_id == Product.drawing_id)
         .outerjoin(ProductInventory, ProductInventory.product_id == OrderLine.product_id)
+        .outerjoin(reserved_inventory_sq, reserved_inventory_sq.c.product_id == Product.product_id)
         .outerjoin(lot_agg_sq, lot_agg_sq.c.order_line_id == OrderLine.order_line_id)
     )
 
@@ -177,9 +193,18 @@ def list_order_lines_for_grid(
 
     items: List[dict] = []
 
-    for ol, partner_name, product_code, product_name, drawing_no, current_qty, lot_count in rows:
+    for (
+        ol,
+        partner_name,
+        product_code,
+        product_name,
+        drawing_no,
+        current_qty,
+        reserved_qty,
+        lot_count,
+    ) in rows:
         lot_count_int = int(lot_count or 0)
-        available_inventory_qty = int(current_qty or 0)
+        available_inventory_qty = max(int(current_qty or 0) - int(reserved_qty or 0), 0)
         order_qty = int(ol.order_qty or 0)
         latest_plan_history = latest_plan_history_map.get(ol.order_line_id)
         plan_type = latest_plan_history.plan_type if latest_plan_history else None

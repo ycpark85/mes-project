@@ -601,6 +601,157 @@ def _create_completed_stock_shipment_lines_by_fifo(
         )
 
 
+def _cancel_waiting_stock_reservations_for_order_line(
+    db: Session,
+    *,
+    order_line_id: int,
+) -> None:
+    waiting_lines = (
+        db.execute(
+            select(ShipmentLine)
+            .where(
+                ShipmentLine.order_line_id == order_line_id,
+                ShipmentLine.source_type == "STOCK",
+                ShipmentLine.status == "WAITING",
+                ShipmentLine.inspection_result_id.is_(None),
+            )
+            .with_for_update()
+        )
+        .scalars()
+        .all()
+    )
+
+    for line in waiting_lines:
+        line.status = "CANCELED"
+        line.shipped_qty = 0
+        line.memo = f"{line.memo or ''} / 검수 완료 후 미사용 예약 해제".strip()
+
+
+def _consume_waiting_stock_reservations(
+    db: Session,
+    *,
+    order_line: OrderLine,
+    schedule: InspectionSchedule,
+    inventory: ProductInventory,
+    product_id: int,
+    inspection_result_id: int,
+    stock_ship_qty: int,
+) -> int:
+    if stock_ship_qty <= 0:
+        _cancel_waiting_stock_reservations_for_order_line(
+            db,
+            order_line_id=order_line.order_line_id,
+        )
+        return 0
+
+    remaining_qty = stock_ship_qty
+    shipped_at = _utcnow()
+
+    waiting_lines = (
+        db.execute(
+            select(ShipmentLine)
+            .where(
+                ShipmentLine.order_line_id == order_line.order_line_id,
+                ShipmentLine.product_id == product_id,
+                ShipmentLine.source_type == "STOCK",
+                ShipmentLine.status == "WAITING",
+                ShipmentLine.inspection_result_id.is_(None),
+            )
+            .order_by(ShipmentLine.shipment_line_id.asc())
+            .with_for_update()
+        )
+        .scalars()
+        .all()
+    )
+
+    for line in waiting_lines:
+        if remaining_qty <= 0:
+            line.status = "CANCELED"
+            line.shipped_qty = 0
+            line.memo = f"{line.memo or ''} / 검수 완료 후 미사용 예약 해제".strip()
+            continue
+
+        ship_qty = min(int(line.ship_qty or 0), remaining_qty)
+        if ship_qty <= 0:
+            line.status = "CANCELED"
+            line.shipped_qty = 0
+            continue
+
+        inventory_lot = None
+        if line.product_inventory_lot_id:
+            inventory_lot = (
+                db.execute(
+                    select(ProductInventoryLot)
+                    .where(ProductInventoryLot.product_inventory_lot_id == line.product_inventory_lot_id)
+                    .with_for_update()
+                )
+                .scalar_one_or_none()
+            )
+
+        if inventory_lot is None and line.stock_lot_no:
+            inventory_lot = (
+                db.execute(
+                    select(ProductInventoryLot)
+                    .where(
+                        ProductInventoryLot.product_id == product_id,
+                        ProductInventoryLot.lot_no == line.stock_lot_no,
+                    )
+                    .with_for_update()
+                )
+                .scalar_one_or_none()
+            )
+
+        if inventory_lot is None:
+            raise HTTPException(
+                status_code=409,
+                detail="예약 재고 LOT를 확인할 수 없어 출고 처리할 수 없습니다.",
+            )
+
+        if int(inventory_lot.current_qty or 0) < ship_qty:
+            raise HTTPException(status_code=409, detail="예약 LOT 재고가 부족합니다.")
+        if int(inventory.current_qty or 0) < ship_qty:
+            raise HTTPException(status_code=409, detail="제품 재고가 부족합니다.")
+
+        stock_lot = (
+            db.execute(
+                select(Lot)
+                .where(
+                    Lot.product_id == product_id,
+                    Lot.lot_no == inventory_lot.lot_no,
+                )
+                .limit(1)
+            )
+            .scalar_one_or_none()
+        )
+
+        inventory_lot.current_qty -= ship_qty
+        inventory.current_qty -= ship_qty
+
+        line.product_inventory_lot_id = inventory_lot.product_inventory_lot_id
+        line.stock_lot_no = inventory_lot.lot_no
+        line.lot_id = stock_lot.lot_id if stock_lot else line.lot_id
+        line.inspection_result_id = inspection_result_id
+        line.status = "DONE"
+        line.ship_qty = ship_qty
+        line.shipped_qty = ship_qty
+        line.shipped_at = shipped_at
+        line.memo = f"{line.memo or ''} / 검수 완료 시 예약 재고 출고".strip()
+
+        _add_ship_out_movement(
+            db,
+            order_line=order_line,
+            schedule=schedule,
+            inventory=inventory,
+            shipment_line=line,
+            ship_qty=ship_qty,
+            memo=f"검수실적 저장: 예약 재고 출고 / shipment_line_id={line.shipment_line_id}",
+        )
+
+        remaining_qty -= ship_qty
+
+    return remaining_qty
+
+
 def _create_completed_result_shipment_line(
     db: Session,
     *,
@@ -786,7 +937,17 @@ def _apply_inventory_for_result(
             )
         )
 
-    if stock_ship_qty > 0:
+    remaining_stock_ship_qty = _consume_waiting_stock_reservations(
+        db,
+        order_line=order_line,
+        schedule=schedule,
+        inventory=inventory,
+        product_id=lot.product_id,
+        inspection_result_id=result.inspection_result_id,
+        stock_ship_qty=stock_ship_qty,
+    )
+
+    if remaining_stock_ship_qty > 0:
         _create_completed_stock_shipment_lines_by_fifo(
             db,
             order_line=order_line,
@@ -795,7 +956,7 @@ def _apply_inventory_for_result(
             product_id=lot.product_id,
             current_lot_no=lot.lot_no,
             inspection_result_id=result.inspection_result_id,
-            stock_ship_qty=stock_ship_qty,
+            stock_ship_qty=remaining_stock_ship_qty,
         )
 
     if result_ship_qty > 0:

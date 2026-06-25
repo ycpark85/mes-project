@@ -191,13 +191,13 @@
                     <DataGridTemplateColumn Header="폐기수량" Width="90">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <TextBlock Text="{Binding DiscardQty, StringFormat={}{0:N0}}">
+                                <TextBlock Text="{Binding TotalDisposalQty, StringFormat={}{0:N0}}">
                                     <TextBlock.Style>
                                         <Style TargetType="TextBlock" BasedOn="{StaticResource CellTextStyle}">
                                             <Setter Property="Foreground" Value="#B42318"/>
                                             <Setter Property="FontWeight" Value="SemiBold"/>
                                             <Style.Triggers>
-                                                <DataTrigger Binding="{Binding DiscardQty}" Value="0">
+                                                <DataTrigger Binding="{Binding TotalDisposalQty}" Value="0">
                                                     <Setter Property="Foreground" Value="#1F2937"/>
                                                     <Setter Property="FontWeight" Value="Normal"/>
                                                 </DataTrigger>

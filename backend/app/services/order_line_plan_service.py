@@ -22,6 +22,7 @@ from app.schemas.order_line import (
     OrderLineStatus,
 )
 from app.services.inventory_fifo_service import allocate_inventory_lots_fifo
+from app.services.shipment_confirm_service import confirm_shipment_lines_in_session
 from app.services.ship_qty_policy import calculate_ship_qty, is_stock_replenishment_partner
 
 
@@ -33,7 +34,31 @@ def get_available_inventory_qty(db: Session, product_id: int) -> int:
         )
         .scalar_one_or_none()
     )
-    return int(inventory.current_qty or 0) if inventory else 0
+    current_qty = int(inventory.current_qty or 0) if inventory else 0
+    reserved_qty = get_reserved_stock_shipment_qty(db, product_id=product_id)
+    return max(current_qty - reserved_qty, 0)
+
+
+def get_reserved_stock_shipment_qty(
+    db: Session,
+    *,
+    product_id: int,
+    order_line_id: int | None = None,
+) -> int:
+    conditions = [
+        ShipmentLine.product_id == product_id,
+        ShipmentLine.source_type == "STOCK",
+        ShipmentLine.status == "WAITING",
+    ]
+
+    if order_line_id is not None:
+        conditions.append(ShipmentLine.order_line_id == order_line_id)
+
+    reserved_qty = db.execute(
+        select(func.coalesce(func.sum(ShipmentLine.ship_qty), 0)).where(*conditions)
+    ).scalar_one()
+
+    return int(reserved_qty or 0)
 
 
 def get_target_ship_qty(order_line: OrderLine, partner_name: str) -> int:
@@ -71,44 +96,40 @@ def add_stock_shipment_lines_by_inventory_lot(
     order_line: OrderLine,
     ship_qty: int,
     memo: str,
-) -> None:
+) -> list[ShipmentLine]:
     allocations, remaining_qty = get_fifo_inventory_lot_allocations(
         db,
         product_id=order_line.product_id,
         ship_qty=ship_qty,
     )
 
+    created_lines: list[ShipmentLine] = []
+
     for inventory_lot, allocated_qty in allocations:
-        db.add(
-            ShipmentLine(
-                order_line_id=order_line.order_line_id,
-                product_id=order_line.product_id,
-                product_inventory_lot_id=inventory_lot.product_inventory_lot_id,
-                stock_lot_no=inventory_lot.lot_no,
-                lot_id=None,
-                inspection_result_id=None,
-                source_type="STOCK",
-                status="WAITING",
-                ship_qty=allocated_qty,
-                shipped_qty=0,
-                memo=memo,
-            )
+        line = ShipmentLine(
+            order_line_id=order_line.order_line_id,
+            product_id=order_line.product_id,
+            product_inventory_lot_id=inventory_lot.product_inventory_lot_id,
+            stock_lot_no=inventory_lot.lot_no,
+            lot_id=None,
+            inspection_result_id=None,
+            source_type="STOCK",
+            status="WAITING",
+            ship_qty=allocated_qty,
+            shipped_qty=0,
+            memo=memo,
         )
+        db.add(line)
+        created_lines.append(line)
 
     if remaining_qty > 0:
-        db.add(
-            ShipmentLine(
-                order_line_id=order_line.order_line_id,
-                product_id=order_line.product_id,
-                lot_id=None,
-                inspection_result_id=None,
-                source_type="STOCK",
-                status="WAITING",
-                ship_qty=remaining_qty,
-                shipped_qty=0,
-                memo=f"{memo} / LOT 미지정 재고",
-            )
+        raise HTTPException(
+            status_code=409,
+            detail="가용 재고 LOT가 부족하여 재고 출하대기를 생성할 수 없습니다.",
         )
+
+    db.flush()
+    return created_lines
 
 
 def create_stock_shipment_waiting_if_needed(
@@ -130,16 +151,7 @@ def create_stock_shipment_waiting_if_needed(
     if existing is not None:
         return
 
-    inventory = (
-        db.execute(
-            select(ProductInventory)
-            .where(ProductInventory.product_id == order_line.product_id)
-            .with_for_update()
-        )
-        .scalar_one_or_none()
-    )
-
-    available_inventory_qty = int(inventory.current_qty or 0) if inventory else 0
+    available_inventory_qty = get_available_inventory_qty(db, order_line.product_id)
     ship_target_qty = int(calculate_ship_qty(partner_name, int(order_line.order_qty or 0)) or 0)
     already_shipped_qty = get_already_shipped_qty(db, order_line.order_line_id)
     remaining_ship_qty = max(ship_target_qty - already_shipped_qty, 0)
@@ -213,9 +225,9 @@ def create_stock_shipment_waiting_for_plan(
     order_line: OrderLine,
     ship_qty: int,
     memo: str,
-) -> None:
+) -> list[ShipmentLine]:
     if ship_qty <= 0:
-        return
+        return []
 
     existing = (
         db.execute(
@@ -237,7 +249,7 @@ def create_stock_shipment_waiting_for_plan(
             detail="이미 생성된 재고 출하대기가 있습니다.",
         )
 
-    add_stock_shipment_lines_by_inventory_lot(
+    return add_stock_shipment_lines_by_inventory_lot(
         db,
         order_line=order_line,
         ship_qty=ship_qty,
@@ -360,11 +372,15 @@ def confirm_order_line_plan_decision(
                 )
 
             stock_ship_qty = remaining_ship_qty
-            create_stock_shipment_waiting_for_plan(
+            stock_lines = create_stock_shipment_waiting_for_plan(
                 db,
                 order_line=order_line,
                 ship_qty=stock_ship_qty,
                 memo="처리계획 확정: 재고 출고",
+            )
+            confirm_shipment_lines_in_session(
+                db,
+                [line.shipment_line_id for line in stock_lines],
             )
 
             order_line.fulfillment_mode = OrderLineFulfillmentMode.INVENTORY_FIRST.value
@@ -378,11 +394,15 @@ def confirm_order_line_plan_decision(
                 production_qty = 0
                 is_short_close = True
 
-                create_stock_shipment_waiting_for_plan(
+                stock_lines = create_stock_shipment_waiting_for_plan(
                     db,
                     order_line=order_line,
                     ship_qty=stock_ship_qty,
                     memo="처리계획 확정: 부분재고만 출고 후 종료",
+                )
+                confirm_shipment_lines_in_session(
+                    db,
+                    [line.shipment_line_id for line in stock_lines],
                 )
 
                 order_line.fulfillment_mode = OrderLineFulfillmentMode.INVENTORY_FIRST.value
@@ -394,6 +414,13 @@ def confirm_order_line_plan_decision(
                 stock_ship_qty = available_inventory_qty
                 production_qty = remaining_ship_qty - available_inventory_qty
                 is_short_close = False
+
+                create_stock_shipment_waiting_for_plan(
+                    db,
+                    order_line=order_line,
+                    ship_qty=stock_ship_qty,
+                    memo="처리계획 확정: 부족분 생산 전 기존 재고 예약",
+                )
 
                 order_line.fulfillment_mode = OrderLineFulfillmentMode.INVENTORY_FIRST.value
                 order_line.production_policy = OrderLineProductionPolicy.ORDER_ONLY.value

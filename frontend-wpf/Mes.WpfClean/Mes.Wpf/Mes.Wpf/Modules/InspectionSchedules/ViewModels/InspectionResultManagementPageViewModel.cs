@@ -264,7 +264,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
             TotalUninspectedQty = Items.Sum(x => x.UninspectedQty);
             TotalReceivedQty = Items.Sum(x => x.ReceivedQty);
             TotalResultShipQty = Items.Sum(x => x.ResultShipQty);
-            TotalDiscardQty = Items.Sum(x => x.DiscardQty);
+            TotalDiscardQty = Items.Sum(x => x.TotalDisposalQty);
             TotalStockInQty = Items.Sum(x => x.StockInQty);
             TotalDefectQty = Items.Sum(x => x.DefectQty);
         }

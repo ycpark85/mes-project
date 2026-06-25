@@ -55,6 +55,8 @@ namespace Mes.Wpf.Modules.InspectionSchedules.Dtos
         [JsonPropertyName("discard_qty")]
         public int DiscardQty { get; set; }
 
+        public int TotalDisposalQty => DiscardQty + UninspectedQty;
+
         [JsonPropertyName("stock_in_qty")]
         public int StockInQty { get; set; }
 

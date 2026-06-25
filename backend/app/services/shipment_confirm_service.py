@@ -81,7 +81,7 @@ def _resolve_inventory_lot_for_shipment_line(
     )
 
 
-def confirm_shipment_lines(
+def confirm_shipment_lines_in_session(
     db: Session,
     shipment_line_ids: list[int],
 ) -> ShipmentConfirmResult:
@@ -106,93 +106,99 @@ def confirm_shipment_lines(
     confirmed_ids: list[int] = []
     affected_order_line_ids: set[int] = set()
 
-    try:
-        for line in lines:
-            ship_qty = int(line.ship_qty or 0)
+    for line in lines:
+        ship_qty = int(line.ship_qty or 0)
 
-            if ship_qty <= 0:
-                raise HTTPException(status_code=422, detail="출하수량이 0 이하인 항목은 출하할 수 없습니다.")
+        if ship_qty <= 0:
+            raise HTTPException(status_code=422, detail="출하수량이 0 이하인 항목은 출하할 수 없습니다.")
 
-            inventory = (
-                db.execute(
-                    select(ProductInventory)
-                    .where(ProductInventory.product_id == line.product_id)
-                    .with_for_update()
-                )
-                .scalar_one_or_none()
+        inventory = (
+            db.execute(
+                select(ProductInventory)
+                .where(ProductInventory.product_id == line.product_id)
+                .with_for_update()
             )
-
-            if inventory is None:
-                inventory = ProductInventory(
-                    product_id=line.product_id,
-                    current_qty=0,
-                )
-                db.add(inventory)
-                db.flush()
-
-            if int(inventory.current_qty or 0) < ship_qty:
-                raise HTTPException(
-                    status_code=409,
-                    detail=f"재고가 부족합니다. shipment_line_id={line.shipment_line_id}",
-                )
-
-            inventory_lot = _resolve_inventory_lot_for_shipment_line(db, line)
-
-            if inventory_lot is not None:
-                if int(inventory_lot.current_qty or 0) < ship_qty:
-                    raise HTTPException(
-                        status_code=409,
-                        detail=f"LOT 재고가 부족합니다. shipment_line_id={line.shipment_line_id}",
-                    )
-
-                inventory_lot.current_qty -= ship_qty
-                line.product_inventory_lot_id = inventory_lot.product_inventory_lot_id
-                line.stock_lot_no = inventory_lot.lot_no
-
-            inventory.current_qty -= ship_qty
-
-            movement = ProductInventoryMovement(
-                product_id=line.product_id,
-                product_inventory_lot_id=line.product_inventory_lot_id,
-                stock_lot_no=line.stock_lot_no,
-                movement_type="SHIP_OUT",
-                qty=-ship_qty,
-                balance_after=inventory.current_qty,
-                source_type="SHIPMENT_LINE",
-                source_id=line.shipment_line_id,
-                order_line_id=line.order_line_id,
-                inspection_result_id=line.inspection_result_id,
-                memo=f"출하관리 출하확정 / shipment_line_id={line.shipment_line_id}",
-            )
-            db.add(movement)
-
-            line.shipped_qty = ship_qty
-            line.status = "DONE"
-            line.shipped_at = datetime.now(timezone.utc)
-
-            confirmed_ids.append(line.shipment_line_id)
-            affected_order_line_ids.add(line.order_line_id)
-
-        for order_line_id in affected_order_line_ids:
-            order_line = (
-                db.execute(
-                    select(OrderLine)
-                    .where(OrderLine.order_line_id == order_line_id)
-                    .with_for_update()
-                )
-                .scalar_one_or_none()
-            )
-
-            if order_line is not None:
-                _sync_order_line_status_after_shipment(db, order_line)
-
-        db.commit()
-
-        return ShipmentConfirmResult(
-            confirmed_count=len(confirmed_ids),
-            confirmed_shipment_line_ids=confirmed_ids,
+            .scalar_one_or_none()
         )
 
+        if inventory is None:
+            inventory = ProductInventory(
+                product_id=line.product_id,
+                current_qty=0,
+            )
+            db.add(inventory)
+            db.flush()
+
+        if int(inventory.current_qty or 0) < ship_qty:
+            raise HTTPException(
+                status_code=409,
+                detail=f"재고가 부족합니다. shipment_line_id={line.shipment_line_id}",
+            )
+
+        inventory_lot = _resolve_inventory_lot_for_shipment_line(db, line)
+
+        if inventory_lot is not None:
+            if int(inventory_lot.current_qty or 0) < ship_qty:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"LOT 재고가 부족합니다. shipment_line_id={line.shipment_line_id}",
+                )
+
+            inventory_lot.current_qty -= ship_qty
+            line.product_inventory_lot_id = inventory_lot.product_inventory_lot_id
+            line.stock_lot_no = inventory_lot.lot_no
+
+        inventory.current_qty -= ship_qty
+
+        movement = ProductInventoryMovement(
+            product_id=line.product_id,
+            product_inventory_lot_id=line.product_inventory_lot_id,
+            stock_lot_no=line.stock_lot_no,
+            movement_type="SHIP_OUT",
+            qty=-ship_qty,
+            balance_after=inventory.current_qty,
+            source_type="SHIPMENT_LINE",
+            source_id=line.shipment_line_id,
+            order_line_id=line.order_line_id,
+            inspection_result_id=line.inspection_result_id,
+            memo=f"출하관리 출하확정 / shipment_line_id={line.shipment_line_id}",
+        )
+        db.add(movement)
+
+        line.shipped_qty = ship_qty
+        line.status = "DONE"
+        line.shipped_at = datetime.now(timezone.utc)
+
+        confirmed_ids.append(line.shipment_line_id)
+        affected_order_line_ids.add(line.order_line_id)
+
+    for order_line_id in affected_order_line_ids:
+        order_line = (
+            db.execute(
+                select(OrderLine)
+                .where(OrderLine.order_line_id == order_line_id)
+                .with_for_update()
+            )
+            .scalar_one_or_none()
+        )
+
+        if order_line is not None:
+            _sync_order_line_status_after_shipment(db, order_line)
+
+    return ShipmentConfirmResult(
+        confirmed_count=len(confirmed_ids),
+        confirmed_shipment_line_ids=confirmed_ids,
+    )
+
+
+def confirm_shipment_lines(
+    db: Session,
+    shipment_line_ids: list[int],
+) -> ShipmentConfirmResult:
+    try:
+        result = confirm_shipment_lines_in_session(db, shipment_line_ids)
+        db.commit()
+        return result
     except HTTPException:
         db.rollback()
         raise

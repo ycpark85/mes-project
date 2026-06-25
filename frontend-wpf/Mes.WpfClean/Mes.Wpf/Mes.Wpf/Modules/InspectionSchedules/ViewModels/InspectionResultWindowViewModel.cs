@@ -244,6 +244,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
 
         public int TotalQty => GoodQty + DefectShipQty + DefectQty;
         public int ReceivedQty => TotalQty + UninspectedQty;
+        public int TotalDisposalQty => DiscardQty + UninspectedQty;
         public int SellableQty =>
             IsPartial
                 ? GoodQty + DefectShipQty
@@ -377,6 +378,8 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
             {
                 if (SetProperty(ref _discardQty, value))
                 {
+                    OnPropertyChanged(nameof(TotalDisposalQty));
+
                     if (!_isRecalculatingInventoryPreview)
                     {
                         RecalculateInventoryPreview();
@@ -720,6 +723,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
         {
             OnPropertyChanged(nameof(TotalQty));
             OnPropertyChanged(nameof(ReceivedQty));
+            OnPropertyChanged(nameof(TotalDisposalQty));
 
             AccumulatedGoodQty = _baseAccumulatedGoodQty + GoodQty;
             AccumulatedDefectQty = _baseAccumulatedDefectQty + DefectQty;
@@ -769,6 +773,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                     {
                         _discardQty = 0;
                         OnPropertyChanged(nameof(DiscardQty));
+                        OnPropertyChanged(nameof(TotalDisposalQty));
                     }
 
                     ExpectedShipQty = 0;
@@ -827,6 +832,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                 {
                     _discardQty = discardQty;
                     OnPropertyChanged(nameof(DiscardQty));
+                    OnPropertyChanged(nameof(TotalDisposalQty));
                 }
 
                 ExpectedShipQty = actualShipQty;
@@ -966,7 +972,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
 
             if (!IsPartial && ResultShipQty + StockInQty + DiscardQty != SellableQty)
             {
-                _messageService.ShowWarning("생산 출고수량 + 폐기수량 + 재고편입수량은 판매가능수량과 같아야 합니다.");
+                _messageService.ShowWarning("생산 출고수량 + 판매가능폐기 + 재고편입수량은 판매가능수량과 같아야 합니다.");
                 return;
             }
 

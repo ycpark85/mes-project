@@ -24,7 +24,10 @@ from app.models.product_inventory_movement import ProductInventoryMovement
 from app.models.shipment_line import ShipmentLine
 from app.schemas.inspection_result import InspectionInventorySummaryOut
 from app.services.inventory_fifo_service import get_available_inventory_lots_fifo
-from app.services.order_line_plan_service import get_latest_plan_history
+from app.services.order_line_plan_service import (
+    get_latest_plan_history,
+    get_reserved_stock_shipment_qty,
+)
 from app.services.ship_qty_policy import calculate_ship_qty
 
 
@@ -256,7 +259,15 @@ def _get_inventory_summary(
         exclude_inspection_result_id=current_result_id,
     )
     lot_available_qty = sum(available_qty for _, available_qty in available_stock_lots)
-    current_stock_qty = min(max(inventory_total_qty, 0), lot_available_qty)
+    reserved_for_order_line_qty = get_reserved_stock_shipment_qty(
+        db,
+        product_id=lot.product_id,
+        order_line_id=order_line.order_line_id,
+    )
+    current_stock_qty = min(
+        max(inventory_total_qty, 0),
+        lot_available_qty + reserved_for_order_line_qty,
+    )
 
     if current_result_id is not None:
         result = db.get(InspectionResult, current_result_id)
@@ -311,7 +322,7 @@ def _get_inventory_summary(
         latest_plan = get_latest_plan_history(db, order_line.order_line_id)
         if latest_plan is not None:
             current_result_stock_ship_qty = min(
-                int(latest_plan.stock_ship_qty or 0),
+                reserved_for_order_line_qty or int(latest_plan.stock_ship_qty or 0),
                 current_stock_qty,
             )
 

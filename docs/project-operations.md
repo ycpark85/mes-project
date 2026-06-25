@@ -27,18 +27,36 @@ Inspection result quantities separate internal receiving control from quality ju
 - `defect_qty`: defective quantity not allowed to ship.
 - `uninspected_qty`: quantity not inspected after the shipment requirement is met. It is tracked separately for uninspected disposal statistics.
 - `discard_qty`: sellable quantity disposal used by shipment/inventory settlement. It is not the same as `uninspected_qty`.
+- Total disposal quantity for operational review is `discard_qty + uninspected_qty`.
 
 Quality statistics use only inspected quantities:
 
 - `inspected_qty = good_qty + defect_ship_qty + defect_qty`
 - good rate and defect rate use `inspected_qty` as the denominator.
 - `uninspected_qty` is excluded from good/defect quality statistics.
+- Disposal statistics can include `uninspected_qty`, but quality statistics must not.
 
 Internal official received quantity is calculated from inspection results:
 
 - `received_qty = good_qty + defect_ship_qty + defect_qty + uninspected_qty`
 - outsource process loss should compare calculated output quantity against this internal `received_qty`, not against vendor-reported work-done quantity.
 - vendor work-done quantity remains an operational reference value.
+
+## Inventory Availability and Order Planning
+
+Order planning separates physical inventory from available inventory.
+
+- Physical inventory is `product_inventory.current_qty`.
+- Reserved inventory is stock shipment quantity in `shipment_line` where `source_type = STOCK` and `status = WAITING`.
+- Available inventory is physical inventory minus reserved inventory.
+- Automatic order planning must use available inventory, not physical inventory.
+
+Stock usage rules:
+
+- Stock-only shipment and close: when the processing plan is confirmed, stock shipment lines are created and immediately confirmed. Inventory is deducted at that point because no production LOT or inspection result follows.
+- Partial stock plus production: when the processing plan is confirmed, stock shipment lines remain in `WAITING` status as reserved inventory. The reserved quantity is excluded from availability for later orders.
+- When inspection result is saved for partial stock plus production, the reserved stock shipment lines are consumed first and changed to `DONE`; only any remaining requested stock shipment quantity is allocated from FIFO available inventory.
+- Unused stock reservations for the order line are canceled when final inspection settlement no longer uses them.
 
 ## Outsource Processing Cost Management
 
