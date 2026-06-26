@@ -1,5 +1,71 @@
 # Database Architecture
 
+## Raw Material Inventory Tables
+
+Raw materials are modeled separately from products so product inventory and raw material inventory can evolve independently.
+
+### `raw_material`
+
+Raw material item master.
+
+Important columns:
+
+- `material_code`: unique business code.
+- `material_name`, `material_spec`, `width_mm`, `material_type`, `uom`.
+- `standard_unit_cost`: optional default unit cost used as a fallback for inbound lots.
+- `is_active`: soft-deactivation flag.
+
+### `raw_material_location`
+
+User-configurable raw material stock location.
+
+Important columns:
+
+- `location_code`: unique business code.
+- `location_type`: `INTERNAL_WAREHOUSE`, `OUTSOURCE_VENDOR`, or `OTHER`.
+- `partner_id`: optional link to `partner` for outsource-vendor holding locations.
+- `is_active`: soft-deactivation flag.
+
+Warehouse and vendor names such as Shinheung warehouse or Korea Label are not hard-coded. They are rows in this table.
+
+### `raw_material_inventory`
+
+Current stock by raw material and location.
+
+- Unique key: `raw_material_id`, `raw_material_location_id`.
+- `current_qty` is the physical location-level quantity.
+
+### `raw_material_inventory_lot`
+
+Current stock by raw material, location, and raw material LOT.
+
+- Unique key: `raw_material_id`, `raw_material_location_id`, `lot_no`.
+- The same raw material LOT number can exist in multiple locations after transfer.
+- `unit_cost` and `received_at` are retained for future inventory amount and WIP calculations.
+
+### `raw_material_inventory_movement`
+
+Raw material stock ledger.
+
+Movement types:
+
+- `INBOUND`
+- `TRANSFER_OUT`
+- `TRANSFER_IN`
+- `ADJUST_IN`
+- `ADJUST_OUT`
+- `CONSUME_OUT`
+- `CONSUME_REVERSE`
+
+Stage 1 uses inbound, transfer, and adjustment. `CONSUME_OUT` and `CONSUME_REVERSE` are reserved for the next outsource-work-instruction allocation step.
+
+Important columns:
+
+- `qty`: signed movement quantity.
+- `balance_after`: material-location balance after the movement.
+- `unit_cost_snapshot`, `amount_snapshot`: cost snapshots for future closing and auditability.
+- `transfer_key`: groups paired transfer-out and transfer-in rows.
+
 ## Production Progress Snapshot Read Model
 
 ### `production_progress_snapshot`

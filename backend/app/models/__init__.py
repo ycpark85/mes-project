@@ -30,6 +30,11 @@ from .outsource_processing_cost_allocation import OutsourceProcessingCostAllocat
 from .product_inventory import ProductInventory
 from .product_inventory_lot import ProductInventoryLot
 from .product_inventory_movement import ProductInventoryMovement
+from .raw_material import RawMaterial
+from .raw_material_location import RawMaterialLocation
+from .raw_material_inventory import RawMaterialInventory
+from .raw_material_inventory_lot import RawMaterialInventoryLot
+from .raw_material_inventory_movement import RawMaterialInventoryMovement
 from .shipment_line import ShipmentLine
 from .production_progress_snapshot import ProductionProgressSnapshot
 from .user import User
@@ -73,6 +78,11 @@ __all__ = [
     "ProductInventory",
     "ProductInventoryLot",
     "ProductInventoryMovement",
+    "RawMaterial",
+    "RawMaterialLocation",
+    "RawMaterialInventory",
+    "RawMaterialInventoryLot",
+    "RawMaterialInventoryMovement",
     "ShipmentLine",
     "ProductionProgressSnapshot",
     "User",

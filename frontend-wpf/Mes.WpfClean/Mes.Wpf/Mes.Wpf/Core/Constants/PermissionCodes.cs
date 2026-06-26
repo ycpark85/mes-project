@@ -32,6 +32,8 @@
 
         public const string ProductMonitoringView = "PRODUCT_MONITORING.VIEW";
         public const string InventoriesView = "INVENTORIES.VIEW";
+        public const string RawMaterialsView = "RAW_MATERIALS.VIEW";
+        public const string RawMaterialInventoriesView = "RAW_MATERIAL_INVENTORIES.VIEW";
         public const string ShipmentsView = "SHIPMENTS.VIEW";
 
         public const string UsersView = "USERS.VIEW";

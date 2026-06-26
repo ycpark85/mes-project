@@ -276,6 +276,11 @@
                                         Content="품목관리"
                                         Style="{StaticResource SidebarMenuButtonStyle}"
                                         Click="Product_Click"/>
+
+                                <Button x:Name="RawMaterialMasterMenuButton"
+                                        Content="원자재 기준정보"
+                                        Style="{StaticResource SidebarMenuButtonStyle}"
+                                        Click="RawMaterialMaster_Click"/>
                             </StackPanel>
                         </Expander>
 
@@ -323,6 +328,11 @@
                                         Content="재고 관리"
                                         Style="{StaticResource SidebarMenuButtonStyle}"
                                         Click="Inventory_Click"/>
+
+                                <Button x:Name="RawMaterialInventoryMenuButton"
+                                        Content="원자재 재고관리"
+                                        Style="{StaticResource SidebarMenuButtonStyle}"
+                                        Click="RawMaterialInventory_Click"/>
                                 <Button x:Name="ShipmentMenuButton"
                                         Content="출하 관리"
                                         Style="{StaticResource SidebarMenuButtonStyle}"

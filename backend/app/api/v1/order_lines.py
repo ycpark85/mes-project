@@ -102,6 +102,11 @@ def _ensure_product_active(db: Session, product_id: int) -> Product:
     return product
 
 
+def _propagate_order_line_due_date(db: Session, order_line_id: int, new_due_date: date) -> None:
+    _sync_lot_due_date_for_not_started(db, order_line_id, new_due_date)
+    refresh_order_line_snapshot(db, order_line_id)
+
+
 def _get_lot_month_code(value: date) -> str:
     month_codes = {
         1: "A",
@@ -858,10 +863,10 @@ def update_order_line(order_line_id: int, payload: OrderLineUpdate, db: Session 
     try:
         order_line_crud.update(db, obj, data)
 
-        # due_date가 실제로 변경되면 아직 시작하지 않은 LOT의 납기도 함께 동기화한다.
         if requested_due_date is not None and requested_due_date != old_due_date:
-            # obj는 이미 update로 바뀌었을 수 있으므로 payload 기준으로 동기화한다.
-            _sync_lot_due_date_for_not_started(db, order_line_id, requested_due_date)
+            _propagate_order_line_due_date(db, order_line_id, requested_due_date)
+        else:
+            refresh_order_line_snapshot(db, order_line_id)
 
         db.commit()
     except IntegrityError:
@@ -1659,6 +1664,8 @@ def update_order_line_detail(
     if payload.order_qty <= 0:
         raise HTTPException(status_code=422, detail="order_qty must be greater than 0")
 
+    old_due_date = order_line.due_date
+
     # 수주 수정
     order_line.due_date = payload.due_date
     order_line.order_qty = payload.order_qty
@@ -1666,6 +1673,11 @@ def update_order_line_detail(
     order_line.updated_at = datetime.now(timezone.utc)
 
     db.add(order_line)
+    if payload.due_date != old_due_date:
+        _propagate_order_line_due_date(db, order_line_id, payload.due_date)
+    else:
+        refresh_order_line_snapshot(db, order_line_id)
+
     db.commit()
     db.refresh(order_line)
 

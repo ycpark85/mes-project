@@ -1,5 +1,47 @@
 # Project Operations
 
+## Raw Material Inventory Management
+
+Raw material inventory is managed separately from product inventory.
+
+- Product items remain in `product`.
+- Raw material items are managed in `raw_material`.
+- Raw material stock is tracked by raw material, location, and raw material LOT.
+- Raw material locations are user-configurable and are not hard-coded to a specific warehouse or outsource vendor.
+- A raw material location can represent an internal warehouse, an outsource vendor holding location, or another controlled location.
+- Outsource-vendor locations can be linked to `partner` through `partner_id`.
+
+Raw material inventory quantity rules:
+
+- Physical raw material stock is stored at `raw_material_inventory.current_qty` by material and location.
+- LOT-level stock is stored at `raw_material_inventory_lot.current_qty`.
+- Inbound, transfer, adjustment, and future outsource consumption are recorded in `raw_material_inventory_movement`.
+- Transfers create paired `TRANSFER_OUT` and `TRANSFER_IN` movement rows with the same `transfer_key`.
+- Inventory movement rows are not overwritten for correction. Future correction flows must use opposite movements such as `CONSUME_REVERSE` or adjustment movements.
+
+Stage 1 scope:
+
+- Raw material item management.
+- Raw material location management.
+- Raw material LOT inventory inquiry.
+- Raw material inbound.
+- Raw material location transfer.
+- Raw material LOT adjustment.
+- Raw material movement history.
+
+Out of current scope:
+
+- Outsource work instruction raw material allocation.
+- Work-in-process ledger.
+- Monthly or quarterly closing.
+- Manufacturing overhead allocation.
+
+Cost/closing preparation:
+
+- Raw material LOTs can store `unit_cost`.
+- Movement rows store unit-cost and amount snapshots.
+- These snapshots are retained so future WIP and closing features can calculate raw material inventory amount and raw-material component of WIP amount without depending on later master-data changes.
+
 ## Outsource Work Group Representative Product
 
 Bundle outsource work groups have one representative LOT.
@@ -67,6 +109,8 @@ This menu is an operational progress view, not a completed-history report.
 - The screen reads from `production_progress_snapshot`, a production progress read model.
 - Source tables remain the system of record. The snapshot is regenerated from source data when needed.
 - Run `python scripts/rebuild_production_progress_snapshots.py` from the backend directory after introducing the table to existing data, after bulk data repair, or when snapshot drift is suspected.
+- When an order line due date is changed from the order list or order detail screen, the order due date, not-yet-started LOT due dates, and `production_progress_snapshot.due_date` are updated in the same transaction.
+- Inspection schedule dates, inspection results, shipment results, and inventory movements are not automatically changed by an order due-date change.
 - Default status filter is `IN_PROGRESS`.
 - `IN_PROGRESS` means inspection result registration is not completed.
 - `COMPLETED` means inspection result registration is completed.
