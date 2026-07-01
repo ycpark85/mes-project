@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timezone
+from decimal import Decimal
 from functools import lru_cache
 from io import BytesIO
 from pathlib import Path
@@ -20,15 +21,23 @@ from app.db.session import get_db
 from app.models.lot import Lot
 from app.models.order_line import OrderLine
 from app.models.outsource_purchase_order import OutsourcePurchaseOrder
+from app.models.outsource_purchase_order_group import OutsourcePurchaseOrderGroup
 from app.models.outsource_purchase_order_item import OutsourcePurchaseOrderItem
 from app.models.outsource_work_group import OutsourceWorkGroup
+from app.models.outsource_work_group_change_log import OutsourceWorkGroupChangeLog
 from app.models.outsource_work_group_item import OutsourceWorkGroupItem
+from app.models.outsource_work_group_raw_material_allocation import OutsourceWorkGroupRawMaterialAllocation
 from app.models.outsource_work_instruction import OutsourceWorkInstruction
 from app.models.outsource_work_instruction_file import OutsourceWorkInstructionFile
 from app.models.outsource_work_instruction_item import OutsourceWorkInstructionItem
 from app.models.partner import Partner
 from app.models.product import Product
 from app.models.product_inventory import ProductInventory
+from app.models.raw_material import RawMaterial
+from app.models.raw_material_inventory import RawMaterialInventory
+from app.models.raw_material_inventory_lot import RawMaterialInventoryLot
+from app.models.raw_material_inventory_movement import RawMaterialInventoryMovement
+from app.models.raw_material_location import RawMaterialLocation
 from app.models.routing_template import RoutingTemplate
 from app.services.production_daily_query import (
     refresh_order_line_snapshots_for_lots,
@@ -62,6 +71,14 @@ from app.schemas.outsource_work_instruction import (
     OutsourceWorkInstructionItemOut,
     OutsourceWorkInstructionOut,
     OutsourceWorkInstructionPlateUploadOut,
+    OutsourceWorkInstructionRawMaterialAllocationCreate,
+    OutsourceWorkGroupCancelIn,
+    OutsourceWorkGroupDetailOut,
+    OutsourceWorkGroupListItemOut,
+    OutsourceWorkGroupListOut,
+    OutsourceWorkGroupLotOut,
+    OutsourceWorkGroupRawMaterialAllocationOut,
+    OutsourceWorkGroupUpdateIn,
 )
 
 router = APIRouter(prefix="/outsource-work-instructions", tags=["OutsourceWorkInstruction"])
@@ -69,6 +86,7 @@ router = APIRouter(prefix="/outsource-work-instructions", tags=["OutsourceWorkIn
 BOHYUN_DB_STATUS_VENDOR_RECEIVED = "VENDOR_RECEIVED"
 BOHYUN_DB_STATUS_WORK_DONE = "WORK_DONE"
 BOHYUN_DB_STATUS_SHIPPED = "SHIPPED"
+OUTSOURCE_WORK_GROUP_STATUS_CANCELED = "CANCELED"
 
 BOHYUN_UI_STATUS_WAITING_INBOUND = "WAITING_INBOUND"
 BOHYUN_UI_STATUS_INBOUNDED = "INBOUNDED"
@@ -445,6 +463,7 @@ def _filter_groups_for_lot_ids(
                 representative_lot_id=representative_lot_id,
                 remark=group.remark,
                 items=filtered_items,
+                raw_material_allocations=group.raw_material_allocations,
             )
         )
 
@@ -661,6 +680,610 @@ def _resolve_group_sheet_cut_count(
     )
 
 
+def _q2(value: Decimal | int | float | str | None) -> Decimal:
+    return Decimal(value or 0).quantize(Decimal("0.01"))
+
+
+def _amount(qty: Decimal, unit_cost: Decimal | None) -> Decimal | None:
+    if unit_cost is None:
+        return None
+
+    return (qty * unit_cost).quantize(Decimal("0.01"))
+
+
+def _display_work_group_status(status: str | None) -> str:
+    if status == OUTSOURCE_WORK_GROUP_STATUS_CANCELED:
+        return "취소"
+    if status == BOHYUN_DB_STATUS_VENDOR_RECEIVED:
+        return "외주입고"
+    if status == BOHYUN_DB_STATUS_WORK_DONE:
+        return "작업완료"
+    if status == BOHYUN_DB_STATUS_SHIPPED:
+        return "출고완료"
+
+    return "지시등록"
+
+
+def _normalized_work_group_status(status: str | None) -> str:
+    return status or "REGISTERED"
+
+
+def _get_cancel_block_reason(
+    db: Session,
+    work_group: OutsourceWorkGroup,
+) -> str | None:
+    if work_group.status == OUTSOURCE_WORK_GROUP_STATUS_CANCELED:
+        return "이미 취소된 작업지시입니다."
+
+    if work_group.status in {
+        BOHYUN_DB_STATUS_VENDOR_RECEIVED,
+        BOHYUN_DB_STATUS_WORK_DONE,
+        BOHYUN_DB_STATUS_SHIPPED,
+    }:
+        return "외주 입고 이후 상태라 취소할 수 없습니다."
+
+    group_lot_ids = [
+        row[0]
+        for row in db.execute(
+            select(OutsourceWorkGroupItem.lot_id).where(
+                OutsourceWorkGroupItem.outsource_work_group_id
+                == work_group.outsource_work_group_id
+            )
+        ).all()
+    ]
+
+    if group_lot_ids:
+        progressed_purchase_order_item = db.execute(
+            select(OutsourcePurchaseOrderItem.outsource_purchase_order_item_id)
+            .where(
+                OutsourcePurchaseOrderItem.outsource_work_instruction_id
+                == work_group.outsource_work_instruction_id,
+                OutsourcePurchaseOrderItem.lot_id.in_(group_lot_ids),
+                OutsourcePurchaseOrderItem.status.in_(
+                    [
+                        BOHYUN_DB_STATUS_VENDOR_RECEIVED,
+                        BOHYUN_DB_STATUS_WORK_DONE,
+                        BOHYUN_DB_STATUS_SHIPPED,
+                    ]
+                ),
+            )
+            .limit(1)
+        ).scalar_one_or_none()
+
+        if progressed_purchase_order_item is not None:
+            return "연결된 외주발주 항목이 입고 이후 상태라 취소할 수 없습니다."
+
+    progressed_purchase_order_group = db.execute(
+        select(OutsourcePurchaseOrderGroup.outsource_purchase_order_group_id)
+        .where(
+            OutsourcePurchaseOrderGroup.outsource_work_group_id == work_group.outsource_work_group_id,
+            OutsourcePurchaseOrderGroup.status.in_(
+                [
+                    BOHYUN_DB_STATUS_VENDOR_RECEIVED,
+                    BOHYUN_DB_STATUS_WORK_DONE,
+                    BOHYUN_DB_STATUS_SHIPPED,
+                ]
+            ),
+        )
+        .limit(1)
+    ).scalar_one_or_none()
+
+    if progressed_purchase_order_group is not None:
+        return "연결된 외주발주가 입고 이후 상태라 취소할 수 없습니다."
+
+    return None
+
+
+def _get_or_create_raw_material_inventory_for_reverse(
+    db: Session,
+    raw_material_id: int,
+    raw_material_location_id: int,
+) -> RawMaterialInventory:
+    inventory = (
+        db.execute(
+            select(RawMaterialInventory)
+            .where(
+                RawMaterialInventory.raw_material_id == raw_material_id,
+                RawMaterialInventory.raw_material_location_id == raw_material_location_id,
+            )
+            .with_for_update()
+        )
+        .scalar_one_or_none()
+    )
+
+    if inventory is not None:
+        return inventory
+
+    inventory = RawMaterialInventory(
+        raw_material_id=raw_material_id,
+        raw_material_location_id=raw_material_location_id,
+        current_qty=Decimal("0"),
+    )
+    db.add(inventory)
+    db.flush()
+    return inventory
+
+
+def _get_or_create_raw_material_lot_for_reverse(
+    db: Session,
+    allocation: OutsourceWorkGroupRawMaterialAllocation,
+) -> RawMaterialInventoryLot:
+    inventory_lot: RawMaterialInventoryLot | None = None
+
+    if allocation.raw_material_inventory_lot_id is not None:
+        inventory_lot = (
+            db.execute(
+                select(RawMaterialInventoryLot)
+                .where(
+                    RawMaterialInventoryLot.raw_material_inventory_lot_id
+                    == allocation.raw_material_inventory_lot_id
+                )
+                .with_for_update()
+            )
+            .scalar_one_or_none()
+        )
+
+    if inventory_lot is None:
+        inventory_lot = (
+            db.execute(
+                select(RawMaterialInventoryLot)
+                .where(
+                    RawMaterialInventoryLot.raw_material_id == allocation.raw_material_id,
+                    RawMaterialInventoryLot.raw_material_location_id == allocation.raw_material_location_id,
+                    RawMaterialInventoryLot.lot_no == allocation.lot_no,
+                )
+                .with_for_update()
+            )
+            .scalar_one_or_none()
+        )
+
+    if inventory_lot is not None:
+        return inventory_lot
+
+    inventory_lot = RawMaterialInventoryLot(
+        raw_material_id=allocation.raw_material_id,
+        raw_material_location_id=allocation.raw_material_location_id,
+        lot_no=allocation.lot_no,
+        current_qty=Decimal("0"),
+        unit_cost=allocation.unit_cost_snapshot,
+    )
+    db.add(inventory_lot)
+    db.flush()
+    return inventory_lot
+
+
+def _reverse_raw_material_allocations(
+    db: Session,
+    work_group: OutsourceWorkGroup,
+    reason: str | None,
+    source_type: str = "OUTSOURCE_WORK_GROUP_CANCEL",
+) -> None:
+    allocations = (
+        db.execute(
+            select(OutsourceWorkGroupRawMaterialAllocation)
+            .where(
+                OutsourceWorkGroupRawMaterialAllocation.outsource_work_group_id
+                == work_group.outsource_work_group_id,
+                OutsourceWorkGroupRawMaterialAllocation.status == "CONSUMED",
+            )
+            .with_for_update()
+        )
+        .scalars()
+        .all()
+    )
+
+    for allocation in allocations:
+        qty = _q2(allocation.qty)
+        inventory = _get_or_create_raw_material_inventory_for_reverse(
+            db,
+            raw_material_id=allocation.raw_material_id,
+            raw_material_location_id=allocation.raw_material_location_id,
+        )
+        inventory_lot = _get_or_create_raw_material_lot_for_reverse(db, allocation)
+
+        inventory.current_qty = _q2(inventory.current_qty + qty)
+        inventory_lot.current_qty = _q2(inventory_lot.current_qty + qty)
+
+        movement = RawMaterialInventoryMovement(
+            raw_material_id=allocation.raw_material_id,
+            raw_material_location_id=allocation.raw_material_location_id,
+            raw_material_inventory_lot_id=inventory_lot.raw_material_inventory_lot_id,
+            lot_no=allocation.lot_no,
+            movement_type="CONSUME_REVERSE",
+            qty=qty,
+            balance_after=inventory.current_qty,
+            unit_cost_snapshot=allocation.unit_cost_snapshot,
+            amount_snapshot=allocation.amount_snapshot,
+            source_type=source_type,
+            source_id=allocation.outsource_work_group_raw_material_allocation_id,
+            memo=reason,
+        )
+        db.add(movement)
+        allocation.status = "REVERSED"
+        db.flush()
+
+
+def _get_update_block_reason(
+    db: Session,
+    work_group: OutsourceWorkGroup,
+) -> str | None:
+    if work_group.status == OUTSOURCE_WORK_GROUP_STATUS_CANCELED:
+        return "Canceled outsource work instruction cannot be updated"
+
+    if work_group.status in {
+        BOHYUN_DB_STATUS_VENDOR_RECEIVED,
+        BOHYUN_DB_STATUS_WORK_DONE,
+        BOHYUN_DB_STATUS_SHIPPED,
+    }:
+        return "Outsource work instruction cannot be updated after vendor receipt"
+
+    purchase_order_group_id = db.execute(
+        select(OutsourcePurchaseOrderGroup.outsource_purchase_order_group_id)
+        .where(
+            OutsourcePurchaseOrderGroup.outsource_work_group_id
+            == work_group.outsource_work_group_id
+        )
+        .limit(1)
+    ).scalar_one_or_none()
+
+    if purchase_order_group_id is not None:
+        return "Outsource work instruction cannot be updated after purchase order creation"
+
+    group_lot_ids = [
+        row[0]
+        for row in db.execute(
+            select(OutsourceWorkGroupItem.lot_id).where(
+                OutsourceWorkGroupItem.outsource_work_group_id
+                == work_group.outsource_work_group_id
+            )
+        ).all()
+    ]
+
+    if group_lot_ids:
+        purchase_order_item_id = db.execute(
+            select(OutsourcePurchaseOrderItem.outsource_purchase_order_item_id)
+            .join(
+                OutsourcePurchaseOrder,
+                OutsourcePurchaseOrder.outsource_purchase_order_id
+                == OutsourcePurchaseOrderItem.outsource_purchase_order_id,
+            )
+            .join(
+                OutsourceWorkInstructionItem,
+                (
+                    OutsourceWorkInstructionItem.outsource_work_instruction_id
+                    == OutsourcePurchaseOrderItem.outsource_work_instruction_id
+                )
+                & (OutsourceWorkInstructionItem.lot_id == OutsourcePurchaseOrderItem.lot_id)
+                & (OutsourceWorkInstructionItem.is_active.is_(True)),
+            )
+            .where(
+                OutsourcePurchaseOrder.process_type == work_group.process_type,
+                OutsourcePurchaseOrderItem.lot_id.in_(group_lot_ids),
+            )
+            .limit(1)
+        ).scalar_one_or_none()
+
+        if purchase_order_item_id is not None:
+            return "Outsource work instruction cannot be updated after purchase order creation"
+
+    return None
+
+
+def _json_value(value):
+    if isinstance(value, Decimal):
+        return str(_q2(value))
+    if isinstance(value, (date, datetime)):
+        return value.isoformat()
+    return value
+
+
+def _build_work_group_change_snapshot(
+    db: Session,
+    work_group: OutsourceWorkGroup,
+) -> dict:
+    group_items = (
+        db.execute(
+            select(OutsourceWorkGroupItem)
+            .where(
+                OutsourceWorkGroupItem.outsource_work_group_id
+                == work_group.outsource_work_group_id
+            )
+            .order_by(OutsourceWorkGroupItem.outsource_work_group_item_id.asc())
+        )
+        .scalars()
+        .all()
+    )
+    allocations = (
+        db.execute(
+            select(OutsourceWorkGroupRawMaterialAllocation)
+            .where(
+                OutsourceWorkGroupRawMaterialAllocation.outsource_work_group_id
+                == work_group.outsource_work_group_id,
+                OutsourceWorkGroupRawMaterialAllocation.status == "CONSUMED",
+            )
+            .order_by(
+                OutsourceWorkGroupRawMaterialAllocation.outsource_work_group_raw_material_allocation_id.asc()
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    return {
+        "outsource_work_group_id": work_group.outsource_work_group_id,
+        "sheet_qty": work_group.sheet_qty,
+        "length_m": _json_value(work_group.length_m),
+        "sheet_cut_count": work_group.sheet_cut_count,
+        "fabric_lot_no": work_group.fabric_lot_no,
+        "remark": work_group.remark,
+        "items": [
+            {
+                "outsource_work_group_item_id": item.outsource_work_group_item_id,
+                "lot_id": item.lot_id,
+                "cuts_per_sheet": item.cuts_per_sheet,
+                "expected_output_qty": item.expected_output_qty,
+            }
+            for item in group_items
+        ],
+        "raw_material_allocations": [
+            {
+                "outsource_work_group_raw_material_allocation_id": allocation.outsource_work_group_raw_material_allocation_id,
+                "raw_material_inventory_lot_id": allocation.raw_material_inventory_lot_id,
+                "lot_no": allocation.lot_no,
+                "qty": _json_value(allocation.qty),
+                "unit_cost_snapshot": _json_value(allocation.unit_cost_snapshot),
+                "amount_snapshot": _json_value(allocation.amount_snapshot),
+                "status": allocation.status,
+            }
+            for allocation in allocations
+        ],
+    }
+
+
+def _build_work_group_detail(
+    db: Session,
+    work_group: OutsourceWorkGroup,
+) -> OutsourceWorkGroupDetailOut:
+    instruction = db.get(OutsourceWorkInstruction, work_group.outsource_work_instruction_id)
+    if instruction is None:
+        raise HTTPException(status_code=404, detail="Outsource work instruction not found")
+
+    partner = db.get(Partner, instruction.partner_id)
+
+    item_rows = (
+        db.execute(
+            select(OutsourceWorkGroupItem, Lot, OrderLine, Product)
+            .join(Lot, Lot.lot_id == OutsourceWorkGroupItem.lot_id)
+            .join(OrderLine, OrderLine.order_line_id == Lot.order_line_id)
+            .join(Product, Product.product_id == Lot.product_id)
+            .where(OutsourceWorkGroupItem.outsource_work_group_id == work_group.outsource_work_group_id)
+            .order_by(Lot.lot_no.asc())
+        )
+        .all()
+    )
+
+    allocation_rows = (
+        db.execute(
+            select(
+                OutsourceWorkGroupRawMaterialAllocation,
+                RawMaterial,
+                RawMaterialLocation,
+            )
+            .join(
+                RawMaterial,
+                RawMaterial.raw_material_id
+                == OutsourceWorkGroupRawMaterialAllocation.raw_material_id,
+            )
+            .join(
+                RawMaterialLocation,
+                RawMaterialLocation.raw_material_location_id
+                == OutsourceWorkGroupRawMaterialAllocation.raw_material_location_id,
+            )
+            .where(
+                OutsourceWorkGroupRawMaterialAllocation.outsource_work_group_id
+                == work_group.outsource_work_group_id
+            )
+            .order_by(OutsourceWorkGroupRawMaterialAllocation.created_at.asc())
+        )
+        .all()
+    )
+
+    file_rows = (
+        db.execute(
+            select(OutsourceWorkInstructionFile)
+            .where(
+                OutsourceWorkInstructionFile.outsource_work_instruction_id
+                == instruction.outsource_work_instruction_id
+            )
+            .order_by(OutsourceWorkInstructionFile.outsource_work_instruction_file_id.asc())
+        )
+        .scalars()
+        .all()
+    )
+
+    lot_outputs: list[OutsourceWorkGroupLotOut] = []
+    lot_nos: list[str] = []
+    product_names: list[str] = []
+    representative_lot_no: str | None = None
+    representative_product_name: str | None = None
+
+    for item, lot, order_line, product in item_rows:
+        lot_nos.append(lot.lot_no)
+        product_names.append(product.product_name)
+
+        if lot.lot_id == work_group.representative_lot_id:
+            representative_lot_no = lot.lot_no
+            representative_product_name = product.product_name
+
+        lot_outputs.append(
+            OutsourceWorkGroupLotOut(
+                outsource_work_group_item_id=item.outsource_work_group_item_id,
+                lot_id=lot.lot_id,
+                lot_no=lot.lot_no,
+                order_no=order_line.order_no,
+                line_no=order_line.line_no,
+                product_code=product.product_code,
+                product_name=product.product_name,
+                lot_qty=lot.lot_qty,
+                cuts_per_sheet=item.cuts_per_sheet,
+                expected_output_qty=item.expected_output_qty,
+            )
+        )
+
+    raw_material_outputs: list[OutsourceWorkGroupRawMaterialAllocationOut] = []
+    raw_material_qty = Decimal("0")
+    raw_material_lot_nos: list[str] = []
+
+    for allocation, material, location in allocation_rows:
+        if allocation.status == "CONSUMED":
+            raw_material_qty += Decimal(allocation.qty or 0)
+            raw_material_lot_nos.append(allocation.lot_no)
+        raw_material_outputs.append(
+            OutsourceWorkGroupRawMaterialAllocationOut(
+                outsource_work_group_raw_material_allocation_id=allocation.outsource_work_group_raw_material_allocation_id,
+                raw_material_id=allocation.raw_material_id,
+                raw_material_location_id=allocation.raw_material_location_id,
+                raw_material_inventory_lot_id=allocation.raw_material_inventory_lot_id,
+                material_code=material.material_code,
+                material_name=material.material_name,
+                location_name=location.location_name,
+                lot_no=allocation.lot_no,
+                qty=allocation.qty,
+                unit_cost_snapshot=allocation.unit_cost_snapshot,
+                amount_snapshot=allocation.amount_snapshot,
+                status=allocation.status,
+                created_at=allocation.created_at,
+            )
+        )
+
+    cancel_block_reason = _get_cancel_block_reason(db, work_group)
+    update_block_reason = _get_update_block_reason(db, work_group)
+
+    return OutsourceWorkGroupDetailOut(
+        outsource_work_group_id=work_group.outsource_work_group_id,
+        outsource_work_instruction_id=instruction.outsource_work_instruction_id,
+        instruction_no=instruction.instruction_no,
+        instruction_date=instruction.instruction_date,
+        process_type=work_group.process_type,
+        partner_id=instruction.partner_id,
+        partner_name=partner.name if partner else None,
+        group_seq=work_group.group_seq,
+        status=_normalized_work_group_status(work_group.status),
+        status_name=_display_work_group_status(work_group.status),
+        is_bundle=work_group.is_bundle,
+        representative_lot_id=work_group.representative_lot_id,
+        representative_lot_no=representative_lot_no,
+        representative_product_name=representative_product_name,
+        lot_nos_text=", ".join(lot_nos),
+        product_names_text=", ".join(dict.fromkeys(product_names)),
+        sheet_qty=work_group.sheet_qty,
+        length_m=work_group.length_m,
+        sheet_cut_count=work_group.sheet_cut_count,
+        fabric_lot_no=work_group.fabric_lot_no,
+        raw_material_qty=_q2(raw_material_qty),
+        raw_material_lot_nos_text=", ".join(dict.fromkeys(raw_material_lot_nos)),
+        can_cancel=cancel_block_reason is None,
+        cancel_block_reason=cancel_block_reason,
+        can_update=update_block_reason is None,
+        update_block_reason=update_block_reason,
+        memo=work_group.remark or instruction.memo,
+        created_at=work_group.created_at,
+        lots=lot_outputs,
+        raw_material_allocations=raw_material_outputs,
+        files=[
+            OutsourceWorkInstructionFileOut.model_validate(file_row, from_attributes=True)
+            for file_row in file_rows
+        ],
+    )
+
+
+def _consume_raw_material_allocations(
+    db: Session,
+    work_group: OutsourceWorkGroup,
+    allocations: list[OutsourceWorkInstructionRawMaterialAllocationCreate],
+) -> None:
+    if not allocations:
+        return
+
+    for allocation_payload in allocations:
+        qty = _q2(allocation_payload.qty)
+
+        if qty <= 0:
+            raise HTTPException(status_code=422, detail="Raw material allocation qty must be greater than 0")
+
+        inventory_lot = (
+            db.execute(
+                select(RawMaterialInventoryLot)
+                .where(
+                    RawMaterialInventoryLot.raw_material_inventory_lot_id
+                    == allocation_payload.raw_material_inventory_lot_id
+                )
+                .with_for_update()
+            )
+            .scalar_one_or_none()
+        )
+
+        if inventory_lot is None:
+            raise HTTPException(status_code=404, detail="Raw material inventory lot not found")
+
+        inventory = (
+            db.execute(
+                select(RawMaterialInventory)
+                .where(
+                    RawMaterialInventory.raw_material_id == inventory_lot.raw_material_id,
+                    RawMaterialInventory.raw_material_location_id == inventory_lot.raw_material_location_id,
+                )
+                .with_for_update()
+            )
+            .scalar_one_or_none()
+        )
+
+        if inventory is None:
+            raise HTTPException(status_code=409, detail="Raw material location inventory not found")
+
+        if inventory_lot.current_qty < qty or inventory.current_qty < qty:
+            raise HTTPException(status_code=409, detail="Raw material inventory is insufficient")
+
+        amount_snapshot = _amount(qty, inventory_lot.unit_cost)
+        memo = allocation_payload.memo.strip() if allocation_payload.memo and allocation_payload.memo.strip() else None
+        allocation = OutsourceWorkGroupRawMaterialAllocation(
+            outsource_work_group_id=work_group.outsource_work_group_id,
+            raw_material_id=inventory_lot.raw_material_id,
+            raw_material_location_id=inventory_lot.raw_material_location_id,
+            raw_material_inventory_lot_id=inventory_lot.raw_material_inventory_lot_id,
+            lot_no=inventory_lot.lot_no,
+            qty=qty,
+            unit_cost_snapshot=inventory_lot.unit_cost,
+            amount_snapshot=amount_snapshot,
+            status="CONSUMED",
+            memo=memo,
+        )
+        db.add(allocation)
+        db.flush()
+
+        inventory_lot.current_qty = _q2(inventory_lot.current_qty - qty)
+        inventory.current_qty = _q2(inventory.current_qty - qty)
+
+        movement = RawMaterialInventoryMovement(
+            raw_material_id=inventory_lot.raw_material_id,
+            raw_material_location_id=inventory_lot.raw_material_location_id,
+            raw_material_inventory_lot_id=inventory_lot.raw_material_inventory_lot_id,
+            lot_no=inventory_lot.lot_no,
+            movement_type="CONSUME_OUT",
+            qty=-qty,
+            balance_after=inventory.current_qty,
+            unit_cost_snapshot=inventory_lot.unit_cost,
+            amount_snapshot=amount_snapshot,
+            source_type="OUTSOURCE_WORK_GROUP_RAW_MATERIAL_ALLOCATION",
+            source_id=allocation.outsource_work_group_raw_material_allocation_id,
+            memo=memo,
+        )
+        db.add(movement)
+        db.flush()
+
+        allocation.raw_material_inventory_movement_id = movement.raw_material_inventory_movement_id
+
+
 def _create_work_groups(
     db: Session,
     instruction_id: int,
@@ -728,7 +1351,287 @@ def _create_work_groups(
                 )
             )
 
+        _consume_raw_material_allocations(
+            db=db,
+            work_group=work_group,
+            allocations=group_payload.raw_material_allocations,
+        )
+
     db.flush()
+
+
+@router.get("/groups", response_model=OutsourceWorkGroupListOut)
+def get_outsource_work_groups(
+    date_from: date | None = Query(default=None),
+    date_to: date | None = Query(default=None),
+    process_type: str | None = Query(default=None),
+    status: str | None = Query(default=None),
+    q: str | None = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    size: int = Query(default=100, ge=1, le=200),
+    db: Session = Depends(get_db),
+):
+    if process_type and process_type not in ("CUT", "PRINT"):
+        raise HTTPException(status_code=409, detail="Invalid process_type")
+
+    stmt = (
+        select(OutsourceWorkGroup)
+        .join(
+            OutsourceWorkInstruction,
+            OutsourceWorkInstruction.outsource_work_instruction_id
+            == OutsourceWorkGroup.outsource_work_instruction_id,
+        )
+        .join(Partner, Partner.partner_id == OutsourceWorkInstruction.partner_id)
+    )
+    count_stmt = (
+        select(func.count())
+        .select_from(OutsourceWorkGroup)
+        .join(
+            OutsourceWorkInstruction,
+            OutsourceWorkInstruction.outsource_work_instruction_id
+            == OutsourceWorkGroup.outsource_work_instruction_id,
+        )
+        .join(Partner, Partner.partner_id == OutsourceWorkInstruction.partner_id)
+    )
+
+    if date_from is not None:
+        stmt = stmt.where(OutsourceWorkInstruction.instruction_date >= date_from)
+        count_stmt = count_stmt.where(OutsourceWorkInstruction.instruction_date >= date_from)
+    if date_to is not None:
+        stmt = stmt.where(OutsourceWorkInstruction.instruction_date <= date_to)
+        count_stmt = count_stmt.where(OutsourceWorkInstruction.instruction_date <= date_to)
+    if process_type:
+        stmt = stmt.where(OutsourceWorkGroup.process_type == process_type)
+        count_stmt = count_stmt.where(OutsourceWorkGroup.process_type == process_type)
+    if status:
+        normalized_status = status.strip().upper()
+        if normalized_status == "REGISTERED":
+            stmt = stmt.where(OutsourceWorkGroup.status.is_(None))
+            count_stmt = count_stmt.where(OutsourceWorkGroup.status.is_(None))
+        else:
+            stmt = stmt.where(OutsourceWorkGroup.status == normalized_status)
+            count_stmt = count_stmt.where(OutsourceWorkGroup.status == normalized_status)
+    if q and q.strip():
+        like = f"%{q.strip()}%"
+        lot_match = (
+            select(OutsourceWorkGroupItem.outsource_work_group_id)
+            .join(Lot, Lot.lot_id == OutsourceWorkGroupItem.lot_id)
+            .join(Product, Product.product_id == Lot.product_id)
+            .where(
+                (Lot.lot_no.like(like))
+                | (Product.product_code.like(like))
+                | (Product.product_name.like(like))
+            )
+        )
+        condition = (
+            OutsourceWorkInstruction.instruction_no.like(like)
+            | Partner.name.like(like)
+            | OutsourceWorkGroup.group_seq.like(like)
+            | OutsourceWorkGroup.fabric_lot_no.like(like)
+            | OutsourceWorkGroup.outsource_work_group_id.in_(lot_match)
+        )
+        stmt = stmt.where(condition)
+        count_stmt = count_stmt.where(condition)
+
+    total_count = int(db.execute(count_stmt).scalar_one() or 0)
+    rows = (
+        db.execute(
+            stmt.order_by(
+                OutsourceWorkInstruction.instruction_date.desc(),
+                OutsourceWorkInstruction.instruction_no.desc(),
+                OutsourceWorkGroup.outsource_work_group_id.desc(),
+            )
+            .limit(size)
+            .offset((page - 1) * size)
+        )
+        .scalars()
+        .all()
+    )
+
+    details = [_build_work_group_detail(db, work_group) for work_group in rows]
+    items = [
+        OutsourceWorkGroupListItemOut(**detail.model_dump(exclude={"lots", "raw_material_allocations", "files"}))
+        for detail in details
+    ]
+
+    return OutsourceWorkGroupListOut(items=items, total_count=total_count)
+
+
+@router.get("/groups/{outsource_work_group_id}", response_model=OutsourceWorkGroupDetailOut)
+def get_outsource_work_group_detail(
+    outsource_work_group_id: int,
+    db: Session = Depends(get_db),
+):
+    work_group = db.get(OutsourceWorkGroup, outsource_work_group_id)
+    if work_group is None:
+        raise HTTPException(status_code=404, detail="Outsource work group not found")
+
+    return _build_work_group_detail(db, work_group)
+
+
+@router.put("/groups/{outsource_work_group_id}", response_model=OutsourceWorkGroupDetailOut)
+def update_outsource_work_group(
+    outsource_work_group_id: int,
+    payload: OutsourceWorkGroupUpdateIn,
+    db: Session = Depends(get_db),
+):
+    work_group = (
+        db.execute(
+            select(OutsourceWorkGroup)
+            .where(OutsourceWorkGroup.outsource_work_group_id == outsource_work_group_id)
+            .with_for_update()
+        )
+        .scalar_one_or_none()
+    )
+
+    if work_group is None:
+        raise HTTPException(status_code=404, detail="Outsource work group not found")
+
+    update_block_reason = _get_update_block_reason(db, work_group)
+    if update_block_reason is not None:
+        raise HTTPException(status_code=409, detail=update_block_reason)
+
+    reason = payload.reason.strip()
+    if not reason:
+        raise HTTPException(status_code=422, detail="Update reason is required")
+
+    required_qty = _q2(payload.length_m)
+    allocated_qty = _q2(sum((allocation.qty for allocation in payload.raw_material_allocations), Decimal("0")))
+
+    if required_qty != allocated_qty:
+        raise HTTPException(
+            status_code=409,
+            detail="Raw material allocation total must match length_m",
+        )
+
+    before_data = _build_work_group_change_snapshot(db, work_group)
+
+    _reverse_raw_material_allocations(
+        db,
+        work_group,
+        reason,
+        source_type="OUTSOURCE_WORK_GROUP_UPDATE",
+    )
+
+    work_group.sheet_qty = payload.sheet_qty
+    work_group.length_m = required_qty
+    work_group.sheet_cut_count = payload.sheet_cut_count
+    work_group.fabric_lot_no = (
+        payload.fabric_lot_no.strip()
+        if payload.fabric_lot_no and payload.fabric_lot_no.strip()
+        else None
+    )
+    work_group.remark = payload.remark.strip() if payload.remark and payload.remark.strip() else None
+
+    group_items = (
+        db.execute(
+            select(OutsourceWorkGroupItem)
+            .where(
+                OutsourceWorkGroupItem.outsource_work_group_id
+                == work_group.outsource_work_group_id
+            )
+            .with_for_update()
+        )
+        .scalars()
+        .all()
+    )
+
+    for group_item in group_items:
+        group_item.cuts_per_sheet = payload.sheet_cut_count
+        group_item.expected_output_qty = payload.sheet_qty * payload.sheet_cut_count
+
+    _consume_raw_material_allocations(
+        db=db,
+        work_group=work_group,
+        allocations=payload.raw_material_allocations,
+    )
+
+    after_data = _build_work_group_change_snapshot(db, work_group)
+    db.add(
+        OutsourceWorkGroupChangeLog(
+            outsource_work_group_id=work_group.outsource_work_group_id,
+            action_type="UPDATE",
+            reason=reason,
+            before_data=before_data,
+            after_data=after_data,
+        )
+    )
+
+    refresh_order_line_snapshots_for_work_groups(db, [work_group.outsource_work_group_id])
+    db.commit()
+    db.refresh(work_group)
+
+    return _build_work_group_detail(db, work_group)
+
+
+@router.post("/groups/{outsource_work_group_id}/cancel", response_model=OutsourceWorkGroupDetailOut)
+def cancel_outsource_work_group(
+    outsource_work_group_id: int,
+    payload: OutsourceWorkGroupCancelIn,
+    db: Session = Depends(get_db),
+):
+    work_group = (
+        db.execute(
+            select(OutsourceWorkGroup)
+            .where(OutsourceWorkGroup.outsource_work_group_id == outsource_work_group_id)
+            .with_for_update()
+        )
+        .scalar_one_or_none()
+    )
+
+    if work_group is None:
+        raise HTTPException(status_code=404, detail="Outsource work group not found")
+
+    cancel_block_reason = _get_cancel_block_reason(db, work_group)
+    if cancel_block_reason is not None:
+        raise HTTPException(status_code=409, detail=cancel_block_reason)
+
+    reason = payload.reason.strip()
+    if not reason:
+        raise HTTPException(status_code=422, detail="Cancel reason is required")
+    now = _utcnow()
+
+    _reverse_raw_material_allocations(db, work_group, reason)
+
+    work_group.status = OUTSOURCE_WORK_GROUP_STATUS_CANCELED
+    work_group.canceled_at = now
+    work_group.canceled_reason = reason
+
+    group_lot_ids = [
+        row[0]
+        for row in db.execute(
+            select(OutsourceWorkGroupItem.lot_id).where(
+                OutsourceWorkGroupItem.outsource_work_group_id
+                == work_group.outsource_work_group_id
+            )
+        ).all()
+    ]
+
+    if group_lot_ids:
+        instruction_items = (
+            db.execute(
+                select(OutsourceWorkInstructionItem)
+                .where(
+                    OutsourceWorkInstructionItem.outsource_work_instruction_id
+                    == work_group.outsource_work_instruction_id,
+                    OutsourceWorkInstructionItem.lot_id.in_(group_lot_ids),
+                    OutsourceWorkInstructionItem.process_type == work_group.process_type,
+                    OutsourceWorkInstructionItem.is_active.is_(True),
+                )
+                .with_for_update()
+            )
+            .scalars()
+            .all()
+        )
+
+        for instruction_item in instruction_items:
+            instruction_item.is_active = False
+
+    refresh_order_line_snapshots_for_work_groups(db, [work_group.outsource_work_group_id])
+    db.commit()
+    db.refresh(work_group)
+
+    return _build_work_group_detail(db, work_group)
 
 
 @router.get("/bohyun-groups", response_model=BohyunOutsourceGroupListOut)
@@ -759,7 +1662,13 @@ def get_bohyun_outsource_groups(
             == OutsourceWorkGroup.outsource_work_instruction_id,
         )
         .join(Partner, Partner.partner_id == OutsourceWorkInstruction.partner_id)
-        .where(OutsourceWorkGroup.process_type.in_(("CUT", "PRINT", "DIECUT")))
+        .where(
+            OutsourceWorkGroup.process_type.in_(("CUT", "PRINT", "DIECUT")),
+            (
+                OutsourceWorkGroup.status.is_(None)
+                | (OutsourceWorkGroup.status != OUTSOURCE_WORK_GROUP_STATUS_CANCELED)
+            ),
+        )
         .order_by(
             OutsourceWorkInstruction.instruction_date.desc(),
             OutsourceWorkInstruction.instruction_no.desc(),
@@ -1403,10 +2312,19 @@ def get_candidate_lots(
         required_processes = [process_type] if process_type else available
 
         exists_registered = db.execute(
-            select(OutsourceWorkInstructionItem.outsource_work_instruction_item_id)
+            select(OutsourceWorkGroupItem.outsource_work_group_item_id)
+            .join(
+                OutsourceWorkGroup,
+                OutsourceWorkGroup.outsource_work_group_id
+                == OutsourceWorkGroupItem.outsource_work_group_id,
+            )
             .where(
-                OutsourceWorkInstructionItem.lot_id == lot.lot_id,
-                OutsourceWorkInstructionItem.process_type.in_(required_processes),
+                OutsourceWorkGroupItem.lot_id == lot.lot_id,
+                OutsourceWorkGroup.process_type.in_(required_processes),
+                (
+                    OutsourceWorkGroup.status.is_(None)
+                    | (OutsourceWorkGroup.status != OUTSOURCE_WORK_GROUP_STATUS_CANCELED)
+                ),
             )
             .limit(1)
         ).scalar_one_or_none()
@@ -1497,6 +2415,7 @@ def create_outsource_work_instruction(
             .where(
                 OutsourceWorkInstructionItem.lot_id == lot.lot_id,
                 OutsourceWorkInstructionItem.process_type == payload.process_type,
+                OutsourceWorkInstructionItem.is_active.is_(True),
             )
             .limit(1)
         ).scalar_one_or_none()
@@ -1620,6 +2539,7 @@ def create_outsource_work_instruction_batch(
                     .where(
                         OutsourceWorkInstructionItem.lot_id == lot_id,
                         OutsourceWorkInstructionItem.process_type == "CUT",
+                        OutsourceWorkInstructionItem.is_active.is_(True),
                     )
                     .limit(1)
                 ).scalar_one_or_none()
@@ -1637,6 +2557,7 @@ def create_outsource_work_instruction_batch(
                     .where(
                         OutsourceWorkInstructionItem.lot_id == lot_id,
                         OutsourceWorkInstructionItem.process_type == "PRINT",
+                        OutsourceWorkInstructionItem.is_active.is_(True),
                     )
                     .limit(1)
                 ).scalar_one_or_none()
@@ -1755,7 +2676,26 @@ def get_purchase_order_targets(
             .join(order_partner, order_partner.partner_id == OrderLine.partner_id)
             .join(Partner, Partner.partner_id == OutsourceWorkInstruction.partner_id)
             .where(
+                OutsourceWorkInstructionItem.is_active.is_(True),
                 OutsourceWorkGroupItem.lot_id == Lot.lot_id,
+                (
+                    OutsourceWorkGroup.status.is_(None)
+                    | (OutsourceWorkGroup.status != OUTSOURCE_WORK_GROUP_STATUS_CANCELED)
+                ),
+                ~exists(
+                    select(1)
+                    .select_from(OutsourcePurchaseOrderGroup)
+                    .join(
+                        OutsourcePurchaseOrder,
+                        OutsourcePurchaseOrder.outsource_purchase_order_id
+                        == OutsourcePurchaseOrderGroup.outsource_purchase_order_id,
+                    )
+                    .where(
+                        OutsourcePurchaseOrderGroup.outsource_work_group_id
+                        == OutsourceWorkGroup.outsource_work_group_id,
+                        OutsourcePurchaseOrder.process_type == normalized_process_type,
+                    )
+                ),
                 ~exists(
                     select(1)
                     .select_from(OutsourcePurchaseOrderItem)
@@ -1763,6 +2703,15 @@ def get_purchase_order_targets(
                         OutsourcePurchaseOrder,
                         OutsourcePurchaseOrder.outsource_purchase_order_id
                         == OutsourcePurchaseOrderItem.outsource_purchase_order_id,
+                    )
+                    .join(
+                        OutsourceWorkInstructionItem,
+                        (
+                            OutsourceWorkInstructionItem.outsource_work_instruction_id
+                            == OutsourcePurchaseOrderItem.outsource_work_instruction_id
+                        )
+                        & (OutsourceWorkInstructionItem.lot_id == OutsourcePurchaseOrderItem.lot_id)
+                        & (OutsourceWorkInstructionItem.is_active.is_(True)),
                     )
                     .where(
                         OutsourcePurchaseOrderItem.lot_id == Lot.lot_id,
@@ -1843,9 +2792,11 @@ def get_purchase_order_targets(
             OutsourcePurchaseOrderTargetOut(
                 outsource_work_instruction_id=instruction.outsource_work_instruction_id,
                 outsource_work_instruction_item_id=item.outsource_work_instruction_item_id,
+                outsource_work_group_id=work_group.outsource_work_group_id,
                 instruction_no=instruction.instruction_no,
                 instruction_date=instruction.instruction_date,
                 process_type=normalized_process_type,
+                group_seq=work_group.group_seq,
                 lot_id=lot.lot_id,
                 lot_no=lot.lot_no,
                 is_rework=lot.parent_lot_id is not None,
@@ -1935,6 +2886,15 @@ def create_outsource_purchase_order(
                 OutsourcePurchaseOrder.outsource_purchase_order_id
                 == OutsourcePurchaseOrderItem.outsource_purchase_order_id,
             )
+            .join(
+                OutsourceWorkInstructionItem,
+                (
+                    OutsourceWorkInstructionItem.outsource_work_instruction_id
+                    == OutsourcePurchaseOrderItem.outsource_work_instruction_id
+                )
+                & (OutsourceWorkInstructionItem.lot_id == OutsourcePurchaseOrderItem.lot_id)
+                & (OutsourceWorkInstructionItem.is_active.is_(True)),
+            )
             .where(OutsourcePurchaseOrder.process_type == normalized_process_type)
             .where(OutsourcePurchaseOrderItem.lot_id.in_(lot_ids))
             .limit(1)
@@ -1948,6 +2908,131 @@ def create_outsource_purchase_order(
             detail=(
                 f"LOT is already purchase ordered for process "
                 f"{normalized_process_type}: lot_id={already_ordered_lot_id}"
+            ),
+        )
+
+    if any(item.outsource_work_instruction_id is None for item in payload.items):
+        raise HTTPException(
+            status_code=409,
+            detail="Outsource work instruction is required for purchase order items",
+        )
+
+    instruction_ids = {
+        int(item.outsource_work_instruction_id)
+        for item in payload.items
+        if item.outsource_work_instruction_id is not None
+    }
+
+    work_group_rows = (
+        db.execute(
+            select(
+                OutsourceWorkGroup.outsource_work_group_id,
+                OutsourceWorkGroup.outsource_work_instruction_id,
+                OutsourceWorkGroupItem.lot_id,
+            )
+            .join(
+                OutsourceWorkGroupItem,
+                OutsourceWorkGroupItem.outsource_work_group_id
+                == OutsourceWorkGroup.outsource_work_group_id,
+            )
+            .join(
+                OutsourceWorkInstructionItem,
+                (
+                    OutsourceWorkInstructionItem.outsource_work_instruction_id
+                    == OutsourceWorkGroup.outsource_work_instruction_id
+                )
+                & (OutsourceWorkInstructionItem.lot_id == OutsourceWorkGroupItem.lot_id)
+                & (OutsourceWorkInstructionItem.is_active.is_(True)),
+            )
+            .where(
+                OutsourceWorkGroup.outsource_work_instruction_id.in_(instruction_ids),
+                OutsourceWorkGroupItem.lot_id.in_(lot_ids),
+                (
+                    OutsourceWorkGroup.status.is_(None)
+                    | (OutsourceWorkGroup.status != OUTSOURCE_WORK_GROUP_STATUS_CANCELED)
+                ),
+            )
+            .with_for_update()
+        )
+        .all()
+    )
+
+    work_group_id_by_item_key: dict[tuple[int, int], int] = {}
+    for work_group_id, instruction_id, lot_id in work_group_rows:
+        work_group_id_by_item_key[(int(instruction_id), int(lot_id))] = int(work_group_id)
+
+    selected_lot_ids_by_work_group_id: dict[int, set[int]] = {}
+    ordered_work_group_ids: list[int] = []
+
+    for item in payload.items:
+        key = (int(item.outsource_work_instruction_id), int(item.lot_id))
+        work_group_id = work_group_id_by_item_key.get(key)
+
+        if work_group_id is None:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Purchase order item is not connected to an active outsource "
+                    f"work group: lot_id={item.lot_id}"
+                ),
+            )
+
+        if work_group_id not in selected_lot_ids_by_work_group_id:
+            selected_lot_ids_by_work_group_id[work_group_id] = set()
+            ordered_work_group_ids.append(work_group_id)
+
+        selected_lot_ids_by_work_group_id[work_group_id].add(int(item.lot_id))
+
+    group_lot_rows = (
+        db.execute(
+            select(
+                OutsourceWorkGroupItem.outsource_work_group_id,
+                OutsourceWorkGroupItem.lot_id,
+            ).where(
+                OutsourceWorkGroupItem.outsource_work_group_id.in_(ordered_work_group_ids)
+            )
+        )
+        .all()
+    )
+
+    expected_lot_ids_by_work_group_id: dict[int, set[int]] = {}
+    for work_group_id, lot_id in group_lot_rows:
+        expected_lot_ids_by_work_group_id.setdefault(int(work_group_id), set()).add(int(lot_id))
+
+    for work_group_id, selected_lot_ids in selected_lot_ids_by_work_group_id.items():
+        expected_lot_ids = expected_lot_ids_by_work_group_id.get(work_group_id, set())
+        if selected_lot_ids != expected_lot_ids:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "All LOTs in an outsource work group must be purchase ordered together: "
+                    f"outsource_work_group_id={work_group_id}"
+                ),
+            )
+
+    already_ordered_work_group_id = (
+        db.execute(
+            select(OutsourcePurchaseOrderGroup.outsource_work_group_id)
+            .join(
+                OutsourcePurchaseOrder,
+                OutsourcePurchaseOrder.outsource_purchase_order_id
+                == OutsourcePurchaseOrderGroup.outsource_purchase_order_id,
+            )
+            .where(
+                OutsourcePurchaseOrderGroup.outsource_work_group_id.in_(ordered_work_group_ids),
+                OutsourcePurchaseOrder.process_type == normalized_process_type,
+            )
+            .limit(1)
+        )
+        .scalar_one_or_none()
+    )
+
+    if already_ordered_work_group_id is not None:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Outsource work group is already purchase ordered: "
+                f"outsource_work_group_id={already_ordered_work_group_id}"
             ),
         )
 
@@ -2020,6 +3105,16 @@ def create_outsource_purchase_order(
                 outsource_work_instruction_id=item.outsource_work_instruction_id,
                 item_seq=item.item_seq,
                 qty=item.qty,
+                status=None,
+            )
+        )
+
+    for index, work_group_id in enumerate(ordered_work_group_ids, start=1):
+        db.add(
+            OutsourcePurchaseOrderGroup(
+                outsource_purchase_order_id=purchase_order.outsource_purchase_order_id,
+                outsource_work_group_id=work_group_id,
+                item_seq=index,
                 status=None,
             )
         )

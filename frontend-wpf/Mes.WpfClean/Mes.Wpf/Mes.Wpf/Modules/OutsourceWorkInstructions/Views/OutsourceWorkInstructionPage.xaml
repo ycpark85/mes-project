@@ -133,6 +133,8 @@
                             <RowDefinition Height="8" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="8" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="8" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
 
@@ -218,6 +220,8 @@
                                 <ColumnDefinition Width="16" />
                                 <ColumnDefinition Width="70" />
                                 <ColumnDefinition Width="180" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="110" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
 
@@ -241,27 +245,57 @@
                             <TextBox Grid.Column="4"
                                      Height="30"
                                      VerticalContentAlignment="Center"
-                                     Text="{Binding SelectedDraft.FabricLotNo, UpdateSourceTrigger=PropertyChanged}" />     
+                                     Text="{Binding SelectedDraft.FabricLotNo, UpdateSourceTrigger=PropertyChanged}" />
+
+                            <Button Grid.Column="6"
+                                    Height="30"
+                                    Content="원자재 배정"
+                                    Command="{Binding OpenRawMaterialAllocationCommand}" />
+
+                            <TextBlock Grid.Column="7"
+                                       Margin="12,0,0,0"
+                                       VerticalAlignment="Center"
+                                       Foreground="#374151"
+                                       Text="{Binding SelectedDraft.RawMaterialAllocationSummary}" />
                         </Grid>
 
+                        <!-- 원자재 배정 LOT -->
+                        <DataGrid Grid.Row="6"
+                                  MaxHeight="74"
+                                  ItemsSource="{Binding SelectedDraft.RawMaterialAllocations}"
+                                  AutoGenerateColumns="False"
+                                  CanUserAddRows="False"
+                                  CanUserDeleteRows="False"
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Auto">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="원자재" Binding="{Binding MaterialName}" Width="170" IsReadOnly="True" />
+                                <DataGridTextColumn Header="위치" Binding="{Binding LocationName}" Width="120" IsReadOnly="True" />
+                                <DataGridTextColumn Header="원자재 LOT" Binding="{Binding LotNo}" Width="140" IsReadOnly="True" />
+                                <DataGridTextColumn Header="배정(M)" Binding="{Binding Qty, StringFormat={}{0:N2}}" Width="90" IsReadOnly="True" />
+                                <DataGridTextColumn Header="배정 후 잔량" Binding="{Binding BalanceAfter, StringFormat={}{0:N2}}" Width="110" IsReadOnly="True" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+
                         <!-- 메모 -->
-                        <TextBlock Grid.Row="6"
+                        <TextBlock Grid.Row="8"
                                    Text="메모"
                                    FontWeight="SemiBold"
                                    Margin="0,0,0,4" />
 
-                        <TextBox Grid.Row="8"
-                                 Height="50"
+                        <TextBox Grid.Row="10"
+                                 Height="42"
                                  AcceptsReturn="True"
                                  VerticalScrollBarVisibility="Auto"
                                  Text="{Binding SelectedDraft.Memo, UpdateSourceTrigger=PropertyChanged}" />
 
                         <!-- 선택 LOT -->
-                        <Grid Grid.Row="10">
+                        <Grid Grid.Row="12">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="8" />
                                 <RowDefinition Height="*" />
+                                <RowDefinition Height="10" />
                             </Grid.RowDefinitions>
 
                             <Border Grid.Row="0"
@@ -299,21 +333,28 @@
                             </Border>
 
                             <DataGrid Grid.Row="2"
+                                      Margin="0,0,0,8"
                                       ItemsSource="{Binding SelectedDraft.Lots}"
                                       SelectedItem="{Binding SelectedDraft.SelectedLot, Mode=TwoWay}"
                                       AutoGenerateColumns="False"
-                                      CanUserAddRows="False">
+                                      CanUserAddRows="False"
+                                      CanUserDeleteRows="False"
+                                      VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Auto"
+                                      MinHeight="120">
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="대표"
                                                         Binding="{Binding RepresentativeMarker}"
-                                                        Width="55"
+                                                        Width="45"
                                                         IsReadOnly="True" />
-                                    <DataGridTextColumn Header="LOT" Binding="{Binding LotNo}" Width="110" />
-                                    <DataGridTextColumn Header="품목명" Binding="{Binding ProductName}" Width="180" />
-                                    <DataGridTextColumn Header="수량" Binding="{Binding LotQty, StringFormat={}{0:N0}}" Width="70" />
-                                    <DataGridTextColumn Header="공정" Binding="{Binding ProcessText}" Width="90" />
-                                    <DataGridTextColumn Header="기본컷수" Binding="{Binding CutCountText}" Width="70" />
-                                    <DataGridTextColumn Header="묶음컷수" Binding="{Binding ManualCutsPerSheet, UpdateSourceTrigger=PropertyChanged}" Width="80" />
+                                    <DataGridTextColumn Header="LOT" Binding="{Binding LotNo}" Width="95" IsReadOnly="True" />
+                                    <DataGridTextColumn Header="품목명" Binding="{Binding ProductName}" Width="135" IsReadOnly="True" />
+                                    <DataGridTextColumn Header="수량" Binding="{Binding LotQty, StringFormat={}{0:N0}}" Width="55" IsReadOnly="True" />
+                                    <DataGridTextColumn Header="공정" Binding="{Binding ProcessText}" Width="65" IsReadOnly="True" />
+                                    <DataGridTextColumn Header="기본컷수" Binding="{Binding CutCountText}" Width="62" IsReadOnly="True" />
+                                    <DataGridTextColumn Header="묶음컷수"
+                                                        Binding="{Binding ManualCutsPerSheet, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, TargetNullValue=''}"
+                                                        Width="72" />
                                 </DataGrid.Columns>
                             </DataGrid>
                         </Grid>

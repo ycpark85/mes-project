@@ -1,5 +1,18 @@
 # Project Operations
 
+## WPF ClickOnce Deployment
+
+The WPF client is published with `ClickOnceProfile`.
+
+- The current staging folder is `C:\mes_publish_test\wpf\`.
+- `PublishUrl` is the ClickOnce staging folder: `C:\mes_publish_test\wpf\`.
+- `PublishDir` must remain the project-local ClickOnce intermediate folder: `bin\Release\net8.0-windows\win-x64\app.publish\`.
+- Do not set `PublishDir` to the same folder as `PublishUrl`; doing so can mix raw publish files into the ClickOnce root.
+- The ClickOnce root should contain only `Application Files`, `Mes.Wpf.application`, `setup.exe`, and other ClickOnce bootstrap files.
+- `InstallUrl` and `UpdateUrl` point to `\\172.30.1.240\mes_wpf\`.
+- If a publish prompt asks to overwrite an older deployment version, check for stale ClickOnce manifests under `bin\Release\net8.0-windows\win-x64\app.publish` and clean the build output before publishing again.
+- The ClickOnce deployment version is controlled by `ApplicationVersion` and `ApplicationRevision` in the publish profile.
+
 ## Raw Material Inventory Management
 
 Raw material inventory is managed separately from product inventory.
@@ -10,14 +23,18 @@ Raw material inventory is managed separately from product inventory.
 - Raw material locations are user-configurable and are not hard-coded to a specific warehouse or outsource vendor.
 - A raw material location can represent an internal warehouse, an outsource vendor holding location, or another controlled location.
 - Outsource-vendor locations can be linked to `partner` through `partner_id`.
+- Raw material location codes are system-generated when the user creates a location without entering a code.
+- In the WPF raw material master, users select a partner by searching partner name; the selected partner name is copied to the location name by default while the internal `partner_id` is stored separately.
 
 Raw material inventory quantity rules:
 
 - Physical raw material stock is stored at `raw_material_inventory.current_qty` by material and location.
 - LOT-level stock is stored at `raw_material_inventory_lot.current_qty`.
-- Inbound, transfer, adjustment, and future outsource consumption are recorded in `raw_material_inventory_movement`.
+- Inbound, transfer, adjustment, and outsource consumption are recorded in `raw_material_inventory_movement`.
 - Transfers create paired `TRANSFER_OUT` and `TRANSFER_IN` movement rows with the same `transfer_key`.
-- Inventory movement rows are not overwritten for correction. Future correction flows must use opposite movements such as `CONSUME_REVERSE` or adjustment movements.
+- Inventory movement rows are not overwritten for correction. Correction, cancel, and registered-work-instruction update flows use opposite movements such as `CONSUME_REVERSE` or adjustment movements.
+- Raw material movement history should be reviewed primarily by raw material and LOT number, not only by the internal inventory-lot row id, because a transfer can create or update separate location-level LOT rows for the same physical raw material LOT.
+- Movement history includes the original `INBOUND` row, later `TRANSFER_OUT` and `TRANSFER_IN` rows, adjustment rows, and outsource consumption rows when queried by raw material and LOT number.
 
 Stage 1 scope:
 
@@ -29,9 +46,40 @@ Stage 1 scope:
 - Raw material LOT adjustment.
 - Raw material movement history.
 
-Out of current scope:
+Stage 2 scope:
 
 - Outsource work instruction raw material allocation.
+- The WPF outsource work instruction detail panel keeps the existing layout and adds a raw-material allocation button and allocation summary/list.
+- Before saving, allocation rows are held only in the screen state and are used as temporary reservations so another draft in the same batch cannot reuse the same available quantity.
+- On final outsource work instruction save, raw material LOT stock and material-location stock are reduced in the same database transaction.
+- Final save creates `CONSUME_OUT` rows in `raw_material_inventory_movement` and stores allocation snapshots in `outsource_work_group_raw_material_allocation`.
+
+Outsource work instruction list, update, and cancel rules:
+
+- Outsource work instruction list is managed by `outsource_work_group`, because work grouping, raw material allocation, Bohyun outsource management, and later cost flows are group-based.
+- Registered work groups can be updated only before vendor receipt and before a purchase order group is created.
+- The first update scope allows `sheet_qty`, `length_m`, `sheet_cut_count`, `fabric_lot_no`, `remark`, and raw material allocation changes. Work LOT composition, process type, and partner changes remain cancel-and-recreate flows.
+- Update reason is required. Each update writes before/after snapshots to `outsource_work_group_change_log`.
+- Updating raw material allocations does not overwrite existing movement rows. The system creates `CONSUME_REVERSE` rows for currently consumed allocations, marks those allocation rows `REVERSED`, then creates new `CONSUME_OUT` rows and consumed allocation snapshots.
+- A registered work group has `status IS NULL` and is displayed as `REGISTERED` or "지시등록".
+- Canceling a work group sets `outsource_work_group.status` to `CANCELED` and records `canceled_at` and `canceled_reason`.
+- Canceling does not delete the work instruction, work group, raw material allocation, or movement history.
+- Raw material consumption is reversed with `CONSUME_REVERSE` movement rows, and consumed allocation rows are marked `REVERSED`.
+- The related active `outsource_work_instruction_item` rows are deactivated so the same LOT and process can be registered again.
+- Candidate LOT lookup excludes only active, non-canceled work groups. Therefore canceled work instructions allow their LOTs to appear again in the outsource-work-instruction candidate list.
+- Bohyun outsource management and purchase-order target lists exclude canceled work groups.
+- Cancel is blocked once the work group or connected purchase-order group is at vendor-received, work-done, or shipped status.
+
+Outsource purchase order connection rules:
+
+- Purchase-order targets are grouped by `outsource_work_group`, not only by instruction number, because one instruction can contain multiple work groups.
+- Printed-product routing keeps the primary outsource work instruction as `PRINT`, but purchase-order targets expose both `CUT` and `PRINT` because the operational flow is cutting, printing, then Bohyun die-cut management.
+- Creating an outsource purchase order writes both LOT-level `outsource_purchase_order_item` rows and work-group-level `outsource_purchase_order_group` rows.
+- All LOTs in the same outsource work group must be purchase ordered together.
+- A work group already connected to `outsource_purchase_order_group` for the same purchase-order process is excluded from that process target list; any purchase-order group link blocks registered-work-instruction updates.
+
+Out of current scope:
+
 - Work-in-process ledger.
 - Monthly or quarterly closing.
 - Manufacturing overhead allocation.

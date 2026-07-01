@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, Index, UniqueConstraint, func
+from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Index, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -11,11 +11,6 @@ from app.db.base import Base
 class OutsourceWorkInstructionItem(Base):
     __tablename__ = "outsource_work_instruction_item"
     __table_args__ = (
-        UniqueConstraint(
-            "process_type",
-            "lot_id",
-            name="uq_outsource_work_instruction_item__process_type__lot_id",
-        ),
         Index("ix_outsource_work_instruction_item__instruction_id", "outsource_work_instruction_id"),
         Index("ix_outsource_work_instruction_item__lot_id", "lot_id"),
     )
@@ -35,6 +30,7 @@ class OutsourceWorkInstructionItem(Base):
     )
 
     process_type: Mapped[str] = mapped_column(nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

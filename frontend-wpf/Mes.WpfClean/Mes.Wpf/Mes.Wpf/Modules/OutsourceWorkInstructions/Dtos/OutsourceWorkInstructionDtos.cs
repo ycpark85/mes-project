@@ -253,6 +253,60 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
         public string? Remark { get; set; }
     }
 
+    public sealed class OutsourceWorkInstructionRawMaterialAllocationCreateRequest
+    {
+        [JsonPropertyName("raw_material_inventory_lot_id")]
+        public long RawMaterialInventoryLotId { get; set; }
+
+        [JsonPropertyName("qty")]
+        public decimal Qty { get; set; }
+
+        [JsonPropertyName("memo")]
+        public string? Memo { get; set; }
+    }
+
+    public sealed class OutsourceWorkInstructionRawMaterialAllocationEditModel : ViewModelBase
+    {
+        private decimal _qty;
+
+        public long RawMaterialInventoryLotId { get; set; }
+        public long RawMaterialId { get; set; }
+        public long RawMaterialLocationId { get; set; }
+        public string MaterialCode { get; set; } = string.Empty;
+        public string MaterialName { get; set; } = string.Empty;
+        public string LocationName { get; set; } = string.Empty;
+        public string LotNo { get; set; } = string.Empty;
+        public decimal CurrentQty { get; set; }
+        public decimal ReservedQty { get; set; }
+        public decimal AvailableQty { get; set; }
+
+        public decimal Qty
+        {
+            get => _qty;
+            set
+            {
+                if (SetProperty(ref _qty, value))
+                {
+                    OnPropertyChanged(nameof(BalanceAfter));
+                }
+            }
+        }
+
+        public decimal BalanceAfter => AvailableQty - Qty;
+
+        public string SummaryText => $"{MaterialName} / {LocationName} / {LotNo} / {Qty:N2}M";
+
+        public OutsourceWorkInstructionRawMaterialAllocationCreateRequest ToRequest()
+        {
+            return new OutsourceWorkInstructionRawMaterialAllocationCreateRequest
+            {
+                RawMaterialInventoryLotId = RawMaterialInventoryLotId,
+                Qty = Qty,
+                Memo = null
+            };
+        }
+    }
+
     public sealed class OutsourceWorkInstructionGroupCreateRequest
     {
         [JsonPropertyName("group_seq")]
@@ -281,6 +335,9 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
 
         [JsonPropertyName("items")]
         public List<OutsourceWorkInstructionGroupItemCreateRequest> Items { get; set; } = new();
+
+        [JsonPropertyName("raw_material_allocations")]
+        public List<OutsourceWorkInstructionRawMaterialAllocationCreateRequest> RawMaterialAllocations { get; set; } = new();
     }
 
     public class OutsourceWorkInstructionCreateRequest
@@ -467,6 +524,7 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
 
         public List<OutsourceWorkInstructionCandidateLotRowModel> Lots { get; } = new();
         public List<OutsourceWorkInstructionFileCreateRequest> Files { get; } = new();
+        public ObservableCollection<OutsourceWorkInstructionRawMaterialAllocationEditModel> RawMaterialAllocations { get; } = new();
 
         public bool IsBundle => Lots.Count > 1;
         public string BundleText => IsBundle ? "묶음" : "개별";
@@ -505,6 +563,28 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
         public string RepresentativeLotText => RepresentativeLot == null
             ? "대표품목 미지정"
             : $"{RepresentativeLot.LotNo} / {RepresentativeLot.ProductName}";
+        public decimal AllocatedRawMaterialQty => RawMaterialAllocations.Sum(x => x.Qty);
+        public string RawMaterialAllocationSummary => RawMaterialAllocations.Count == 0
+            ? "원자재 미배정"
+            : $"{RawMaterialAllocations.Count:N0}개 LOT / {AllocatedRawMaterialQty:N2}M";
+
+        public void ReplaceRawMaterialAllocations(IEnumerable<OutsourceWorkInstructionRawMaterialAllocationEditModel> allocations)
+        {
+            RawMaterialAllocations.Clear();
+
+            foreach (var allocation in allocations)
+            {
+                RawMaterialAllocations.Add(allocation);
+            }
+
+            RefreshRawMaterialAllocationValues();
+        }
+
+        public void RefreshRawMaterialAllocationValues()
+        {
+            OnPropertyChanged(nameof(AllocatedRawMaterialQty));
+            OnPropertyChanged(nameof(RawMaterialAllocationSummary));
+        }
 
         public void SetRepresentativeLot(OutsourceWorkInstructionCandidateLotRowModel lot)
         {
@@ -551,6 +631,7 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
             OnPropertyChanged(nameof(Spec));
             OnPropertyChanged(nameof(CutCountText));
             OnPropertyChanged(nameof(ExpectedOutputQty));
+            RefreshRawMaterialAllocationValues();
         }
 
         public void RefreshFileValues()
@@ -573,7 +654,9 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
             SelectedLot = null;
             Lots.Clear();
             Files.Clear();
+            RawMaterialAllocations.Clear();
             RefreshFileValues();
+            RefreshRawMaterialAllocationValues();
         }
 
         private void RecalculateSheetQty()
@@ -635,6 +718,9 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
         [JsonPropertyName("outsource_work_instruction_item_id")]
         public long OutsourceWorkInstructionItemId { get; set; }
 
+        [JsonPropertyName("outsource_work_group_id")]
+        public long OutsourceWorkGroupId { get; set; }
+
         [JsonPropertyName("instruction_no")]
         public string InstructionNo { get; set; } = string.Empty;
 
@@ -643,6 +729,9 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
 
         [JsonPropertyName("process_type")]
         public string ProcessType { get; set; } = string.Empty;
+
+        [JsonPropertyName("group_seq")]
+        public string GroupSeq { get; set; } = string.Empty;
 
         [JsonPropertyName("lot_id")]
         public long LotId { get; set; }
@@ -735,10 +824,12 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
 
     public class OutsourcePurchaseOrderTargetGroupRowModel : ViewModelBase
     {
+        public long OutsourceWorkGroupId { get; set; }
         public long OutsourceWorkInstructionId { get; set; }
         public string InstructionNo { get; set; } = string.Empty;
         public DateTime InstructionDate { get; set; }
         public string ProcessType { get; set; } = string.Empty;
+        public string GroupSeq { get; set; } = string.Empty;
         public bool IsBundle { get; set; }
 
         public long OutsourcePartnerId { get; set; }

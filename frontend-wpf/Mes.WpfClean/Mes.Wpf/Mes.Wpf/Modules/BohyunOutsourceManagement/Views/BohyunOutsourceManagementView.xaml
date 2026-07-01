@@ -73,14 +73,22 @@
                   SelectedItem="{Binding SelectedItem}"
                   AutoGenerateColumns="False"
                   CanUserAddRows="False"
-                  IsReadOnly="False"
+                  CanUserDeleteRows="False"
+                  IsReadOnly="True"
                   SelectionMode="Single"
                   HeadersVisibility="Column"
                   Margin="0,0,0,12">
             <DataGrid.Columns>
-                <DataGridCheckBoxColumn Header="선택"
-                                        Width="50"
-                                        Binding="{Binding IsChecked, UpdateSourceTrigger=PropertyChanged}"/>
+                <DataGridTemplateColumn Header="선택"
+                                        Width="50">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <CheckBox IsChecked="{Binding IsChecked, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
 
                 <DataGridTextColumn Header="작업지시일자"
                                     Width="110"

@@ -276,11 +276,6 @@
                                         Content="품목관리"
                                         Style="{StaticResource SidebarMenuButtonStyle}"
                                         Click="Product_Click"/>
-
-                                <Button x:Name="RawMaterialMasterMenuButton"
-                                        Content="원자재 기준정보"
-                                        Style="{StaticResource SidebarMenuButtonStyle}"
-                                        Click="RawMaterialMaster_Click"/>
                             </StackPanel>
                         </Expander>
 
@@ -328,15 +323,26 @@
                                         Content="재고 관리"
                                         Style="{StaticResource SidebarMenuButtonStyle}"
                                         Click="Inventory_Click"/>
+                                <Button x:Name="ShipmentMenuButton"
+                                        Content="출하 관리"
+                                        Style="{StaticResource SidebarMenuButtonStyle}"
+                                        Click="Shipment_Click"/>   
+                            </StackPanel>
+                        </Expander>
+
+                        <Expander Header="▥  원자재관리"
+                                  Style="{StaticResource SidebarCategoryExpanderStyle}"
+                                  IsExpanded="False">
+                            <StackPanel>
+                                <Button x:Name="RawMaterialMasterMenuButton"
+                                        Content="원자재 기준정보"
+                                        Style="{StaticResource SidebarMenuButtonStyle}"
+                                        Click="RawMaterialMaster_Click"/>
 
                                 <Button x:Name="RawMaterialInventoryMenuButton"
                                         Content="원자재 재고관리"
                                         Style="{StaticResource SidebarMenuButtonStyle}"
                                         Click="RawMaterialInventory_Click"/>
-                                <Button x:Name="ShipmentMenuButton"
-                                        Content="출하 관리"
-                                        Style="{StaticResource SidebarMenuButtonStyle}"
-                                        Click="Shipment_Click"/>   
                             </StackPanel>
                         </Expander>
 
@@ -348,6 +354,11 @@
                                         Content="외주 작업지시"
                                         Style="{StaticResource SidebarMenuButtonStyle}"
                                         Click="OutsourceWorkInstruction_Click"/>
+
+                                <Button x:Name="OutsourceWorkInstructionListMenuButton"
+                                        Content="외주 작업지시 리스트"
+                                        Style="{StaticResource SidebarMenuButtonStyle}"
+                                        Click="OutsourceWorkInstructionList_Click"/>
 
                                 <Button x:Name="OutsourcePurchaseOrderMenuButton"
                                         Content="외주 발주서 작성 / 출력"

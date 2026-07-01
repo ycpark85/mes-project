@@ -146,6 +146,7 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
             var grouped = result.Data.Items
                 .GroupBy(x => new
                 {
+                    x.OutsourceWorkGroupId,
                     x.OutsourceWorkInstructionId,
                     x.InstructionNo,
                     x.ProcessType
@@ -168,10 +169,12 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
 
                     return new OutsourcePurchaseOrderTargetGroupRowModel
                     {
+                        OutsourceWorkGroupId = first.OutsourceWorkGroupId,
                         OutsourceWorkInstructionId = first.OutsourceWorkInstructionId,
                         InstructionNo = first.InstructionNo,
                         InstructionDate = first.InstructionDate,
                         ProcessType = first.ProcessType,
+                        GroupSeq = first.GroupSeq,
                         IsBundle = first.IsBundle,
                         OutsourcePartnerId = first.OutsourcePartnerId,
                         OutsourcePartnerName = first.OutsourcePartnerName ?? string.Empty,

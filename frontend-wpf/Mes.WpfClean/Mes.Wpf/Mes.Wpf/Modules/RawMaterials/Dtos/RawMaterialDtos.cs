@@ -149,7 +149,7 @@ namespace Mes.Wpf.Modules.RawMaterials.Dtos
     public class RawMaterialLocationCreateRequest
     {
         [JsonPropertyName("location_code")]
-        public string LocationCode { get; set; } = string.Empty;
+        public string? LocationCode { get; set; }
 
         [JsonPropertyName("location_name")]
         public string LocationName { get; set; } = string.Empty;
@@ -243,6 +243,18 @@ namespace Mes.Wpf.Modules.RawMaterials.Dtos
 
         [JsonPropertyName("movement_type")]
         public string MovementType { get; set; } = string.Empty;
+
+        public string MovementTypeDisplay => MovementType switch
+        {
+            "INBOUND" => "\uC785\uACE0",
+            "TRANSFER_OUT" => "\uC774\uB3D9\uCD9C\uACE0",
+            "TRANSFER_IN" => "\uC774\uB3D9\uC785\uACE0",
+            "ADJUST_IN" => "\uC7AC\uACE0\uC99D\uAC00",
+            "ADJUST_OUT" => "\uC7AC\uACE0\uAC10\uC18C",
+            "CONSUME_OUT" => "\uC0AC\uC6A9\uCC28\uAC10",
+            "CONSUME_REVERSE" => "\uC0AC\uC6A9\uCDE8\uC18C",
+            _ => MovementType
+        };
 
         [JsonPropertyName("qty")]
         public decimal Qty { get; set; }
@@ -374,16 +386,47 @@ namespace Mes.Wpf.Modules.RawMaterials.Dtos
         private string _locationName = string.Empty;
         private string _locationType = "INTERNAL_WAREHOUSE";
         private long? _partnerId;
+        private string _partnerName = string.Empty;
         private bool _isActive = true;
         private string? _memo;
 
         public long? RawMaterialLocationId { get => _rawMaterialLocationId; set => SetProperty(ref _rawMaterialLocationId, value); }
-        public string LocationCode { get => _locationCode; set => SetProperty(ref _locationCode, value); }
+        public string LocationCode
+        {
+            get => _locationCode;
+            set
+            {
+                if (SetProperty(ref _locationCode, value))
+                {
+                    OnPropertyChanged(nameof(LocationCodeDisplay));
+                }
+            }
+        }
+
+        public string LocationCodeDisplay => string.IsNullOrWhiteSpace(LocationCode) ? "저장 시 자동 생성" : LocationCode;
         public string LocationName { get => _locationName; set => SetProperty(ref _locationName, value); }
         public string LocationType { get => _locationType; set => SetProperty(ref _locationType, value); }
         public long? PartnerId { get => _partnerId; set => SetProperty(ref _partnerId, value); }
+        public string PartnerName
+        {
+            get => _partnerName;
+            set
+            {
+                if (SetProperty(ref _partnerName, value))
+                {
+                    PartnerId = null;
+                }
+            }
+        }
         public bool IsActive { get => _isActive; set => SetProperty(ref _isActive, value); }
         public string? Memo { get => _memo; set => SetProperty(ref _memo, value); }
+
+        public void ApplyPartner(long partnerId, string partnerName)
+        {
+            PartnerName = partnerName;
+            PartnerId = partnerId;
+            LocationName = partnerName;
+        }
 
         public void LoadFromDto(RawMaterialLocationDto dto)
         {
@@ -391,6 +434,7 @@ namespace Mes.Wpf.Modules.RawMaterials.Dtos
             LocationCode = dto.LocationCode;
             LocationName = dto.LocationName;
             LocationType = dto.LocationType;
+            PartnerName = dto.PartnerName ?? string.Empty;
             PartnerId = dto.PartnerId;
             IsActive = dto.IsActive;
             Memo = dto.Memo;
@@ -402,6 +446,7 @@ namespace Mes.Wpf.Modules.RawMaterials.Dtos
             LocationCode = string.Empty;
             LocationName = string.Empty;
             LocationType = "INTERNAL_WAREHOUSE";
+            PartnerName = string.Empty;
             PartnerId = null;
             IsActive = true;
             Memo = null;

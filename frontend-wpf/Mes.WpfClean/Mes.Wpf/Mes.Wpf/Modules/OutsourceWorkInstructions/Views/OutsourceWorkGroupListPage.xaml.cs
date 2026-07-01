@@ -4,24 +4,24 @@ using System.Windows.Controls;
 
 namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Views
 {
-    public partial class OutsourceWorkInstructionPage : UserControl
+    public partial class OutsourceWorkGroupListPage : UserControl
     {
-        private OutsourceWorkInstructionPageViewModel? _viewModel;
+        private OutsourceWorkGroupListPageViewModel? _viewModel;
 
-        public OutsourceWorkInstructionPage()
+        public OutsourceWorkGroupListPage()
         {
             InitializeComponent();
-            DataContextChanged += OutsourceWorkInstructionPage_DataContextChanged;
+            DataContextChanged += OutsourceWorkGroupListPage_DataContextChanged;
         }
 
-        private void OutsourceWorkInstructionPage_DataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
+        private void OutsourceWorkGroupListPage_DataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
         {
             if (_viewModel != null)
             {
                 _viewModel.RequestOpenRawMaterialAllocation -= OpenRawMaterialAllocationWindow;
             }
 
-            _viewModel = e.NewValue as OutsourceWorkInstructionPageViewModel;
+            _viewModel = e.NewValue as OutsourceWorkGroupListPageViewModel;
 
             if (_viewModel != null)
             {
@@ -29,16 +29,16 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Views
             }
         }
 
-        private void OpenRawMaterialAllocationWindow(RawMaterialAllocationDialogContext context)
+        private void OpenRawMaterialAllocationWindow(OutsourceRawMaterialAllocationWindowViewModel viewModel)
         {
-            var window = new OutsourceRawMaterialAllocationWindow(context.ViewModel)
+            var window = new OutsourceRawMaterialAllocationWindow(viewModel)
             {
                 Owner = Window.GetWindow(this)
             };
 
             if (window.ShowDialog() == true)
             {
-                _viewModel?.ApplyRawMaterialAllocationDialog(context);
+                _viewModel?.ApplyEditRawMaterialAllocationDialog(viewModel);
             }
         }
     }

@@ -2,6 +2,7 @@ using Mes.Wpf.Core.Common;
 using Mes.Wpf.Core.Common.ViewModels;
 using Mes.Wpf.Core.Constants;
 using Mes.Wpf.Core.Interfaces;
+using Mes.Wpf.Modules.OrderLines.Dtos;
 using Mes.Wpf.Modules.RawMaterials.Dtos;
 using System;
 using System.Collections.Generic;
@@ -41,6 +42,8 @@ namespace Mes.Wpf.Modules.RawMaterials.ViewModels
         public ObservableCollection<string> LocationTypeOptions { get; }
         public RawMaterialEditModel MaterialEditModel { get; }
         public RawMaterialLocationEditModel LocationEditModel { get; }
+        public IApiClient ApiClient => _apiClient;
+        public IMessageService MessageService => _messageService;
         public AsyncRelayCommand SaveMaterialCommand { get; }
         public AsyncRelayCommand DeleteMaterialCommand { get; }
         public RelayCommand NewMaterialCommand { get; }
@@ -244,11 +247,6 @@ namespace Mes.Wpf.Modules.RawMaterials.ViewModels
             LocationEditModel.LocationCode = LocationEditModel.LocationCode.Trim();
             LocationEditModel.LocationName = LocationEditModel.LocationName.Trim();
             LocationEditModel.LocationType = LocationEditModel.LocationType.Trim().ToUpperInvariant();
-            if (string.IsNullOrWhiteSpace(LocationEditModel.LocationCode) && !LocationEditModel.RawMaterialLocationId.HasValue)
-            {
-                _messageService.ShowWarning("위치코드는 필수입니다.");
-                return;
-            }
             if (string.IsNullOrWhiteSpace(LocationEditModel.LocationName))
             {
                 _messageService.ShowWarning("위치명은 필수입니다.");
@@ -276,7 +274,9 @@ namespace Mes.Wpf.Modules.RawMaterials.ViewModels
             {
                 var request = new RawMaterialLocationCreateRequest
                 {
-                    LocationCode = LocationEditModel.LocationCode,
+                    LocationCode = string.IsNullOrWhiteSpace(LocationEditModel.LocationCode)
+                        ? null
+                        : LocationEditModel.LocationCode,
                     LocationName = LocationEditModel.LocationName,
                     LocationType = LocationEditModel.LocationType,
                     PartnerId = LocationEditModel.PartnerId,
@@ -293,6 +293,11 @@ namespace Mes.Wpf.Modules.RawMaterials.ViewModels
             await LoadLocationsAsync();
             NewLocation();
             _messageService.ShowInfo("저장되었습니다.");
+        }
+
+        public void ApplySelectedPartner(OrderLinePartnerLookupDto partner)
+        {
+            LocationEditModel.ApplyPartner(partner.PartnerId, partner.Name);
         }
 
         private async Task DeleteLocationAsync()

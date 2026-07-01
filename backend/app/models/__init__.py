@@ -35,6 +35,8 @@ from .raw_material_location import RawMaterialLocation
 from .raw_material_inventory import RawMaterialInventory
 from .raw_material_inventory_lot import RawMaterialInventoryLot
 from .raw_material_inventory_movement import RawMaterialInventoryMovement
+from .outsource_work_group_raw_material_allocation import OutsourceWorkGroupRawMaterialAllocation
+from .outsource_work_group_change_log import OutsourceWorkGroupChangeLog
 from .shipment_line import ShipmentLine
 from .production_progress_snapshot import ProductionProgressSnapshot
 from .user import User
@@ -83,6 +85,8 @@ __all__ = [
     "RawMaterialInventory",
     "RawMaterialInventoryLot",
     "RawMaterialInventoryMovement",
+    "OutsourceWorkGroupRawMaterialAllocation",
+    "OutsourceWorkGroupChangeLog",
     "ShipmentLine",
     "ProductionProgressSnapshot",
     "User",

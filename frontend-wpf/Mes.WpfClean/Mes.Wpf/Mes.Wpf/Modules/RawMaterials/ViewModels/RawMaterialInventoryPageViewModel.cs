@@ -10,6 +10,18 @@ using System.Threading.Tasks;
 
 namespace Mes.Wpf.Modules.RawMaterials.ViewModels
 {
+    public class RawMaterialMovementTypeOption
+    {
+        public RawMaterialMovementTypeOption(string code, string displayName)
+        {
+            Code = code;
+            DisplayName = displayName;
+        }
+
+        public string Code { get; }
+        public string DisplayName { get; }
+    }
+
     public class RawMaterialInventoryPageViewModel : ViewModelBase
     {
         private readonly IApiClient _apiClient;
@@ -18,8 +30,14 @@ namespace Mes.Wpf.Modules.RawMaterials.ViewModels
         private RawMaterialDto? _selectedInboundMaterial;
         private RawMaterialLocationDto? _selectedInboundLocation;
         private RawMaterialLocationDto? _selectedTransferToLocation;
+        private RawMaterialDto? _selectedMovementMaterial;
+        private RawMaterialLocationDto? _selectedMovementLocation;
         private string _searchKeyword = string.Empty;
         private string _inboundLotNo = string.Empty;
+        private string _movementLotNo = string.Empty;
+        private string _selectedMovementType = string.Empty;
+        private DateTime? _movementDateFrom;
+        private DateTime? _movementDateTo;
         private decimal _inboundQty;
         private decimal? _inboundUnitCost;
         private decimal _workQty;
@@ -33,7 +51,19 @@ namespace Mes.Wpf.Modules.RawMaterials.ViewModels
             Materials = new ObservableCollection<RawMaterialDto>();
             Locations = new ObservableCollection<RawMaterialLocationDto>();
             Movements = new ObservableCollection<RawMaterialMovementDto>();
+            MovementTypeOptions = new ObservableCollection<RawMaterialMovementTypeOption>
+            {
+                new(string.Empty, "\uC804\uCCB4"),
+                new("INBOUND", "\uC785\uACE0"),
+                new("TRANSFER_OUT", "\uC774\uB3D9\uCD9C\uACE0"),
+                new("TRANSFER_IN", "\uC774\uB3D9\uC785\uACE0"),
+                new("ADJUST_IN", "\uC7AC\uACE0\uC99D\uAC00"),
+                new("ADJUST_OUT", "\uC7AC\uACE0\uAC10\uC18C"),
+                new("CONSUME_OUT", "\uC0AC\uC6A9\uCC28\uAC10"),
+                new("CONSUME_REVERSE", "\uC0AC\uC6A9\uCDE8\uC18C")
+            };
             RefreshCommand = new AsyncRelayCommand(InitializeAsync);
+            RefreshMovementsCommand = new AsyncRelayCommand(LoadMovementsAsync);
             InboundCommand = new AsyncRelayCommand(InboundAsync);
             TransferCommand = new AsyncRelayCommand(TransferAsync);
             AdjustInCommand = new AsyncRelayCommand(() => AdjustAsync("IN"));
@@ -44,7 +74,9 @@ namespace Mes.Wpf.Modules.RawMaterials.ViewModels
         public ObservableCollection<RawMaterialDto> Materials { get; }
         public ObservableCollection<RawMaterialLocationDto> Locations { get; }
         public ObservableCollection<RawMaterialMovementDto> Movements { get; }
+        public ObservableCollection<RawMaterialMovementTypeOption> MovementTypeOptions { get; }
         public AsyncRelayCommand RefreshCommand { get; }
+        public AsyncRelayCommand RefreshMovementsCommand { get; }
         public AsyncRelayCommand InboundCommand { get; }
         public AsyncRelayCommand TransferCommand { get; }
         public AsyncRelayCommand AdjustInCommand { get; }
@@ -63,6 +95,7 @@ namespace Mes.Wpf.Modules.RawMaterials.ViewModels
             {
                 if (SetProperty(ref _selectedInventoryLot, value))
                 {
+                    ApplyMovementFilterFromLot(value);
                     _ = LoadMovementsAsync();
                 }
             }
@@ -86,10 +119,46 @@ namespace Mes.Wpf.Modules.RawMaterials.ViewModels
             set => SetProperty(ref _selectedTransferToLocation, value);
         }
 
+        public RawMaterialDto? SelectedMovementMaterial
+        {
+            get => _selectedMovementMaterial;
+            set => SetProperty(ref _selectedMovementMaterial, value);
+        }
+
+        public RawMaterialLocationDto? SelectedMovementLocation
+        {
+            get => _selectedMovementLocation;
+            set => SetProperty(ref _selectedMovementLocation, value);
+        }
+
         public string InboundLotNo
         {
             get => _inboundLotNo;
             set => SetProperty(ref _inboundLotNo, value);
+        }
+
+        public string MovementLotNo
+        {
+            get => _movementLotNo;
+            set => SetProperty(ref _movementLotNo, value);
+        }
+
+        public string SelectedMovementType
+        {
+            get => _selectedMovementType;
+            set => SetProperty(ref _selectedMovementType, value);
+        }
+
+        public DateTime? MovementDateFrom
+        {
+            get => _movementDateFrom;
+            set => SetProperty(ref _movementDateFrom, value);
+        }
+
+        public DateTime? MovementDateTo
+        {
+            get => _movementDateTo;
+            set => SetProperty(ref _movementDateTo, value);
         }
 
         public decimal InboundQty
@@ -155,7 +224,7 @@ namespace Mes.Wpf.Modules.RawMaterials.ViewModels
             var result = await _apiClient.GetAsync<RawMaterialInventoryLotListDto>($"{ApiRoutes.RawMaterialInventoryLots}?{string.Join("&", queryParts)}");
             if (!result.Success || result.Data == null)
             {
-                _messageService.ShowError(result.Message ?? "원자재 재고 조회 중 오류가 발생했습니다.");
+                _messageService.ShowError(result.Message ?? "\uC6D0\uC790\uC7AC \uC7AC\uACE0 \uC870\uD68C \uC911 \uC624\uB958\uAC00 \uBC1C\uC0DD\uD588\uC2B5\uB2C8\uB2E4.");
                 return;
             }
             InventoryLots.Clear();
@@ -167,15 +236,36 @@ namespace Mes.Wpf.Modules.RawMaterials.ViewModels
 
         private async Task LoadMovementsAsync()
         {
-            if (SelectedInventoryLot == null)
+            var queryParts = new List<string> { "page=1", "size=200" };
+            if (SelectedMovementMaterial != null)
             {
-                Movements.Clear();
-                return;
+                queryParts.Add($"raw_material_id={SelectedMovementMaterial.RawMaterialId}");
             }
-            var result = await _apiClient.GetAsync<RawMaterialMovementListDto>($"{ApiRoutes.RawMaterialMovements}?inventory_lot_id={SelectedInventoryLot.RawMaterialInventoryLotId}&page=1&size=100");
+            if (SelectedMovementLocation != null)
+            {
+                queryParts.Add($"location_id={SelectedMovementLocation.RawMaterialLocationId}");
+            }
+            if (!string.IsNullOrWhiteSpace(MovementLotNo))
+            {
+                queryParts.Add($"lot_no={Uri.EscapeDataString(MovementLotNo.Trim())}");
+            }
+            if (!string.IsNullOrWhiteSpace(SelectedMovementType))
+            {
+                queryParts.Add($"movement_type={Uri.EscapeDataString(SelectedMovementType.Trim())}");
+            }
+            if (MovementDateFrom.HasValue)
+            {
+                queryParts.Add($"date_from={MovementDateFrom.Value:yyyy-MM-dd}");
+            }
+            if (MovementDateTo.HasValue)
+            {
+                queryParts.Add($"date_to={MovementDateTo.Value:yyyy-MM-dd}");
+            }
+
+            var result = await _apiClient.GetAsync<RawMaterialMovementListDto>($"{ApiRoutes.RawMaterialMovements}?{string.Join("&", queryParts)}");
             if (!result.Success || result.Data == null)
             {
-                _messageService.ShowError(result.Message ?? "원자재 수불 조회 중 오류가 발생했습니다.");
+                _messageService.ShowError(result.Message ?? "\uC6D0\uC790\uC7AC \uC218\uBD88 \uC870\uD68C \uC911 \uC624\uB958\uAC00 \uBC1C\uC0DD\uD588\uC2B5\uB2C8\uB2E4.");
                 return;
             }
             Movements.Clear();
@@ -189,19 +279,22 @@ namespace Mes.Wpf.Modules.RawMaterials.ViewModels
         {
             if (SelectedInboundMaterial == null || SelectedInboundLocation == null)
             {
-                _messageService.ShowWarning("입고할 원자재 품목과 위치를 선택하세요.");
+                _messageService.ShowWarning("\uC785\uACE0\uD560 \uC6D0\uC790\uC7AC \uD488\uBAA9\uACFC \uC704\uCE58\uB97C \uC120\uD0DD\uD558\uC138\uC694.");
                 return;
             }
             if (string.IsNullOrWhiteSpace(InboundLotNo) || InboundQty <= 0)
             {
-                _messageService.ShowWarning("입고 LOT와 입고수량을 입력하세요.");
+                _messageService.ShowWarning("\uC785\uACE0 LOT\uC640 \uC785\uACE0\uC218\uB7C9\uC744 \uC785\uB825\uD558\uC138\uC694.");
                 return;
             }
+
+            var inboundMaterial = SelectedInboundMaterial;
+            var inboundLotNo = InboundLotNo.Trim();
             var request = new RawMaterialInboundRequest
             {
-                RawMaterialId = SelectedInboundMaterial.RawMaterialId,
+                RawMaterialId = inboundMaterial.RawMaterialId,
                 RawMaterialLocationId = SelectedInboundLocation.RawMaterialLocationId,
-                LotNo = InboundLotNo.Trim(),
+                LotNo = inboundLotNo,
                 Qty = InboundQty,
                 UnitCost = InboundUnitCost,
                 Memo = string.IsNullOrWhiteSpace(Memo) ? null : Memo.Trim()
@@ -209,24 +302,30 @@ namespace Mes.Wpf.Modules.RawMaterials.ViewModels
             var result = await _apiClient.PostAsync<RawMaterialInboundRequest, RawMaterialMovementDto>(ApiRoutes.RawMaterialInbound, request);
             if (!result.Success)
             {
-                _messageService.ShowError(result.Message ?? "원자재 입고 중 오류가 발생했습니다.");
+                _messageService.ShowError(result.Message ?? "\uC6D0\uC790\uC7AC \uC785\uACE0 \uC911 \uC624\uB958\uAC00 \uBC1C\uC0DD\uD588\uC2B5\uB2C8\uB2E4.");
                 return;
             }
             ClearWorkInputs();
             await LoadInventoryLotsAsync();
-            _messageService.ShowInfo("입고 처리되었습니다.");
+            SelectedMovementMaterial = inboundMaterial;
+            MovementLotNo = inboundLotNo;
+            SelectedMovementLocation = null;
+            await LoadMovementsAsync();
+            _messageService.ShowInfo("\uC785\uACE0 \uCC98\uB9AC\uD588\uC2B5\uB2C8\uB2E4.");
         }
 
         private async Task TransferAsync()
         {
             if (SelectedInventoryLot == null || SelectedTransferToLocation == null || WorkQty <= 0)
             {
-                _messageService.ShowWarning("이동할 LOT, 이동 위치, 수량을 입력하세요.");
+                _messageService.ShowWarning("\uC774\uB3D9\uD560 LOT, \uC774\uB3D9 \uC704\uCE58, \uC218\uB7C9\uC744 \uC785\uB825\uD558\uC138\uC694.");
                 return;
             }
+
+            var sourceLot = SelectedInventoryLot;
             var request = new RawMaterialTransferRequest
             {
-                RawMaterialInventoryLotId = SelectedInventoryLot.RawMaterialInventoryLotId,
+                RawMaterialInventoryLotId = sourceLot.RawMaterialInventoryLotId,
                 ToLocationId = SelectedTransferToLocation.RawMaterialLocationId,
                 Qty = WorkQty,
                 Memo = string.IsNullOrWhiteSpace(Memo) ? null : Memo.Trim()
@@ -234,36 +333,54 @@ namespace Mes.Wpf.Modules.RawMaterials.ViewModels
             var result = await _apiClient.PostAsync<RawMaterialTransferRequest, RawMaterialMovementListDto>(ApiRoutes.RawMaterialTransfer, request);
             if (!result.Success)
             {
-                _messageService.ShowError(result.Message ?? "원자재 위치이동 중 오류가 발생했습니다.");
+                _messageService.ShowError(result.Message ?? "\uC6D0\uC790\uC7AC \uC704\uCE58\uC774\uB3D9 \uC911 \uC624\uB958\uAC00 \uBC1C\uC0DD\uD588\uC2B5\uB2C8\uB2E4.");
                 return;
             }
             ClearWorkInputs();
             await LoadInventoryLotsAsync();
-            _messageService.ShowInfo("위치이동 처리되었습니다.");
+            ApplyMovementFilterFromLot(sourceLot);
+            await LoadMovementsAsync();
+            _messageService.ShowInfo("\uC704\uCE58\uC774\uB3D9 \uCC98\uB9AC\uD588\uC2B5\uB2C8\uB2E4.");
         }
 
         private async Task AdjustAsync(string direction)
         {
             if (SelectedInventoryLot == null || WorkQty <= 0)
             {
-                _messageService.ShowWarning("조정할 LOT와 수량을 입력하세요.");
+                _messageService.ShowWarning("\uC870\uC815\uD560 LOT\uC640 \uC218\uB7C9\uC744 \uC785\uB825\uD558\uC138\uC694.");
                 return;
             }
+
+            var adjustedLot = SelectedInventoryLot;
             var request = new RawMaterialAdjustmentRequest
             {
-                RawMaterialInventoryLotId = SelectedInventoryLot.RawMaterialInventoryLotId,
+                RawMaterialInventoryLotId = adjustedLot.RawMaterialInventoryLotId,
                 Qty = WorkQty,
                 Memo = string.IsNullOrWhiteSpace(Memo) ? null : Memo.Trim()
             };
             var result = await _apiClient.PostAsync<RawMaterialAdjustmentRequest, RawMaterialMovementDto>($"{ApiRoutes.RawMaterialAdjust}?direction={direction}", request);
             if (!result.Success)
             {
-                _messageService.ShowError(result.Message ?? "원자재 조정 중 오류가 발생했습니다.");
+                _messageService.ShowError(result.Message ?? "\uC6D0\uC790\uC7AC \uC870\uC815 \uC911 \uC624\uB958\uAC00 \uBC1C\uC0DD\uD588\uC2B5\uB2C8\uB2E4.");
                 return;
             }
             ClearWorkInputs();
             await LoadInventoryLotsAsync();
-            _messageService.ShowInfo("조정 처리되었습니다.");
+            ApplyMovementFilterFromLot(adjustedLot);
+            await LoadMovementsAsync();
+            _messageService.ShowInfo("\uC870\uC815 \uCC98\uB9AC\uD588\uC2B5\uB2C8\uB2E4.");
+        }
+
+        private void ApplyMovementFilterFromLot(RawMaterialInventoryLotDto? lot)
+        {
+            if (lot == null)
+            {
+                return;
+            }
+
+            SelectedMovementMaterial = Materials.FirstOrDefault(x => x.RawMaterialId == lot.RawMaterialId);
+            MovementLotNo = lot.LotNo;
+            SelectedMovementLocation = null;
         }
 
         private void ClearWorkInputs()

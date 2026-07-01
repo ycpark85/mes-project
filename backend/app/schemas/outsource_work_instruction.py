@@ -18,6 +18,12 @@ class OutsourceWorkInstructionGroupItemCreate(BaseModel):
     remark: Optional[str] = None
 
 
+class OutsourceWorkInstructionRawMaterialAllocationCreate(BaseModel):
+    raw_material_inventory_lot_id: int
+    qty: Decimal = Field(..., gt=0)
+    memo: Optional[str] = None
+
+
 class OutsourceWorkInstructionGroupCreate(BaseModel):
     group_seq: Optional[str] = None
     is_bundle: bool = False
@@ -28,6 +34,7 @@ class OutsourceWorkInstructionGroupCreate(BaseModel):
     representative_lot_id: Optional[int] = None
     remark: Optional[str] = None
     items: List[OutsourceWorkInstructionGroupItemCreate] = Field(..., min_length=1)
+    raw_material_allocations: List[OutsourceWorkInstructionRawMaterialAllocationCreate] = Field(default_factory=list)
 
 class OutsourceWorkInstructionCreate(BaseModel):
     instruction_date: date
@@ -126,9 +133,11 @@ class OutsourceWorkInstructionPlateUploadOut(BaseModel):
 class OutsourcePurchaseOrderTargetOut(BaseModel):
     outsource_work_instruction_id: int
     outsource_work_instruction_item_id: int
+    outsource_work_group_id: int
     instruction_no: str
     instruction_date: date
     process_type: str
+    group_seq: str
 
     lot_id: int
     lot_no: str
@@ -166,7 +175,92 @@ class OutsourcePurchaseOrderTargetOut(BaseModel):
 
 class OutsourceWorkInstructionBatchOut(BaseModel):
     items: List[OutsourceWorkInstructionOut] = Field(default_factory=list)
-        
+
+
+class OutsourceWorkGroupLotOut(BaseModel):
+    outsource_work_group_item_id: int
+    lot_id: int
+    lot_no: str
+    order_no: Optional[str] = None
+    line_no: Optional[int] = None
+    product_code: Optional[str] = None
+    product_name: Optional[str] = None
+    lot_qty: Optional[int] = None
+    cuts_per_sheet: int
+    expected_output_qty: Optional[int] = None
+
+
+class OutsourceWorkGroupRawMaterialAllocationOut(BaseModel):
+    outsource_work_group_raw_material_allocation_id: int
+    raw_material_id: int
+    raw_material_location_id: int
+    raw_material_inventory_lot_id: Optional[int] = None
+    material_code: Optional[str] = None
+    material_name: Optional[str] = None
+    location_name: Optional[str] = None
+    lot_no: str
+    qty: Decimal
+    unit_cost_snapshot: Optional[Decimal] = None
+    amount_snapshot: Optional[Decimal] = None
+    status: str
+    created_at: datetime
+
+
+class OutsourceWorkGroupListItemOut(BaseModel):
+    outsource_work_group_id: int
+    outsource_work_instruction_id: int
+    instruction_no: str
+    instruction_date: date
+    process_type: str
+    partner_id: int
+    partner_name: Optional[str] = None
+    group_seq: str
+    status: str
+    status_name: str
+    is_bundle: bool
+    representative_lot_id: Optional[int] = None
+    representative_lot_no: Optional[str] = None
+    representative_product_name: Optional[str] = None
+    lot_nos_text: str = ""
+    product_names_text: str = ""
+    sheet_qty: int
+    length_m: Optional[Decimal] = None
+    sheet_cut_count: int
+    fabric_lot_no: Optional[str] = None
+    raw_material_qty: Decimal = Decimal("0")
+    raw_material_lot_nos_text: str = ""
+    can_cancel: bool
+    cancel_block_reason: Optional[str] = None
+    can_update: bool
+    update_block_reason: Optional[str] = None
+    memo: Optional[str] = None
+    created_at: datetime
+
+
+class OutsourceWorkGroupListOut(BaseModel):
+    items: List[OutsourceWorkGroupListItemOut] = Field(default_factory=list)
+    total_count: int = 0
+
+
+class OutsourceWorkGroupDetailOut(OutsourceWorkGroupListItemOut):
+    lots: List[OutsourceWorkGroupLotOut] = Field(default_factory=list)
+    raw_material_allocations: List[OutsourceWorkGroupRawMaterialAllocationOut] = Field(default_factory=list)
+    files: List[OutsourceWorkInstructionFileOut] = Field(default_factory=list)
+
+
+class OutsourceWorkGroupCancelIn(BaseModel):
+    reason: str = Field(..., min_length=1)
+
+
+class OutsourceWorkGroupUpdateIn(BaseModel):
+    sheet_qty: int = Field(..., gt=0)
+    length_m: Optional[Decimal] = Field(default=None, ge=0)
+    sheet_cut_count: int = Field(..., gt=0)
+    fabric_lot_no: Optional[str] = None
+    remark: Optional[str] = None
+    raw_material_allocations: List[OutsourceWorkInstructionRawMaterialAllocationCreate] = Field(default_factory=list)
+    reason: str = Field(..., min_length=1)
+
 
 class OutsourcePurchaseOrderTargetListOut(BaseModel):
     items: List[OutsourcePurchaseOrderTargetOut]

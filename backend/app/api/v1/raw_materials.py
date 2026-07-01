@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date, datetime, time
 from decimal import Decimal, ROUND_HALF_UP
 from uuid import uuid4
 
@@ -36,6 +37,7 @@ from app.schemas.raw_material import (
 router = APIRouter(prefix="/raw-materials", tags=["RawMaterial"])
 
 LOCATION_TYPES = {"INTERNAL_WAREHOUSE", "OUTSOURCE_VENDOR", "OTHER"}
+LOCATION_CODE_PREFIX = "RMLOC-"
 
 
 def _q2(value: Decimal) -> Decimal:
@@ -63,6 +65,10 @@ def _normalize_text(value: str | None) -> str | None:
         return None
     text = value.strip()
     return text or None
+
+
+def _generate_location_code() -> str:
+    return f"{LOCATION_CODE_PREFIX}{uuid4().hex[:8].upper()}"
 
 
 def _validate_location_type(value: str) -> str:
@@ -273,8 +279,9 @@ def create_location(payload: RawMaterialLocationCreate, db: Session = Depends(ge
         partner = db.get(Partner, payload.partner_id)
         if partner is None or not partner.is_active:
             raise HTTPException(status_code=404, detail="Partner not found")
+    location_code = _normalize_text(payload.location_code)
     location = RawMaterialLocation(
-        location_code=_normalize_code(payload.location_code),
+        location_code=_normalize_code(location_code) if location_code else _generate_location_code(),
         location_name=payload.location_name.strip(),
         location_type=location_type,
         partner_id=payload.partner_id,
@@ -345,11 +352,14 @@ def update_location(location_id: int, payload: RawMaterialLocationUpdate, db: Se
         location.location_name = payload.location_name.strip()
     if payload.location_type is not None:
         location.location_type = _validate_location_type(payload.location_type)
-    if payload.partner_id is not None:
-        partner = db.get(Partner, payload.partner_id)
-        if partner is None or not partner.is_active:
-            raise HTTPException(status_code=404, detail="Partner not found")
-        location.partner_id = payload.partner_id
+    if "partner_id" in payload.model_fields_set:
+        if payload.partner_id is None:
+            location.partner_id = None
+        else:
+            partner = db.get(Partner, payload.partner_id)
+            if partner is None or not partner.is_active:
+                raise HTTPException(status_code=404, detail="Partner not found")
+            location.partner_id = payload.partner_id
     if payload.is_active is not None:
         location.is_active = payload.is_active
     if payload.memo is not None:
@@ -456,7 +466,10 @@ def list_movements(
     raw_material_id: int | None = Query(None, ge=1),
     location_id: int | None = Query(None, ge=1),
     inventory_lot_id: int | None = Query(None, ge=1),
+    lot_no: str | None = Query(None),
     movement_type: str | None = Query(None),
+    date_from: date | None = Query(None),
+    date_to: date | None = Query(None),
     page: int = Query(1, ge=1),
     size: int = Query(100, ge=1, le=200),
     db: Session = Depends(get_db),
@@ -496,10 +509,22 @@ def list_movements(
     if inventory_lot_id is not None:
         stmt = stmt.where(RawMaterialInventoryMovement.raw_material_inventory_lot_id == inventory_lot_id)
         count_stmt = count_stmt.where(RawMaterialInventoryMovement.raw_material_inventory_lot_id == inventory_lot_id)
+    if lot_no and lot_no.strip():
+        keyword = f"%{lot_no.strip()}%"
+        stmt = stmt.where(RawMaterialInventoryMovement.lot_no.ilike(keyword))
+        count_stmt = count_stmt.where(RawMaterialInventoryMovement.lot_no.ilike(keyword))
     if movement_type:
         normalized = movement_type.strip().upper()
         stmt = stmt.where(RawMaterialInventoryMovement.movement_type == normalized)
         count_stmt = count_stmt.where(RawMaterialInventoryMovement.movement_type == normalized)
+    if date_from is not None:
+        from_dt = datetime.combine(date_from, time.min)
+        stmt = stmt.where(RawMaterialInventoryMovement.created_at >= from_dt)
+        count_stmt = count_stmt.where(RawMaterialInventoryMovement.created_at >= from_dt)
+    if date_to is not None:
+        to_dt = datetime.combine(date_to, time.max)
+        stmt = stmt.where(RawMaterialInventoryMovement.created_at <= to_dt)
+        count_stmt = count_stmt.where(RawMaterialInventoryMovement.created_at <= to_dt)
     total = int(db.execute(count_stmt).scalar_one() or 0)
     rows = (
         db.execute(

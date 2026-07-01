@@ -57,7 +57,7 @@ class RawMaterialListOut(BaseModel):
 
 
 class RawMaterialLocationCreate(BaseModel):
-    location_code: str = Field(..., min_length=1, max_length=60)
+    location_code: Optional[str] = Field(default=None, max_length=60)
     location_name: str = Field(..., min_length=1, max_length=200)
     location_type: str = Field(..., min_length=1, max_length=30)
     partner_id: Optional[int] = None

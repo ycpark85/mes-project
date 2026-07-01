@@ -723,6 +723,25 @@ namespace Mes.Wpf.Views.Shell
             await viewModel.InitializeAsync();
         }
 
+        private async void OutsourceWorkInstructionList_Click(object sender, RoutedEventArgs e)
+        {
+            var page = new OutsourceWorkGroupListPage();
+
+            var viewModel = new OutsourceWorkGroupListPageViewModel(
+                _apiClient,
+                _messageService);
+
+            page.DataContext = viewModel;
+
+            MainContent.Content = page;
+            MainContent.Visibility = Visibility.Visible;
+
+            HeaderTitle.Text = "외주 작업지시 리스트";
+            HeaderSubtitle.Text = "외주 작업지시 조회 / 상세 확인 / 취소";
+
+            await viewModel.InitializeAsync();
+        }
+
         private async void OutsourceProcessingCost_Click(object sender, RoutedEventArgs e)
         {
             var view = new OutsourceProcessingCostManagementView();
@@ -957,6 +976,7 @@ namespace Mes.Wpf.Views.Shell
             SetMenuVisibility(InspectionResultManagementMenuButton, PermissionCodes.InspectionResultsView);
 
             SetMenuVisibility(OutsourceWorkInstructionMenuButton, PermissionCodes.OutsourceWorkInstructionsView);
+            SetMenuVisibility(OutsourceWorkInstructionListMenuButton, PermissionCodes.OutsourceWorkInstructionsView);
             SetMenuVisibility(OutsourcePurchaseOrderMenuButton, PermissionCodes.OutsourcePurchaseOrdersView);
             SetMenuVisibility(OutsourcePurchaseOrderListMenuButton, PermissionCodes.OutsourcePurchaseOrderListView);
             SetMenuVisibility(BohyunOutsourceManagementMenuButton, PermissionCodes.BohyunOutsourceManagementView);

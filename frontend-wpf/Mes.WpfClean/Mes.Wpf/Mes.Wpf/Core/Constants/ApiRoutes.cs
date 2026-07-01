@@ -30,6 +30,7 @@
 
         public const string OutsourceWorkInstructions = "api/v1/outsource-work-instructions";
         public const string OutsourceWorkInstructionCandidates = "api/v1/outsource-work-instructions/candidates";
+        public const string OutsourceWorkInstructionGroups = "api/v1/outsource-work-instructions/groups";
         public const string OutsourceWorkInstructionPlateUpload = "api/v1/outsource-work-instructions/upload-plate-data";
         public const string OutsourcePurchaseOrderTargets = "api/v1/outsource-work-instructions/purchase-order-targets";
         public const string OutsourceWorkInstructionBatch = "api/v1/outsource-work-instructions/batch";

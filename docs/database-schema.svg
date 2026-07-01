@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="940" viewBox="0 0 1180 940">
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="960" viewBox="0 0 1180 960">
   <style>
     .box { fill:#ffffff; stroke:#334155; stroke-width:1.5; rx:6; }
     .read { fill:#f0fdf4; stroke:#15803d; stroke-width:1.8; rx:6; }
@@ -33,6 +33,14 @@
   <text class="text" x="740" y="98">PK outsource_work_group_id</text>
   <text class="text" x="740" y="120">process_type, status</text>
   <text class="text" x="740" y="142">FK representative_lot_id</text>
+  <text class="text" x="740" y="164">canceled_at, canceled_reason</text>
+
+  <rect class="box" x="960" y="40" width="190" height="142"/>
+  <text class="title" x="980" y="70">owg_change_log</text>
+  <text class="text" x="980" y="98">PK change_log_id</text>
+  <text class="text" x="980" y="120">FK work_group_id</text>
+  <text class="text" x="980" y="142">action_type, reason</text>
+  <text class="text" x="980" y="164">before/after JSONB</text>
 
   <rect class="box" x="380" y="250" width="280" height="135"/>
   <text class="title" x="400" y="280">outsource_processing_cost_allocation</text>
@@ -105,8 +113,14 @@
   <text class="text" x="950" y="802">balance_after</text>
   <text class="text" x="950" y="824">cost snapshots, transfer_key</text>
 
+  <rect class="box" x="650" y="860" width="300" height="82"/>
+  <text class="title" x="670" y="890">owg_raw_material_allocation</text>
+  <text class="text" x="670" y="916">FK work_group/material/location/lot</text>
+  <text class="text" x="670" y="936">qty, cost snapshots, movement_id</text>
+
   <path class="line" d="M300 100 L380 95"/>
   <path class="line" d="M640 95 L720 95"/>
+  <path class="line" d="M940 95 L960 95"/>
   <path class="line" d="M300 170 L380 300"/>
   <path class="line" d="M660 320 L740 320"/>
   <path class="line" d="M830 182 L830 260"/>
@@ -117,6 +131,9 @@
   <path class="line" d="M260 785 L650 760"/>
   <path class="line" d="M570 785 L650 785"/>
   <path class="line" d="M890 775 L930 775"/>
+  <path class="line" d="M830 182 L790 860"/>
+  <path class="line" d="M770 835 L770 860"/>
+  <path class="line" d="M950 900 L1040 845"/>
 
   <path class="readline" d="M340 320 L740 320"/>
   <path class="readline" d="M340 300 L980 300"/>

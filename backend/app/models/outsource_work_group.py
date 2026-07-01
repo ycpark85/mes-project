@@ -37,7 +37,7 @@ class OutsourceWorkGroup(Base):
             name="ck_outsource_work_group__sheet_cut_count_gt_0",
         ),
         CheckConstraint(
-            "status IS NULL OR status IN ('VENDOR_RECEIVED','WORK_DONE','SHIPPED')",
+            "status IS NULL OR status IN ('VENDOR_RECEIVED','WORK_DONE','SHIPPED','CANCELED')",
             name="ck_outsource_work_group__status",
         ),
         CheckConstraint(
@@ -105,6 +105,11 @@ class OutsourceWorkGroup(Base):
         nullable=True,
     )
 
+    canceled_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
     work_done_sheet_qty: Mapped[Optional[int]] = mapped_column(
         BigInteger,
         nullable=True,
@@ -116,6 +121,7 @@ class OutsourceWorkGroup(Base):
     )
 
     work_done_remark: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    canceled_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     remark: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
