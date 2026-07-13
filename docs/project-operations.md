@@ -13,6 +13,35 @@ The WPF client is published with `ClickOnceProfile`.
 - If a publish prompt asks to overwrite an older deployment version, check for stale ClickOnce manifests under `bin\Release\net8.0-windows\win-x64\app.publish` and clean the build output before publishing again.
 - The ClickOnce deployment version is controlled by `ApplicationVersion` and `ApplicationRevision` in the publish profile.
 
+## Vendor Portal External Access
+
+External vendor access is handled by a separate vendor WPF app and a dedicated vendor portal API. The internal MES WPF client remains for internal users only.
+
+- The vendor endpoint is planned as `https://vendor-mes.semiindustry.com`.
+- The vendor WPF project is `frontend-wpf/Mes.WpfClean/Mes.Wpf/Mes.Vendor.Wpf`.
+- The vendor WPF app uses the public HTTPS host as its API base URL and calls only login plus vendor-portal routes.
+- The selected external access method is Cloudflare Free plan plus Cloudflare Tunnel because the company internet line does not have a fixed public IP.
+- Domain purchase/renewal remains at Gabia, but authoritative DNS should move to Cloudflare by changing Gabia nameservers to Cloudflare nameservers.
+- Do not configure Gabia DNS host records or DNSSEC for this rollout.
+- The firewall should not expose inbound vendor-portal ports; `cloudflared` should create outbound tunnel connections to Cloudflare.
+- Cloudflare Tunnel should publish only `vendor-mes.semiindustry.com` to the internal FastAPI service or a local reverse proxy.
+- If a local reverse proxy is used for path allowlisting, allow `POST /api/v1/auth/login`, `GET /api/v1/health` for monitoring, and `/api/v1/vendor-portal/*`.
+- Internal API paths, database ports, RDP, development ports, `/docs`, and `/openapi.json` must remain unavailable from the internet.
+- Vendor portal API endpoints must enforce vendor account and partner-scope checks server-side.
+- Existing Bohyun outsource status rules should be shared through a backend service so internal WPF and vendor WPF produce identical state transitions.
+
+Vendor account maintenance:
+
+- Operational vendor accounts must be created and maintained from the internal MES WPF 회원관리 menu.
+- In 회원관리, check `외주업체 계정` and select the linked active VENDOR partner, such as 보현문화.
+- Saving a vendor account updates `users`, `user_roles`, and `vendor_user_access` in one backend transaction.
+- The `VENDOR_PORTAL` role is created by auth seed data and is automatically included when the user is saved as a vendor account.
+- `VENDOR_PORTAL` must not be granted internal MES menu permissions.
+- To revoke vendor access, uncheck `외주업체 계정` or deactivate the user account. This deactivates the vendor access grant without exposing internal menus.
+- `backend/scripts/create_vendor_portal_user.py` is for development, testing, or emergency recovery only; it is not the normal operating process.
+
+Detailed plan: `docs/vendor-portal-external-access-plan.md`.
+
 ## Raw Material Inventory Management
 
 Raw material inventory is managed separately from product inventory.
@@ -54,6 +83,15 @@ Stage 2 scope:
 - On final outsource work instruction save, raw material LOT stock and material-location stock are reduced in the same database transaction.
 - Final save creates `CONSUME_OUT` rows in `raw_material_inventory_movement` and stores allocation snapshots in `outsource_work_group_raw_material_allocation`.
 
+Raw material management refactor closure:
+
+- Raw material API routing is kept thin. The router handles request parameters, response models, and transaction boundaries, while business and query rules live in service modules.
+- `raw_material_query.py` owns raw material list, location list, LOT inventory list, and movement-history list queries.
+- `raw_material_inventory_service.py` owns inbound, location transfer, and adjustment rules, including material-location stock, LOT stock, paired transfer movements, and movement amount snapshots.
+- `raw_material_master_service.py` owns raw material item and location create/update/deactivate rules, including code normalization, location-type validation, partner validation, and blocking deactivation when stock remains.
+- Manual WPF screen checks were completed for raw material master and inventory flows after the refactor.
+- No database schema change was made for this refactor, so the raw material DB architecture remains unchanged.
+
 Outsource work instruction list, update, and cancel rules:
 
 - Outsource work instruction list is managed by `outsource_work_group`, because work grouping, raw material allocation, Bohyun outsource management, and later cost flows are group-based.
@@ -77,6 +115,49 @@ Outsource purchase order connection rules:
 - Creating an outsource purchase order writes both LOT-level `outsource_purchase_order_item` rows and work-group-level `outsource_purchase_order_group` rows.
 - All LOTs in the same outsource work group must be purchase ordered together.
 - A work group already connected to `outsource_purchase_order_group` for the same purchase-order process is excluded from that process target list; any purchase-order group link blocks registered-work-instruction updates.
+
+Current WPF outsource purchase order API usage:
+
+- `OutsourcePurchaseOrderPage` uses purchase-order target lookup, purchase-order create, and purchase-order Excel download.
+- `OutsourcePurchaseOrderListPage` uses purchase-order list lookup and purchase-order Excel download.
+- The single purchase-order detail API, `GET /api/v1/outsource-work-instructions/purchase-orders/{id}`, is not currently called by the WPF client.
+- Do not remove or repurpose the detail API without a separate compatibility decision. It should remain a candidate for either screen connection or later deprecation documentation.
+
+Current WPF outsource API cleanup notes:
+
+- The active WPF outsource work-instruction registration screen uses `POST /api/v1/outsource-work-instructions/batch`.
+- The former single work-instruction create API, `POST /api/v1/outsource-work-instructions`, was removed because the WPF client uses the batch endpoint and the batch flow supersedes the old process-type-specific create flow.
+- The active WPF outsource work-group list uses group list, group detail, group update, group cancel, and work-group plate-data download APIs.
+- The active WPF Bohyun outsource-management screens use Bohyun group list, inbound, work-done, and ship-batch APIs.
+- The unused purchase-order item status APIs, `vendor-receive`, `work-done`, and `ship`, were removed after confirming that no frontend, vendor app, script, external client, or direct operational workflow calls them.
+- Their item-level transition service functions, request schema, tests, and WPF route constants were removed together.
+- The purchase-order detail API remains available because it may be connected to a screen later.
+
+Legacy outsource status audit:
+
+- Run `python scripts/audit_outsource_legacy_status.py --sample-limit 20` from the `backend` directory before removing the remaining legacy item-status data fallback.
+- The script is read-only and rolls back the session after collecting counts and samples.
+- Review `progressed_purchase_order_item_count`, `legacy_schedule_fallback_count`, and status mismatch counts before deciding whether legacy item-level status behavior can be removed.
+- A mismatch where `outsource_purchase_order_item.status` is `NULL` and `outsource_work_group.status` is progressed can be valid for the current work-group flow, but any read model that still combines both status sources must be reviewed carefully.
+- If mismatch counts are non-zero, prioritize unifying read logic around `outsource_work_group.status` before removing deprecated item-level status APIs.
+
+Production daily progress status:
+
+- Production progress prioritizes completed inspection results first, then active inspection schedules, then outsource work status.
+- Inspection schedule `RECEIVED` is displayed as inspection waiting, and `IN_PROGRESS` or `PARTIAL_DONE` is displayed as inspection in progress.
+- For current outsource flows, `outsource_work_group.status` is the authoritative work status source.
+- `outsource_purchase_order_item.status` remains only as a legacy fallback when a LOT has no matching outsource work group.
+- This prevents a current work group status such as `SHIPPED` from being downgraded by a legacy purchase-order item row whose status is still `NULL`.
+
+Outsource management refactor closure:
+
+- Current WPF outsource work instruction, work group, Bohyun status, purchase-order, inspection handoff, production-progress, and processing-cost flows were refactored around service/query modules.
+- Canceled outsource work groups are excluded from new outsource and inspection targets, while the original operational history remains available.
+- Unused purchase-order item status APIs and their dedicated service code were removed after external usage was ruled out.
+- Purchase-order detail API remains available because it may be connected or reviewed later.
+- Processing-cost Excel download is intentionally left as a future feature because the current WPF button is disabled and no API is connected.
+- Order-line management was refactored around service modules after outsource management. Current order-line routing delegates registration, bulk import, planning, base LOT creation, update, cancel, short-close, and detail queries to service/query modules.
+- Inspection-result list/detail queries and attachment file handling were subsequently moved to dedicated query/service modules, so inspection-result routing now remains at the request and transaction boundary.
 
 Out of current scope:
 
@@ -132,6 +213,18 @@ Internal official received quantity is calculated from inspection results:
 - outsource process loss should compare calculated output quantity against this internal `received_qty`, not against vendor-reported work-done quantity.
 - vendor work-done quantity remains an operational reference value.
 
+Inspection result management refactor notes:
+
+- Inspection-result list and detail read logic is separated into `inspection_result_query.py`.
+- `inspection_result_query.py` owns the completed-result list query, prior partial/done accumulated summary, and inventory/shipment summary shown in the inspection-result dialog.
+- Defect photo upload/download file validation and storage-path resolution are separated into `inspection_result_attachment_service.py`.
+- The inspection-result router delegates list/detail read models to the query service and file handling to the attachment service.
+- Inspection-result save and settlement rules remain in `inspection_result_service.py`; this refactor step did not change inventory settlement, shipment waiting, defect-line saving, or attachment persistence behavior.
+- Inspection result management refactoring is considered closed when the router remains limited to request parsing, service delegation, transaction commit/rollback, and `FileResponse` construction.
+- Current WPF usage covers inspection-result list lookup, result detail lookup, photo upload, result save, stock-lot lookup, and LOT-detail attachment image opening.
+- Keep the attachment content API because LOT detail history can use stored inspection-defect attachment ids to open defect images.
+- Manual WPF confirmation should focus on inspection-result management list filters, inspection-result detail opening, accumulated quantity display, stock shipment quantity display, result shipment quantity display, stock-in quantity display, and photo attachment preview/download.
+
 ## Inventory Availability and Order Planning
 
 Order planning separates physical inventory from available inventory.
@@ -147,6 +240,46 @@ Stock usage rules:
 - Partial stock plus production: when the processing plan is confirmed, stock shipment lines remain in `WAITING` status as reserved inventory. The reserved quantity is excluded from availability for later orders.
 - When inspection result is saved for partial stock plus production, the reserved stock shipment lines are consumed first and changed to `DONE`; only any remaining requested stock shipment quantity is allocated from FIFO available inventory.
 - Unused stock reservations for the order line are canceled when final inspection settlement no longer uses them.
+
+Order-line management refactor notes:
+
+- Order-line registration policy, automatic primary LOT creation, and automatic stock-shipment waiting creation are handled by `order_line_creation_service`.
+- Order-line bulk validation and bulk commit rules are handled by `bulk/order_line_bulk_service`.
+- Order-line cancellation rules are handled by `order_line_cancel_service`.
+- Order-line delete rules are handled by `order_line_delete_service`.
+- Order-line update rules are handled by `order_line_update_service`.
+- Order-line fulfillment-plan save rules are handled by `order_line_plan_service`.
+- Order-line list lookup is handled directly by `order_line_list_query`.
+- OrderLine response assembly for partner/product display fields and optional plan summary is handled by `order_line_response_builder`.
+- Order-line detail DTO assembly is handled by `order_line_detail_query` so detail lookup, detail update responses, and cancel responses share the same display flag and timeline rules.
+- Order-line detail edit rules are handled by `order_line_detail_update_service`.
+- Order-line short-close rules and remaining shipment quantity calculation are handled by `order_line_short_close_service`.
+- Base LOT creation from an order-line plan is handled by `order_line_base_lot_service`.
+- LOT creation context DTO assembly is handled by `order_line_lot_context_query`.
+- `OPEN` order lines may update the normal order fields. `CLOSED` order lines may update only `due_date`, `memo`, and `customer_po`.
+- `DONE` and `CANCELED` order lines may update only `memo` and `customer_po`.
+- Fulfillment-plan save is different from plan confirmation: it saves fulfillment mode, production policy, and extra production quantity to the order line, marks the decision as made, and creates stock shipment waiting lines only when no production quantity is needed.
+- Bulk commit re-runs validation, applies approved ERP product-name/spec changes per row choice, creates all order lines in the same ERP order-number group together, and returns per-group success or error results.
+- Write endpoints roll back the DB session on handled HTTP/business errors and integrity errors before returning the API error.
+- Delete integrity-error messages use a safe order number/ID label so the original database error is not masked by response-message construction.
+- When an order-line due date changes, only LOTs whose steps have not started are synchronized to the new due date.
+- Order-line cancellation is allowed only when the order is not `DONE` or already `CANCELED`, and all connected LOTs are already `CANCELED` if LOTs exist.
+- Order-line delete deletes all lines with the same `order_no` together after checking blockers across LOT, inspection schedule/result, shipment, inventory movement, COA, inspection certificate, and outsource connection data.
+- Order-line delete is blocked when operational data exists, including progressed LOTs, progressed inspection schedules, confirmed shipment, inventory movement, COA, inspection certificate, or outsource connection data.
+- Base LOT creation requires an active `OPEN` order line, no existing primary LOT, a saved processing-plan decision, an active product, and a positive planned production quantity.
+- LOT creation context includes partner/product/order data, drawing current revision file references, and primary LOT candidates for rework creation.
+- Detail edit may change due date, order quantity, and memo only when the order line is not `DONE` or `CANCELED`; due-date changes still synchronize only not-yet-started LOTs.
+- Short-close is allowed only for `CLOSED` order lines with positive remaining shipment quantity. It changes the order line to `DONE` and appends `[SHORT_CLOSE] remaining_ship_qty=...` to memo.
+- Detail timeline sorting normalizes naive and timezone-aware datetimes before sorting.
+- Service tests cover no-inventory automatic LOT creation, enough-inventory stock waiting creation, partial-inventory decision waiting, closed-order due-date synchronization, closed-order quantity-change rejection, detail action flags, LOT current-process display, plan-history timeline inclusion, canceled-order detail flags, order-line cancellation rules, same-order-number delete cascading, progressed-LOT delete blocking, plan-based base LOT creation, missing-decision base LOT blocking, LOT creation context drawing/candidate fields, detail edit due-date synchronization, detail edit blocked status, fulfillment-plan save, fulfillment-plan stock waiting creation, fulfillment-plan blocked status, bulk commit success, bulk product-name conflict blocking, response display field assembly, response lookup blocking, short-close success, and short-close no-remaining-quantity blocking.
+
+Order-line management refactor closure:
+
+- The order-line router is considered closed when it stays limited to request parsing, service calls, transaction handling, and response return.
+- The removed `order_line_crud.list_with_search` wrapper must not be reintroduced; list lookup should use `order_line_list_query` directly.
+- Final verification should include backend compile, order-line service tests, full backend tests, and WPF solution build.
+- Recommended manual confirmation screens are order-line list, detail lookup, normal edit, detail edit, fulfillment-plan save/confirm, base LOT creation, short-close, cancel, delete, bulk validate, and bulk commit.
+- Remaining known warnings are Pydantic class-based `Config` deprecation warnings; WPF solution build currently passes without warnings in the final verification.
 
 ## Production Progress Status
 
@@ -220,6 +353,46 @@ Product history monitoring is a product-to-LOT trace view.
 - The product search can filter by product keyword and partner keyword.
 - Partner keyword filtering uses historical order lines. It returns products that have active order line history for matching partner names or business numbers.
 - After selecting a product, the user loads the latest LOT history for that product.
+- LOT detail and product history screens use the common `GET /api/v1/lots/{lot_id}/detail` trace API.
+- LOT management list and basic LOT detail lookup are assembled by `lot_query.py`; the router only receives filters and delegates the query.
+- LOT management list status treats a LOT as `IN_PROGRESS` when it belongs to an active, non-canceled outsource work group, even if the stored `lot.status` is still `WAITING`.
+- The legacy `POST /api/v1/lot-steps/{id}/start` and `POST /api/v1/lot-steps/{id}/complete` manual process-control APIs were removed after confirming they are not used externally.
+- Current outsource process control must use outsource work instruction groups, Bohyun inbound/work-done/shipment status, inspection schedule receive/start, and inspection result registration instead of manual LOT-step start/complete.
+- Keep `lot_step` rows as routing/process snapshots for LOT creation, detail display, and not-started checks, but do not use the legacy LOT-step APIs as the operational progress source.
+- `lot_step` rows remain part of the routing snapshot and history model even though the manual transition API no longer exists.
+- LOT trace detail assembly is handled by `lot_trace_query.py`, including LOT basics, latest order planning snapshot, current product stock, outsource work history, inspection totals, defects, and defect attachment image URLs.
+- The LOT router should keep the trace-detail endpoint limited to request handling and service delegation.
+- Manual rework LOT creation through `POST /api/v1/lots` is handled by `lot_rework_service.py`.
+- Rework LOT creation requires a selected primary parent LOT in `DONE` or `CANCELED` status, creates routing steps from the product routing template, and changes a `DONE` order line back to `CLOSED` so rework can proceed.
+- Manual confirmation should open LOT detail from LOT management and product history monitoring, then verify order/product fields, outsource work rows, inspection totals, defect rows, and defect image opening.
+- Manual rework confirmation should create a rework LOT from an eligible parent LOT and verify the new child LOT appears with generated LOT number, copied routing steps, and parent LOT linkage.
+
+## Refactoring Closure
+
+The current operational refactoring scope is closed for the active MES flows covered below.
+
+- Order-line registration, planning, bulk import, update, cancel, delete, short-close, and LOT creation.
+- LOT list/detail/trace/rework and production-progress status calculation.
+- Outsource work instruction, work group, purchase order, Bohyun inbound/work-done/shipment, and processing-cost allocation/closing.
+- Inspection work-instruction target, inspection schedule, stock-LOT lookup, inspection result, attachment, shipment, and inventory settlement queries.
+- Product inventory adjustment and raw-material master/inventory/movement flows.
+- User role assignment and vendor-partner access management.
+
+Active routers in this scope should contain only request parsing, authorization dependencies, service/query delegation, transaction commit/rollback, response conversion, and file-response construction. Business rules and read-model assembly belong in service/query modules.
+
+Common technical cleanup completed with this scope:
+
+- All SQLAlchemy models and Alembic autogenerate use the single `app.db.base.Base` metadata registry.
+- Pydantic response models use Pydantic 2 `ConfigDict` instead of deprecated class-based `Config` declarations.
+- Inspection stock-LOT assembly is owned by `inspection_schedule_query.py`.
+- User list/detail/role/vendor-access reads are owned by `user_management_query.py`; user create/update/password-reset/deactivation rules are owned by `user_management_service.py`.
+
+The following are classified legacy or compatibility items and are intentionally retained after closure:
+
+- Purchase-order detail API that is not currently connected to WPF.
+- Legacy purchase-order item status fallback used only when no current work-group status exists.
+
+The detail API is retained for possible future screen use. The data fallback requires a legacy-data audit before removal and is not an authoritative source for the current operational flow.
 
 ## Outsource Processing Cost Management
 
@@ -273,6 +446,12 @@ All allocation inputs are saved as snapshots when a cost group is created:
 - Closed groups can be reopened by users with write permission.
 
 ### Permissions
+
+Current WPF outsource processing cost API usage:
+
+- `OutsourceProcessingCostManagementView` uses cost target lookup, cost group list lookup, cost group create, cost group update, close, reopen, and cancel APIs.
+- The `Outsource Processing Cost Management` screen currently shows an `Excel download` button placeholder, but the button is disabled and no API is connected for processing-cost Excel download.
+- Processing-cost Excel download should be treated as a future feature, not as an active regression-test item.
 
 - `OUTSOURCE_PROCESSING_COSTS.VIEW`: view menu and data.
 - `OUTSOURCE_PROCESSING_COSTS.WRITE`: create, update, close, reopen, and cancel cost groups.

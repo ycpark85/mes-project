@@ -1,5 +1,53 @@
 # Database Architecture
 
+## SQLAlchemy Metadata Source
+
+The project uses one SQLAlchemy declarative metadata source.
+
+- `app.db.base.Base` is the only declarative `Base` definition.
+- Every model imports `Base` from `app.db.base`.
+- `app.core.db` imports and re-exports the same `Base` while creating the engine and session factory.
+- Alembic imports all models and uses `app.db.base.Base.metadata` as `target_metadata`.
+- Do not introduce another `DeclarativeBase` or `declarative_base()` instance. A second metadata registry can cause Alembic autogenerate to miss tables or report false create/drop changes.
+
+## Vendor Portal Access Tables
+
+External vendor access is scoped through dedicated vendor-portal tables instead of exposing the internal MES authorization surface directly.
+
+### `vendor_user_access`
+
+Maps an active MES user account to a vendor partner for vendor-portal access.
+
+Important columns:
+
+- `user_id`: linked MES user account.
+- `partner_id`: vendor partner the user is allowed to access.
+- `is_active`: soft enable/disable flag for vendor access.
+
+The table has a unique constraint on `user_id` and `partner_id` so the same vendor access grant cannot be duplicated.
+
+Operational maintenance:
+
+- Vendor access grants are maintained through the internal MES WPF 회원관리 menu.
+- Checking `외주업체 계정` and selecting a VENDOR partner creates or reactivates one `vendor_user_access` row for the user.
+- Other vendor access rows for that user are deactivated so a vendor account is scoped to one vendor partner at a time.
+- Unchecking `외주업체 계정` deactivates the user's vendor access rows.
+- The helper script for vendor account creation is limited to testing or emergency recovery.
+
+### `vendor_portal_audit_log`
+
+Append-only audit records for vendor-facing business actions.
+
+Important columns:
+
+- `user_id`: user who performed the action, retained as nullable if the user is later deleted.
+- `partner_id`: vendor scope used for the action.
+- `outsource_work_group_id`: affected Bohyun outsource work group when the action targets a work group.
+- `action_type`: examples include `VIEW_LIST`, `INBOUND`, `WORK_DONE`, and `SHIP`.
+- `before_status`, `after_status`: status transition context.
+- `request_ip`, `user_agent`: external access trace context.
+- `remark`: optional action context, such as work-done remarks.
+
 ## Raw Material Inventory Tables
 
 Raw materials are modeled separately from products so product inventory and raw material inventory can evolve independently.
