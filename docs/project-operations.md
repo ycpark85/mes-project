@@ -1,5 +1,12 @@
 # Project Operations
 
+## Alembic Schema Verification
+
+- SQLAlchemy model and Alembic migration changes are complete only when `alembic check` reports no pending upgrade operations against the target database.
+- Partial unique indexes that enforce business rules must be declared in model metadata as well as migrations; otherwise autogenerate may propose deleting them.
+- Migration `29d3e4f5a6b7` aligns plan-history lookup and active outsource-instruction uniqueness indexes.
+- Apply index replacement migrations in the V2 deployment maintenance window because normal PostgreSQL index creation briefly locks writes on the affected table.
+
 ## Authentication Session Revocation
 
 - Account deactivation is checked on every authenticated request and immediately blocks the account.

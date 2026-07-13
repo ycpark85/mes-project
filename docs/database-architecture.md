@@ -9,6 +9,18 @@ The project uses one SQLAlchemy declarative metadata source.
 - `app.core.db` imports and re-exports the same `Base` while creating the engine and session factory.
 - Alembic imports all models and uses `app.db.base.Base.metadata` as `target_metadata`.
 - Do not introduce another `DeclarativeBase` or `declarative_base()` instance. A second metadata registry can cause Alembic autogenerate to miss tables or report false create/drop changes.
+- Run `alembic check` after model or migration changes. A clean schema reports `No new upgrade operations detected`.
+
+## Business Index Alignment
+
+Business-critical indexes must be represented in both Alembic history and SQLAlchemy model metadata.
+
+- `ix_order_line_plan_history__order_line_latest` indexes `order_line_id`, `created_at DESC`, and `plan_history_id DESC`. It supports latest-plan lookup and ordered plan timelines without relying on the ineffective former `created_at`-only index.
+- `uq_owi_item__active_process_lot` is a partial unique index on `process_type` and `lot_id` where `is_active = true`. It is the database-level final defense against two active outsource instructions for the same process and LOT.
+- Canceled instruction items remain stored with `is_active = false`, so the same process and LOT can be registered again after cancellation.
+- The partial unique rule is also declared for SQLite tests, preventing the test environment from silently accepting data that PostgreSQL rejects.
+
+Migration `29d3e4f5a6b7` replaces the plan-history index. Standard index creation briefly takes a write lock on that table, so production rollout should apply it during the planned V2 maintenance window. The local database had 159 plan-history rows when the migration was verified.
 
 ## Authentication Session Version
 
