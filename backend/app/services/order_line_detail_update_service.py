@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
-
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from app.core.time import utc_now
 from app.crud.order_line import order_line_crud
 from app.models.order_line import OrderLine
 from app.schemas.order_line import OrderLineStatus
@@ -39,7 +38,7 @@ def update_order_line_detail_fields(
     order_line.due_date = payload.due_date
     order_line.order_qty = payload.order_qty
     order_line.memo = payload.memo
-    order_line.updated_at = datetime.now(timezone.utc)
+    order_line.updated_at = utc_now()
 
     db.add(order_line)
 

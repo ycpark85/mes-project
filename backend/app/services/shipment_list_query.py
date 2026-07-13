@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-from datetime import date, datetime, time, timezone
+from datetime import date
 from typing import Optional
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
+
+from app.core.time import korea_day_bounds_utc
 
 from app.models.lot import Lot
 from app.models.order_line import OrderLine
@@ -71,14 +73,14 @@ def list_shipments_for_grid(
 
     if status == "DONE":
         if shipped_from is not None:
-            shipped_from_dt = datetime.combine(shipped_from, time.min).replace(tzinfo=timezone.utc)
+            shipped_from_dt, _ = korea_day_bounds_utc(shipped_from)
             base = base.where(ShipmentLine.shipped_at >= shipped_from_dt)
             count_q = count_q.where(ShipmentLine.shipped_at >= shipped_from_dt)
 
         if shipped_to is not None:
-            shipped_to_dt = datetime.combine(shipped_to, time.max).replace(tzinfo=timezone.utc)
-            base = base.where(ShipmentLine.shipped_at <= shipped_to_dt)
-            count_q = count_q.where(ShipmentLine.shipped_at <= shipped_to_dt)
+            _, shipped_to_exclusive = korea_day_bounds_utc(shipped_to)
+            base = base.where(ShipmentLine.shipped_at < shipped_to_exclusive)
+            count_q = count_q.where(ShipmentLine.shipped_at < shipped_to_exclusive)
 
     total = int(db.execute(count_q).scalar_one() or 0)
 

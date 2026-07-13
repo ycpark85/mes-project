@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.time import to_korea_time, utc_now
 from app.models.inspection_schedule import InspectionSchedule
 from app.models.outsource_work_group import OutsourceWorkGroup
 from app.models.outsource_work_instruction_file import OutsourceWorkInstructionFile
@@ -38,7 +39,7 @@ def save_plate_data_file(
     content: bytes,
     uploaded_at: datetime | None = None,
 ) -> PlateDataUploadResult:
-    uploaded_at = uploaded_at or datetime.now()
+    uploaded_at = uploaded_at or utc_now()
     size_bytes = len(content)
 
     _validate_plate_data_upload(file_name, size_bytes)
@@ -164,9 +165,10 @@ def _validate_plate_data_upload(file_name: str, size_bytes: int) -> None:
 
 def _build_plate_data_path(filename: str, uploaded_at: datetime) -> Path:
     safe_name = _sanitize_filename(filename)
-    y = f"{uploaded_at.year:04d}"
-    m = f"{uploaded_at.month:02d}"
-    d = f"{uploaded_at.day:02d}"
+    uploaded_at_korea = to_korea_time(uploaded_at)
+    y = f"{uploaded_at_korea.year:04d}"
+    m = f"{uploaded_at_korea.month:02d}"
+    d = f"{uploaded_at_korea.day:02d}"
 
     root = Path(settings.PLATE_DATA_STORAGE_ROOT)
     folder = root / "plate_data" / y / m / d

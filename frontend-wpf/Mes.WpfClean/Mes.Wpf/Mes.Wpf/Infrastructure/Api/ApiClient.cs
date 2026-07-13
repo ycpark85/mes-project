@@ -11,7 +11,15 @@ namespace Mes.Wpf.Infrastructure.Api
 {
     public class ApiClient : IApiClient
     {
+        private static readonly JsonSerializerOptions JsonOptions = CreateJsonOptions();
         private readonly HttpClient _httpClient;
+
+        private static JsonSerializerOptions CreateJsonOptions()
+        {
+            var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+            options.Converters.Add(new KoreaDateTimeJsonConverter());
+            return options;
+        }
 
         public ApiClient(string baseUrl)
         {
@@ -99,7 +107,7 @@ namespace Mes.Wpf.Infrastructure.Api
                     };
                 }
 
-                var data = await response.Content.ReadFromJsonAsync<T>();
+                var data = await response.Content.ReadFromJsonAsync<T>(JsonOptions);
 
                 return new ApiResult<T>
                 {
@@ -134,7 +142,7 @@ namespace Mes.Wpf.Infrastructure.Api
                     };
                 }
 
-                var data = await response.Content.ReadFromJsonAsync<TResponse>();
+                var data = await response.Content.ReadFromJsonAsync<TResponse>(JsonOptions);
 
                 return new ApiResult<TResponse>
                 {
@@ -169,7 +177,7 @@ namespace Mes.Wpf.Infrastructure.Api
                     };
                 }
 
-                var data = await response.Content.ReadFromJsonAsync<TResponse>();
+                var data = await response.Content.ReadFromJsonAsync<TResponse>(JsonOptions);
 
                 return new ApiResult<TResponse>
                 {
@@ -209,7 +217,7 @@ namespace Mes.Wpf.Infrastructure.Api
                     };
                 }
 
-                var data = await response.Content.ReadFromJsonAsync<TResponse>();
+                var data = await response.Content.ReadFromJsonAsync<TResponse>(JsonOptions);
 
                 return new ApiResult<TResponse>
                 {
@@ -277,7 +285,7 @@ namespace Mes.Wpf.Infrastructure.Api
                     };
                 }
 
-                var data = await response.Content.ReadFromJsonAsync<TResponse>();
+                var data = await response.Content.ReadFromJsonAsync<TResponse>(JsonOptions);
 
                 return new ApiResult<TResponse>
                 {
@@ -317,7 +325,7 @@ namespace Mes.Wpf.Infrastructure.Api
                     };
                 }
 
-                var data = await response.Content.ReadFromJsonAsync<TResponse>();
+                var data = await response.Content.ReadFromJsonAsync<TResponse>(JsonOptions);
 
                 return new ApiResult<TResponse>
                 {

@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import date
 
 from fastapi import HTTPException
 from sqlalchemy import desc, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.time import korea_today, utc_now
 from app.crud.lot import lot_crud
 from app.crud.order_line import order_line_crud
 from app.models.lot import Lot
@@ -157,7 +158,7 @@ def create_primary_lot_for_order_line(
     if create_lot_qty <= 0:
         raise HTTPException(status_code=409, detail="LOT quantity must be greater than zero")
 
-    created_date = date.today()
+    created_date = korea_today()
 
     for _ in range(3):
         lot_no = _generate_lot_no(db, created_date, e_fixed="E")
@@ -241,7 +242,7 @@ def create_order_line_with_policy(db: Session, payload: OrderLineCreate) -> Orde
         obj.production_policy = OrderLineProductionPolicy.ALLOW_STOCK_BUILD.value
         obj.extra_production_qty = 0
         obj.decision_made = True
-        obj.decision_made_at = datetime.now(timezone.utc)
+        obj.decision_made_at = utc_now()
         obj.decision_made_by = actor
 
         create_primary_lot_for_order_line(
@@ -286,7 +287,7 @@ def create_order_line_with_policy(db: Session, payload: OrderLineCreate) -> Orde
         obj.production_policy = OrderLineProductionPolicy.ORDER_ONLY.value
         obj.extra_production_qty = 0
         obj.decision_made = True
-        obj.decision_made_at = datetime.now(timezone.utc)
+        obj.decision_made_at = utc_now()
         obj.decision_made_by = actor
 
         create_primary_lot_for_order_line(
@@ -326,7 +327,7 @@ def create_order_line_with_policy(db: Session, payload: OrderLineCreate) -> Orde
         obj.production_policy = OrderLineProductionPolicy.INVENTORY_ONLY_CLOSE.value
         obj.extra_production_qty = 0
         obj.decision_made = True
-        obj.decision_made_at = datetime.now(timezone.utc)
+        obj.decision_made_at = utc_now()
         obj.decision_made_by = actor
         obj.status = OrderLineStatus.DONE.value
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import tempfile
 import unittest
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 
@@ -64,7 +64,7 @@ class OutsourceWorkInstructionFileServiceTests(unittest.TestCase):
         self.engine.dispose()
 
     def test_save_plate_data_file_writes_file_to_dated_folder(self) -> None:
-        uploaded_at = datetime(2026, 1, 2, 3, 4, 5)
+        uploaded_at = datetime(2026, 1, 1, 16, 4, 5, tzinfo=timezone.utc)
 
         with tempfile.TemporaryDirectory() as tmpdir:
             with (

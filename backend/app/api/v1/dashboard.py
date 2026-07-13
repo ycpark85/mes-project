@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
+from app.core.time import korea_today
 from app.db.session import get_db
 from app.models.inspection_result import InspectionResult
 from app.models.inspection_schedule import InspectionSchedule
@@ -71,7 +72,7 @@ def get_dashboard_summary(
     to_date: Optional[date] = Query(None),
     db: Session = Depends(get_db),
 ):
-    today = date.today()
+    today = korea_today()
 
     from_date = from_date or _first_day_of_month(today)
     to_date = to_date or today

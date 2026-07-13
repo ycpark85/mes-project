@@ -8,6 +8,7 @@ from sqlalchemy import desc, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.time import korea_today
 from app.crud.lot import lot_crud
 from app.models.lot import Lot
 from app.models.lot_step import LotStep
@@ -27,7 +28,7 @@ def create_rework_lot(
     order_line = _ensure_order_line(db, payload.order_line_id)
     product = _ensure_active_product(db, order_line.product_id)
 
-    created_date = payload.created_date or date.today()
+    created_date = payload.created_date or korea_today()
     parent_lot_id = payload.parent_lot_id or None
     lot_qty = int(payload.lot_qty)
 

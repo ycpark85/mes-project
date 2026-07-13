@@ -7,7 +7,7 @@ import hashlib
 import hmac
 import json
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 from typing import Any
 
 from fastapi import Depends, HTTPException, status, Request
@@ -15,6 +15,7 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.time import utc_now
 from app.db.session import get_db
 from app.models.permission import Permission
 from app.models.role import Role
@@ -72,7 +73,7 @@ def verify_password(password: str, password_hash: str) -> bool:
 
 
 def create_access_token(user: User) -> str:
-    now = datetime.now(timezone.utc)
+    now = utc_now()
     expires_at = now + timedelta(minutes=settings.AUTH_ACCESS_TOKEN_EXPIRE_MINUTES)
 
     header = {
@@ -120,7 +121,7 @@ def decode_access_token(token: str) -> dict[str, Any]:
         if exp is None:
             raise ValueError("token exp missing")
 
-        now = int(datetime.now(timezone.utc).timestamp())
+        now = int(utc_now().timestamp())
         if now >= int(exp):
             raise ValueError("token expired")
 

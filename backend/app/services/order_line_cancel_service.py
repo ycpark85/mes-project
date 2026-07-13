@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
-
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.time import utc_now
 from app.crud.order_line import order_line_crud
 from app.models.lot import Lot
 from app.models.order_line import OrderLine
@@ -37,7 +36,7 @@ def cancel_order_line_status(db: Session, order_line_id: int) -> OrderLine:
         )
 
     order_line.status = OrderLineStatus.CANCELED.value
-    order_line.updated_at = datetime.now(timezone.utc)
+    order_line.updated_at = utc_now()
 
     db.add(order_line)
     db.flush()

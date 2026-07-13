@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import unittest
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from decimal import Decimal
 
 from fastapi import HTTPException
@@ -85,6 +85,7 @@ class OutsourceProcessingCostServiceTests(unittest.TestCase):
 
         self.assertEqual("CLOSED", cost_group.status)
         self.assertIsNotNone(cost_group.closed_at)
+        self.assertEqual(timezone.utc, cost_group.closed_at.tzinfo)
 
     def test_reopen_processing_cost_group_sets_draft(self) -> None:
         self._add_cost_group(
@@ -113,6 +114,7 @@ class OutsourceProcessingCostServiceTests(unittest.TestCase):
         cost_group = cancel_processing_cost_group(self.db, 1)
 
         self.assertEqual("CANCELED", cost_group.status)
+        self.assertEqual(timezone.utc, cost_group.canceled_at.tzinfo)
         self.assertIsNotNone(cost_group.canceled_at)
 
     def test_update_processing_cost_group_recalculates_allocations(self) -> None:

@@ -15,6 +15,7 @@ from app.core.auth import (
     verify_password,
 )
 from app.core.config import settings
+from app.core.time import utc_now
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.auth import (
@@ -81,7 +82,7 @@ def _raise_if_login_temporarily_blocked(
     login_id: str,
 ) -> None:
     client_ip = _client_ip_from_request(request)
-    now = datetime.now(timezone.utc)
+    now = utc_now()
     cutoff_at = now - timedelta(minutes=settings.AUTH_LOGIN_FAILURE_WINDOW_MINUTES)
 
     query = (
@@ -179,7 +180,7 @@ def login(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    user.last_login_at = datetime.now(timezone.utc)
+    user.last_login_at = utc_now()
     _write_auth_audit_log(
         db,
         event_type="LOGIN_SUCCESS",

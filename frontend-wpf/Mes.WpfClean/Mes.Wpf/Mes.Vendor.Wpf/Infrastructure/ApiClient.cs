@@ -9,7 +9,15 @@ namespace Mes.Vendor.Wpf.Infrastructure;
 
 public sealed class ApiClient
 {
+    private static readonly JsonSerializerOptions JsonOptions = CreateJsonOptions();
     private readonly HttpClient _httpClient;
+
+    private static JsonSerializerOptions CreateJsonOptions()
+    {
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        options.Converters.Add(new KoreaDateTimeJsonConverter());
+        return options;
+    }
 
     public ApiClient(string baseUrl)
     {
@@ -42,7 +50,7 @@ public sealed class ApiClient
                 return ApiResult<T>.Fail(await BuildErrorMessageAsync(response, "GET 요청 실패"));
             }
 
-            return ApiResult<T>.Ok(await response.Content.ReadFromJsonAsync<T>());
+            return ApiResult<T>.Ok(await response.Content.ReadFromJsonAsync<T>(JsonOptions));
         }
         catch (Exception ex)
         {
@@ -62,7 +70,7 @@ public sealed class ApiClient
                 return ApiResult<TResponse>.Fail(await BuildErrorMessageAsync(response, "POST 요청 실패"));
             }
 
-            return ApiResult<TResponse>.Ok(await response.Content.ReadFromJsonAsync<TResponse>());
+            return ApiResult<TResponse>.Ok(await response.Content.ReadFromJsonAsync<TResponse>(JsonOptions));
         }
         catch (Exception ex)
         {

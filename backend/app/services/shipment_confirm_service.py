@@ -1,11 +1,10 @@
 ﻿from __future__ import annotations
 
-from datetime import datetime, timezone
-
 from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.time import utc_now
 from app.models.lot import Lot
 from app.models.order_line import OrderLine
 from app.models.partner import Partner
@@ -172,7 +171,7 @@ def confirm_shipment_lines_in_session(
 
         line.shipped_qty = ship_qty
         line.status = "DONE"
-        line.shipped_at = datetime.now(timezone.utc)
+        line.shipped_at = utc_now()
 
         confirmed_ids.append(line.shipment_line_id)
         affected_order_line_ids.add(line.order_line_id)

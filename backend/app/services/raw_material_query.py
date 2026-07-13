@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-from datetime import date, datetime, time
+from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
+
+from app.core.time import korea_day_bounds_utc
 
 from app.models.partner import Partner
 from app.models.raw_material import RawMaterial
@@ -286,13 +288,13 @@ def list_raw_material_movements_for_grid(
         stmt = stmt.where(RawMaterialInventoryMovement.movement_type == normalized)
         count_stmt = count_stmt.where(RawMaterialInventoryMovement.movement_type == normalized)
     if date_from is not None:
-        from_dt = datetime.combine(date_from, time.min)
+        from_dt, _ = korea_day_bounds_utc(date_from)
         stmt = stmt.where(RawMaterialInventoryMovement.created_at >= from_dt)
         count_stmt = count_stmt.where(RawMaterialInventoryMovement.created_at >= from_dt)
     if date_to is not None:
-        to_dt = datetime.combine(date_to, time.max)
-        stmt = stmt.where(RawMaterialInventoryMovement.created_at <= to_dt)
-        count_stmt = count_stmt.where(RawMaterialInventoryMovement.created_at <= to_dt)
+        _, to_dt_exclusive = korea_day_bounds_utc(date_to)
+        stmt = stmt.where(RawMaterialInventoryMovement.created_at < to_dt_exclusive)
+        count_stmt = count_stmt.where(RawMaterialInventoryMovement.created_at < to_dt_exclusive)
 
     total = int(db.execute(count_stmt).scalar_one() or 0)
     rows = (

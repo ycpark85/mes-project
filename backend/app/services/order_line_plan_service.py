@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
-
 from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.time import utc_now
 from app.models.order_line import OrderLine
 from app.models.order_line_plan_history import OrderLinePlanHistory
 from app.models.partner import Partner
@@ -306,7 +305,7 @@ def update_order_line_fulfillment_plan_config(
         else int(payload.extra_production_qty or 0)
     )
     order_line.decision_made = True
-    order_line.decision_made_at = datetime.now(timezone.utc)
+    order_line.decision_made_at = utc_now()
 
     partner = db.get(Partner, order_line.partner_id)
     partner_name = partner.name if partner else ""
@@ -478,7 +477,7 @@ def confirm_order_line_plan_decision(
                 )
 
     order_line.decision_made = True
-    order_line.decision_made_at = datetime.now(timezone.utc)
+    order_line.decision_made_at = utc_now()
     order_line.decision_made_by = actor
 
     history = create_plan_history(

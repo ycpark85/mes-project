@@ -362,12 +362,22 @@ Product history monitoring is a product-to-LOT trace view.
 - Current outsource process control must use outsource work instruction groups, Bohyun inbound/work-done/shipment status, inspection schedule receive/start, and inspection result registration instead of manual LOT-step start/complete.
 - Keep `lot_step` rows as routing/process snapshots for LOT creation, detail display, and not-started checks, but do not use the legacy LOT-step APIs as the operational progress source.
 - `lot_step` rows remain part of the routing snapshot and history model even though the manual transition API no longer exists.
+
 - LOT trace detail assembly is handled by `lot_trace_query.py`, including LOT basics, latest order planning snapshot, current product stock, outsource work history, inspection totals, defects, and defect attachment image URLs.
 - The LOT router should keep the trace-detail endpoint limited to request handling and service delegation.
 - Manual rework LOT creation through `POST /api/v1/lots` is handled by `lot_rework_service.py`.
 - Rework LOT creation requires a selected primary parent LOT in `DONE` or `CANCELED` status, creates routing steps from the product routing template, and changes a `DONE` order line back to `CLOSED` so rework can proceed.
 - Manual confirmation should open LOT detail from LOT management and product history monitoring, then verify order/product fields, outsource work rows, inspection totals, defect rows, and defect image opening.
 - Manual rework confirmation should create a rework LOT from an eligible parent LOT and verify the new child LOT appears with generated LOT number, copied routing steps, and parent LOT linkage.
+
+## Time Policy
+
+- Persisted event timestamps are created as timezone-aware UTC values.
+- PostgreSQL `timestamp with time zone` columns store the instant independently of the database session display timezone.
+- Existing timestamps are not shifted because the current PostgreSQL `Asia/Seoul` session already interpreted older naive values as Korea local time.
+- Business calendar dates such as LOT creation date, inspection date, order date, and due date remain date-only values based on the Korea business day.
+- Date-range filters over event timestamps convert Korea midnight boundaries to UTC and use a half-open range (`start <= value < next day`).
+- MES and vendor WPF API clients convert timestamp values carrying `Z` or an explicit offset to Korea time when deserializing. Date-only JSON values are left unchanged.
 
 ## Refactoring Closure
 

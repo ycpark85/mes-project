@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import unittest
-from datetime import date
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from unittest.mock import patch
 
@@ -58,12 +58,15 @@ class BohyunOutsourceServiceTests(unittest.TestCase):
 
     def test_inbound_waiting_group_sets_vendor_received(self) -> None:
         self._add_work_group(group_id=1, status=None)
+        now = datetime(2026, 7, 13, 2, 0, tzinfo=timezone.utc)
 
-        service.inbound_bohyun_outsource_group(self.db, 1)
+        with patch.object(service, "utc_now", return_value=now) as utc_now_mock:
+            service.inbound_bohyun_outsource_group(self.db, 1)
 
         work_group = self.db.get(OutsourceWorkGroup, 1)
         self.assertEqual(service.BOHYUN_DB_STATUS_VENDOR_RECEIVED, work_group.status)
         self.assertIsNotNone(work_group.vendor_received_at)
+        utc_now_mock.assert_called_once_with()
         self.refresh_mock.assert_called_once_with(self.db, {1})
 
     def test_inbound_rejects_already_work_done_group(self) -> None:
@@ -95,13 +98,15 @@ class BohyunOutsourceServiceTests(unittest.TestCase):
             cuts_per_sheet=3,
         )
 
-        service.complete_bohyun_outsource_group_work(
-            self.db,
-            1,
-            work_done_sheet_qty=7,
-            outsource_processing_fee=Decimal("1234.00"),
-            remark="normal",
-        )
+        now = datetime(2026, 7, 13, 2, 0, tzinfo=timezone.utc)
+        with patch.object(service, "utc_now", return_value=now) as utc_now_mock:
+            service.complete_bohyun_outsource_group_work(
+                self.db,
+                1,
+                work_done_sheet_qty=7,
+                outsource_processing_fee=Decimal("1234.00"),
+                remark="normal",
+            )
 
         work_group = self.db.get(OutsourceWorkGroup, 1)
         group_item = self.db.get(OutsourceWorkGroupItem, 1001)
@@ -111,6 +116,7 @@ class BohyunOutsourceServiceTests(unittest.TestCase):
         self.assertEqual("normal", work_group.work_done_remark)
         self.assertEqual(21, group_item.actual_output_qty)
         self.assertIsNotNone(work_group.work_done_at)
+        utc_now_mock.assert_called_once_with()
 
     def test_ship_requires_work_done_group(self) -> None:
         self._add_work_group(group_id=1, status=service.BOHYUN_DB_STATUS_VENDOR_RECEIVED)
@@ -122,12 +128,15 @@ class BohyunOutsourceServiceTests(unittest.TestCase):
 
     def test_ship_sets_shipped_status(self) -> None:
         self._add_work_group(group_id=1, status=service.BOHYUN_DB_STATUS_WORK_DONE)
+        now = datetime(2026, 7, 13, 2, 0, tzinfo=timezone.utc)
 
-        service.ship_bohyun_outsource_groups(self.db, [1])
+        with patch.object(service, "utc_now", return_value=now) as utc_now_mock:
+            service.ship_bohyun_outsource_groups(self.db, [1])
 
         work_group = self.db.get(OutsourceWorkGroup, 1)
         self.assertEqual(service.BOHYUN_DB_STATUS_SHIPPED, work_group.status)
         self.assertIsNotNone(work_group.shipped_at)
+        utc_now_mock.assert_called_once_with()
         self.refresh_mock.assert_called_once_with(self.db, [1])
 
     def test_canceled_group_cannot_be_processed(self) -> None:

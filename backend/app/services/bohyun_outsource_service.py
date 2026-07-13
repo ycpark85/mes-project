@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date
 from decimal import Decimal
 from typing import Iterable
 
 from fastapi import HTTPException
 from sqlalchemy import exists, or_, select
 from sqlalchemy.orm import Session
+
+from app.core.time import utc_now
 
 from app.models.lot import Lot
 from app.models.order_line import OrderLine
@@ -271,7 +273,7 @@ def inbound_bohyun_outsource_group(db: Session, group_id: int) -> None:
         )
 
     work_group.status = BOHYUN_DB_STATUS_VENDOR_RECEIVED
-    work_group.vendor_received_at = datetime.now()
+    work_group.vendor_received_at = utc_now()
 
     refresh_order_line_snapshots_for_work_groups(
         db,
@@ -332,7 +334,7 @@ def complete_bohyun_outsource_group_work(
         group_item.actual_output_qty = work_done_sheet_qty * group_item.cuts_per_sheet
 
     work_group.status = BOHYUN_DB_STATUS_WORK_DONE
-    work_group.work_done_at = datetime.now()
+    work_group.work_done_at = utc_now()
     work_group.work_done_sheet_qty = work_done_sheet_qty
     work_group.outsource_processing_fee = outsource_processing_fee
     work_group.work_done_remark = remark
@@ -387,7 +389,7 @@ def ship_bohyun_outsource_groups(db: Session, group_ids: Iterable[int]) -> None:
             detail="Only work done groups can be shipped",
         )
 
-    now = datetime.now()
+    now = utc_now()
 
     for work_group in work_groups:
         work_group.status = BOHYUN_DB_STATUS_SHIPPED

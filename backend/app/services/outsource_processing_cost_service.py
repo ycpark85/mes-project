@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from datetime import datetime
-
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
+
+from app.core.time import utc_now
 
 from app.models.outsource_processing_cost_group import OutsourceProcessingCostGroup
 from app.models.outsource_processing_cost_work_group import (
@@ -154,7 +154,7 @@ def close_processing_cost_group(
         raise HTTPException(status_code=409, detail="실제가공비 입력 후 마감할 수 있습니다.")
 
     cost_group.status = "CLOSED"
-    cost_group.closed_at = datetime.now()
+    cost_group.closed_at = utc_now()
 
     return cost_group
 
@@ -184,6 +184,6 @@ def cancel_processing_cost_group(
         return cost_group
 
     cost_group.status = "CANCELED"
-    cost_group.canceled_at = datetime.now()
+    cost_group.canceled_at = utc_now()
 
     return cost_group

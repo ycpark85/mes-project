@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime
 from typing import Optional, Sequence
 
 from fastapi import HTTPException
@@ -8,6 +8,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.time import utc_now
 from app.models.defect_type import DefectType
 from app.models.inspection_defect import InspectionDefect
 from app.models.inspection_defect_attachment import InspectionDefectAttachment
@@ -30,7 +31,7 @@ from app.services.production_daily_query import (
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return utc_now()
 
 
 def _get_prior_result_totals(

@@ -7,6 +7,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
+from app.core.time import korea_today
 from app.models.inspection_result import InspectionResult
 from app.models.inspection_schedule import InspectionSchedule
 from app.models.lot import Lot
@@ -266,7 +267,7 @@ def get_or_create_shipment_coa(db: Session, order_line_id: int) -> ShipmentCoa:
     elif shipped_dates:
         inspection_date_snapshot = max(shipped_dates)
     else:
-        inspection_date_snapshot = date.today()
+        inspection_date_snapshot = korea_today()
 
     is_printed_product_snapshot = _is_printed_product(
         db,

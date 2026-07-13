@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date
 
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
+
+from app.core.time import korea_today, utc_now
 
 from app.models.inspection_result import InspectionResult
 from app.models.inspection_schedule import InspectionSchedule
@@ -113,7 +115,7 @@ def list_production_daily_rows(
         .all()
     )
 
-    today = date.today()
+    today = korea_today()
     return [_snapshot_to_row(row, today=today) for row in rows], total
 
 
@@ -141,7 +143,7 @@ def refresh_order_line_snapshot(db: Session, order_line_id: int) -> bool:
     else:
         for key, value in data.items():
             setattr(snapshot, key, value)
-        snapshot.updated_at = datetime.now()
+        snapshot.updated_at = utc_now()
 
     db.flush()
     return True

@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime
 from decimal import Decimal
 
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.time import utc_now
 from app.models.inspection_schedule import InspectionSchedule
 from app.models.outsource_work_group import OutsourceWorkGroup
 from app.models.outsource_work_group_change_log import OutsourceWorkGroupChangeLog
@@ -134,7 +135,7 @@ def cancel_work_group(
     _cancel_linked_inspection_schedules(db, work_group)
 
     work_group.status = OUTSOURCE_WORK_GROUP_STATUS_CANCELED
-    work_group.canceled_at = datetime.now(timezone.utc)
+    work_group.canceled_at = utc_now()
     work_group.canceled_reason = reason
 
     group_lot_ids = [

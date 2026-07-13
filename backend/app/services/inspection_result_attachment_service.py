@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
 from typing import BinaryIO
 from uuid import uuid4
@@ -11,6 +10,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.time import korea_now
 from app.models.inspection_defect_attachment import InspectionDefectAttachment
 from app.models.inspection_schedule import InspectionSchedule
 
@@ -122,7 +122,7 @@ def _save_defect_photo(
 
     target_dir.mkdir(parents=True, exist_ok=True)
 
-    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    ts = korea_now().strftime("%Y%m%d_%H%M%S")
     original = _safe_filename(file_name or f"file.{ext}")
     final_name = f"{ts}_{uuid4().hex[:8]}_{original}"
     abs_path = target_dir / final_name

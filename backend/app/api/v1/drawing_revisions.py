@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 import re
 from pathlib import Path
-from datetime import datetime
 
 from fastapi import (
     APIRouter,
@@ -23,6 +22,7 @@ from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 
 from app.db.session import get_db
+from app.core.time import korea_now
 from app.core.config import settings
 from app.models.drawing import Drawing
 from app.models.drawing_revision import DrawingRevision
@@ -135,7 +135,7 @@ def _save_upload_file(*, file: UploadFile, target_dir: Path) -> tuple[str, int |
 
     target_dir.mkdir(parents=True, exist_ok=True)
 
-    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    ts = korea_now().strftime("%Y%m%d_%H%M%S")
     original = _safe_filename(file.filename or f"file.{ext}")
     final_name = f"{ts}_{uuid4().hex[:8]}_{original}"
     abs_path = target_dir / final_name

@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
-from zoneinfo import ZoneInfo
+from datetime import date, datetime
 
 from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.time import korea_today, utc_now
 from app.models.inspection_schedule import InspectionSchedule
 from app.models.lot import Lot
 from app.models.order_line import OrderLine
@@ -157,7 +157,7 @@ def update_inspection_schedule(
         )
 
     if payload.inspection_date is not None and payload.inspection_date != schedule.inspection_date:
-        today_kst = today or datetime.now(ZoneInfo("Asia/Seoul")).date()
+        today_kst = today or korea_today()
         if payload.inspection_date < today_kst:
             raise HTTPException(
                 status_code=409,
@@ -268,7 +268,7 @@ def start_inspection_schedule(
     if schedule.status != "RECEIVED":
         raise HTTPException(status_code=409, detail="Only RECEIVED schedule can be started")
 
-    today_kst = today or datetime.now(ZoneInfo("Asia/Seoul")).date()
+    today_kst = today or korea_today()
     if schedule.inspection_date != today_kst:
         raise HTTPException(
             status_code=409,
@@ -563,4 +563,4 @@ def _sync_order_line_status_from_lot(db: Session, *, lot: Lot) -> None:
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return utc_now()
