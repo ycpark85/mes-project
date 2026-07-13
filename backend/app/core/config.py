@@ -25,6 +25,8 @@ class Settings(BaseSettings):
 
     MES_ADMIN_LOGIN_ID: str = Field(default="admin")
     MES_ADMIN_PASSWORD: str | None = Field(default=None)
+
+    VENDOR_PORTAL_BOHYUN_PARTNER_ID: int | None = Field(default=None)
     
     BACKEND_ALLOWED_HOSTS: Set[str] = Field(default_factory=set)
 

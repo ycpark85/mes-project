@@ -6,20 +6,27 @@ from datetime import date, datetime
 import re
 from typing import Optional
 
+from fastapi import HTTPException
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models.order_line import OrderLine
 from app.models.partner import Partner
 from app.models.product import Product
 from app.schemas.order_line import (
+    OrderLineBulkCommitGroupResult,
+    OrderLineBulkCommitRequest,
+    OrderLineBulkCommitResult,
     OrderLineBulkImportRowIn,
+    OrderLineCreate,
     OrderLineBulkValidateGroupOut,
     OrderLineBulkValidateMessage,
     OrderLineBulkValidateRequest,
     OrderLineBulkValidateResult,
     OrderLineBulkValidateRowOut,
 )
+from app.services.order_line_creation_service import create_order_line_with_policy
 
 
 _ORDER_NO_PATTERN = re.compile(r"^\s*(\d{4}/\d{2}/\d{2})\s*-\s*\d+\s*$")
@@ -75,6 +82,126 @@ class _ResolvedRow:
 
 
 class OrderLineBulkService:
+    def commit_bulk(
+        self,
+        db: Session,
+        payload: OrderLineBulkCommitRequest,
+    ) -> OrderLineBulkCommitResult:
+        validation = self.validate_bulk(
+            db,
+            OrderLineBulkValidateRequest(items=payload.items),
+        )
+
+        items_by_order_no: dict[str, list[OrderLineBulkImportRowIn]] = defaultdict(list)
+        for item in payload.items:
+            items_by_order_no[item.erp_order_no.strip()].append(item)
+
+        choice_map = {
+            item.row_number: item.apply_product_name_change
+            for item in payload.row_choices
+        }
+
+        results: list[OrderLineBulkCommitGroupResult] = []
+        success_group_count = 0
+        failure_group_count = 0
+
+        for group in validation.groups:
+            if not group.can_commit:
+                failure_group_count += 1
+                results.append(
+                    OrderLineBulkCommitGroupResult(
+                        erp_order_no=group.erp_order_no,
+                        status="ERROR",
+                        message="검증 오류가 있어 등록할 수 없습니다.",
+                        created_order_line_ids=[],
+                    )
+                )
+                continue
+
+            try:
+                created_ids: list[int] = []
+
+                with db.begin_nested():
+                    self._validate_product_name_change_choices(group, choice_map)
+
+                    group_memo = self._build_group_memo(items_by_order_no, group.erp_order_no)
+
+                    for row in group.rows:
+                        if row.status == "ERROR":
+                            raise HTTPException(
+                                status_code=409,
+                                detail=f"row_number={row.row_number} 검증 오류로 등록할 수 없습니다.",
+                            )
+
+                        if choice_map.get(row.row_number, False) and row.product_name_mismatch:
+                            product = db.get(Product, row.product_id)
+                            if product is None or not product.is_active:
+                                raise HTTPException(
+                                    status_code=404,
+                                    detail=f"row_number={row.row_number} 품목을 찾을 수 없습니다.",
+                                )
+
+                            if row.parsed_product_name:
+                                product.product_name = row.parsed_product_name
+                            product.product_spec = row.parsed_product_spec
+
+                            db.add(product)
+                            db.flush()
+
+                        create_payload = OrderLineCreate(
+                            order_no=row.erp_order_no,
+                            line_no=row.line_no,
+                            partner_id=row.partner_id,
+                            product_id=row.product_id,
+                            order_date=row.order_date,
+                            due_date=row.due_date,
+                            order_qty=row.order_qty,
+                            uom="",
+                            customer_po=None,
+                            memo=group_memo,
+                        )
+
+                        created = create_order_line_with_policy(db, create_payload)
+                        created_ids.append(created.order_line_id)
+
+                success_group_count += 1
+                results.append(
+                    OrderLineBulkCommitGroupResult(
+                        erp_order_no=group.erp_order_no,
+                        status="SUCCESS",
+                        message=None,
+                        created_order_line_ids=created_ids,
+                    )
+                )
+
+            except HTTPException as exc:
+                failure_group_count += 1
+                results.append(
+                    OrderLineBulkCommitGroupResult(
+                        erp_order_no=group.erp_order_no,
+                        status="ERROR",
+                        message=str(exc.detail),
+                        created_order_line_ids=[],
+                    )
+                )
+            except IntegrityError:
+                failure_group_count += 1
+                results.append(
+                    OrderLineBulkCommitGroupResult(
+                        erp_order_no=group.erp_order_no,
+                        status="ERROR",
+                        message="Duplicate order_no+line_no or integrity error",
+                        created_order_line_ids=[],
+                    )
+                )
+
+        return OrderLineBulkCommitResult(
+            total_group_count=len(validation.groups),
+            success_group_count=success_group_count,
+            failure_group_count=failure_group_count,
+            groups=results,
+        )
+
     def validate_bulk(
         self,
         db: Session,
@@ -179,6 +306,53 @@ class OrderLineBulkService:
         row.due_date = self._parse_date(row.due_date_text, "due_date_text", "납기일자", row)
 
         return row
+
+    def _build_group_memo(
+        self,
+        items_by_order_no: dict[str, list[OrderLineBulkImportRowIn]],
+        erp_order_no: str,
+    ) -> str | None:
+        remarks: list[str] = []
+
+        for item in items_by_order_no.get(erp_order_no, []):
+            remark = (item.remark or "").strip()
+            if remark and remark not in remarks:
+                remarks.append(remark)
+
+        if not remarks:
+            return None
+
+        if len(remarks) == 1:
+            return remarks[0]
+
+        return "\n".join(remarks)
+
+    def _validate_product_name_change_choices(self, group, choice_map: dict[int, bool]) -> None:
+        product_updates: dict[int, set[tuple[str | None, str | None]]] = defaultdict(set)
+
+        for row in group.rows:
+            if not choice_map.get(row.row_number, False):
+                continue
+
+            if not row.product_name_mismatch:
+                continue
+
+            if not row.can_apply_product_name_change:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"row_number={row.row_number} 품목명 변경 반영이 불가능합니다.",
+                )
+
+            product_updates[row.product_id].add(
+                (row.parsed_product_name, row.parsed_product_spec)
+            )
+
+        for product_id, values in product_updates.items():
+            if len(values) > 1:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"같은 품목(product_id={product_id})에 서로 다른 품목명 변경이 동시에 요청되었습니다.",
+                )
 
     def _resolve_partner(self, db: Session, row: _ResolvedRow) -> None:
         normalized_name = row.raw_partner_name.strip().upper()

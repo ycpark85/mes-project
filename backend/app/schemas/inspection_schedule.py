@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class InspectionScheduleCreate(BaseModel):
@@ -17,6 +17,8 @@ class InspectionScheduleCreate(BaseModel):
 
 
 class InspectionScheduleOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     inspection_schedule_id: int
     lot_id: int
     outsource_work_group_id: Optional[int] = None
@@ -33,13 +35,8 @@ class InspectionScheduleOut(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
-
-
 class InspectionScheduleUpdate(BaseModel):
     inspection_date: Optional[date] = None
-    memo: Optional[str] = None
 
 
 class InspectionScheduleReorderIn(BaseModel):
@@ -48,6 +45,8 @@ class InspectionScheduleReorderIn(BaseModel):
 
 
 class InspectionScheduleListItemOut(BaseModel):
+    model_config = ConfigDict(from_attributes=False)
+
     inspection_schedule_id: int
     lot_id: int
     lot_no: str
@@ -75,9 +74,6 @@ class InspectionScheduleListItemOut(BaseModel):
     order_qty: int
     ship_qty: int
     memo: Optional[str] = None
-
-    class Config:
-        from_attributes = False
 
 class InspectionWorkInstructionTargetOut(BaseModel):
     lot_id: int

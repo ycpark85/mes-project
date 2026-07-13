@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class AuthLoginRequest(BaseModel):
@@ -16,6 +16,8 @@ class AuthChangePasswordRequest(BaseModel):
 
 
 class AuthUserOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     user_id: int
     login_id: str
     user_name: str
@@ -25,18 +27,12 @@ class AuthUserOut(BaseModel):
     password_change_required: bool = False
     last_login_at: datetime | None = None
 
-    class Config:
-        from_attributes = True
-
-
 class AuthRoleOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     role_id: int
     role_code: str
     role_name: str
-
-    class Config:
-        from_attributes = True
-
 
 class AuthContextOut(BaseModel):
     user: AuthUserOut

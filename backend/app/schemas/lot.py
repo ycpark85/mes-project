@@ -4,10 +4,12 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional, List
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class LotStepOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     lot_step_id: int
     step_seq: int
     process_id: int
@@ -17,10 +19,6 @@ class LotStepOut(BaseModel):
     status: str
     started_at: Optional[datetime] = None
     ended_at: Optional[datetime] = None
-
-    class Config:
-        from_attributes = True
-
 
 class LotCreate(BaseModel):
     """
@@ -40,6 +38,8 @@ class LotCreate(BaseModel):
 
 
 class LotOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     lot_id: int
     lot_no: str
     order_line_id: int
@@ -79,10 +79,6 @@ class LotOut(BaseModel):
     lot_type: Optional[str] = None
     lot_type_display: Optional[str] = None
     
-    class Config:
-        from_attributes = True
-
-
 class LotDetailOut(LotOut):
     steps: List[LotStepOut] = []
 

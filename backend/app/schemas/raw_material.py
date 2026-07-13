@@ -4,7 +4,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class RawMaterialCreate(BaseModel):
@@ -31,6 +31,8 @@ class RawMaterialUpdate(BaseModel):
 
 
 class RawMaterialOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     raw_material_id: int
     material_code: str
     material_name: str
@@ -44,10 +46,6 @@ class RawMaterialOut(BaseModel):
     current_qty: Decimal = Decimal("0")
     created_at: datetime
     updated_at: datetime
-
-    class Config:
-        from_attributes = True
-
 
 class RawMaterialListOut(BaseModel):
     items: list[RawMaterialOut]
@@ -74,6 +72,8 @@ class RawMaterialLocationUpdate(BaseModel):
 
 
 class RawMaterialLocationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     raw_material_location_id: int
     location_code: str
     location_name: str
@@ -85,10 +85,6 @@ class RawMaterialLocationOut(BaseModel):
     current_qty: Decimal = Decimal("0")
     created_at: datetime
     updated_at: datetime
-
-    class Config:
-        from_attributes = True
-
 
 class RawMaterialLocationListOut(BaseModel):
     items: list[RawMaterialLocationOut]
@@ -125,6 +121,8 @@ class RawMaterialInventoryLotListOut(BaseModel):
 
 
 class RawMaterialMovementOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     raw_material_inventory_movement_id: int
     raw_material_id: int
     raw_material_location_id: int
@@ -143,10 +141,6 @@ class RawMaterialMovementOut(BaseModel):
     transfer_key: Optional[str] = None
     memo: Optional[str] = None
     created_at: datetime
-
-    class Config:
-        from_attributes = True
-
 
 class RawMaterialMovementListOut(BaseModel):
     items: list[RawMaterialMovementOut]

@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ShipmentLineOut(BaseModel):
@@ -40,8 +40,7 @@ class ShipmentLineOut(BaseModel):
     created_at: datetime
     shipped_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ShipmentLineListOut(BaseModel):

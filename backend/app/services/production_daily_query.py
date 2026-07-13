@@ -394,7 +394,7 @@ def _load_work_statuses_by_lot(db: Session, lot_ids: list[int]) -> dict[int, lis
     if not lot_ids:
         return {}
 
-    statuses_by_lot: dict[int, list[str | None]] = defaultdict(list)
+    group_statuses_by_lot: dict[int, list[str | None]] = defaultdict(list)
 
     group_rows = (
         db.execute(
@@ -412,7 +412,7 @@ def _load_work_statuses_by_lot(db: Session, lot_ids: list[int]) -> dict[int, lis
         .all()
     )
     for lot_id, status in group_rows:
-        statuses_by_lot[int(lot_id)].append(status)
+        group_statuses_by_lot[int(lot_id)].append(status)
 
     instruction_lot_ids = (
         db.execute(
@@ -432,13 +432,23 @@ def _load_work_statuses_by_lot(db: Session, lot_ids: list[int]) -> dict[int, lis
         )
         .all()
     )
+    purchase_order_statuses_by_lot: dict[int, list[str | None]] = defaultdict(list)
     for lot_id, status in purchase_order_rows:
-        statuses_by_lot[int(lot_id)].append(status)
+        purchase_order_statuses_by_lot[int(lot_id)].append(status)
 
-    for lot_id in instruction_lot_ids:
+    statuses_by_lot: dict[int, list[str | None]] = {}
+    instruction_lot_id_set = {int(lot_id) for lot_id in instruction_lot_ids}
+
+    for lot_id in lot_ids:
         normalized_lot_id = int(lot_id)
-        if normalized_lot_id not in statuses_by_lot:
-            statuses_by_lot[normalized_lot_id].append(None)
+        if group_statuses_by_lot.get(normalized_lot_id):
+            statuses_by_lot[normalized_lot_id] = group_statuses_by_lot[normalized_lot_id]
+        elif purchase_order_statuses_by_lot.get(normalized_lot_id):
+            statuses_by_lot[normalized_lot_id] = purchase_order_statuses_by_lot[
+                normalized_lot_id
+            ]
+        elif normalized_lot_id in instruction_lot_id_set:
+            statuses_by_lot[normalized_lot_id] = [None]
 
     return statuses_by_lot
 

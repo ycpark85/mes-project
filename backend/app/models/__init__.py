@@ -46,6 +46,8 @@ from .permission import Permission
 from .role_permission import RolePermission
 from .shipment_coa import ShipmentCoa
 from .auth_audit_log import AuthAuditLog
+from .vendor_user_access import VendorUserAccess
+from .vendor_portal_audit_log import VendorPortalAuditLog
 
 __all__ = [
     "Process", 
@@ -95,5 +97,7 @@ __all__ = [
     "Permission",
     "RolePermission",
     "ShipmentCoa",
-    "AuthAuditLog"
+    "AuthAuditLog",
+    "VendorUserAccess",
+    "VendorPortalAuditLog"
 ]

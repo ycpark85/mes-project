@@ -11,6 +11,8 @@ from app.models.inspection_schedule import InspectionSchedule
 from app.models.lot import Lot
 from app.models.lot_step import LotStep
 from app.models.order_line import OrderLine
+from app.models.outsource_work_group import OutsourceWorkGroup
+from app.models.outsource_work_group_item import OutsourceWorkGroupItem
 from app.models.partner import Partner
 from app.models.product import Product
 
@@ -19,6 +21,8 @@ from app.models.product import Product
 def _build_lot_list_status(
     lot_status: str,
     inspection_status: Optional[str],
+    *,
+    has_active_outsource_work: bool = False,
 ) -> tuple[str, str]:
     if lot_status == "CANCELED" or inspection_status == "CANCELED":
         return "CANCELED", "취소"
@@ -29,7 +33,7 @@ def _build_lot_list_status(
     if inspection_status in ("RECEIVED", "IN_PROGRESS", "PARTIAL_DONE"):
         return "INSPECTION_WAITING", "검수대기"
 
-    if lot_status == "IN_PROGRESS":
+    if lot_status == "IN_PROGRESS" or has_active_outsource_work:
         return "IN_PROGRESS", "진행중"
 
     if lot_status == "WAITING":
@@ -82,6 +86,22 @@ class LotCRUD:
             )
             .subquery()
         )
+        active_outsource_lot_subq = (
+            select(OutsourceWorkGroupItem.lot_id.label("lot_id"))
+            .join(
+                OutsourceWorkGroup,
+                OutsourceWorkGroup.outsource_work_group_id
+                == OutsourceWorkGroupItem.outsource_work_group_id,
+            )
+            .where(
+                or_(
+                    OutsourceWorkGroup.status.is_(None),
+                    OutsourceWorkGroup.status != "CANCELED",
+                )
+            )
+            .distinct()
+            .subquery()
+        )
 
         stmt = (
             select(
@@ -96,6 +116,7 @@ class LotCRUD:
                 OrderLine.order_qty.label("order_qty"),
                 latest_inspection_subq.c.inspection_schedule_id.label("inspection_schedule_id"),
                 latest_inspection_subq.c.inspection_status.label("inspection_status"),
+                active_outsource_lot_subq.c.lot_id.label("active_outsource_lot_id"),
             )
             .join(OrderLine, OrderLine.order_line_id == Lot.order_line_id)
             .join(Partner, Partner.partner_id == OrderLine.partner_id)
@@ -106,6 +127,10 @@ class LotCRUD:
                     latest_inspection_subq.c.lot_id == Lot.lot_id,
                     latest_inspection_subq.c.rn == 1,
                 ),
+            )
+            .outerjoin(
+                active_outsource_lot_subq,
+                active_outsource_lot_subq.c.lot_id == Lot.lot_id,
             )
         )
 
@@ -119,15 +144,28 @@ class LotCRUD:
 
         if status:
             if status == "CREATED":
-                conds.append(Lot.status == "WAITING")
+                conds.append(
+                    and_(
+                        Lot.status == "WAITING",
+                        active_outsource_lot_subq.c.lot_id.is_(None),
+                        or_(
+                            latest_inspection_subq.c.inspection_status.is_(None),
+                            latest_inspection_subq.c.inspection_status == "WAITING",
+                        ),
+                    )
+                )
 
             elif status == "IN_PROGRESS":
                 conds.append(
                     and_(
-                        Lot.status == "IN_PROGRESS",
+                        Lot.status.notin_(("DONE", "CANCELED")),
                         or_(
                             latest_inspection_subq.c.inspection_status.is_(None),
                             latest_inspection_subq.c.inspection_status == "WAITING",
+                        ),
+                        or_(
+                            Lot.status == "IN_PROGRESS",
+                            active_outsource_lot_subq.c.lot_id.is_not(None),
                         ),
                     )
                 )
@@ -205,6 +243,10 @@ class LotCRUD:
                     latest_inspection_subq.c.rn == 1,
                 ),
             )
+            .outerjoin(
+                active_outsource_lot_subq,
+                active_outsource_lot_subq.c.lot_id == Lot.lot_id,
+            )
         )
         if conds:
             count_stmt = count_stmt.where(*conds)
@@ -234,10 +276,12 @@ class LotCRUD:
               order_qty,
               inspection_schedule_id,
               inspection_status,
+              active_outsource_lot_id,
         ) in rows:
             list_status, list_status_display = _build_lot_list_status(
                 lot.status,
                 inspection_status,
+                has_active_outsource_work=active_outsource_lot_id is not None,
             )
 
             lot_type = "REWORK" if lot.parent_lot_id is not None else "PRIMARY"

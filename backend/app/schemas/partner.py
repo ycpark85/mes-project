@@ -1,5 +1,5 @@
 from enum import Enum
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class PartnerType(str, Enum):
@@ -21,8 +21,7 @@ class PartnerOut(BaseModel):
     business_no: str | None
     is_active: bool
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PartnerListOut(BaseModel):

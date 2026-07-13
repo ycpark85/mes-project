@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-from datetime import date
-from typing import Optional, Tuple, List
+from typing import Optional
 
 from sqlalchemy.orm import Session
 
 from app.models.order_line import OrderLine
-from app.services.order_line_list_query import list_order_lines_for_grid
 
 
 class OrderLineCRUD:
@@ -31,39 +29,6 @@ class OrderLineCRUD:
         db.flush()
         db.refresh(obj)
         return obj
-
-    def list_with_search(
-        self,
-        db: Session,
-        *,
-        page: int,
-        size: int,
-        q: Optional[str] = None,
-        status: Optional[str] = None,
-        status_group: Optional[str] = None,
-        is_active: Optional[bool] = True,
-        partner_id: Optional[int] = None,
-        product_id: Optional[int] = None,
-        order_date_from: Optional[date] = None,
-        order_date_to: Optional[date] = None,
-        due_date_from: Optional[date] = None,
-        due_date_to: Optional[date] = None,
-    ) -> Tuple[List[dict], int]:
-        return list_order_lines_for_grid(
-            db,
-            page=page,
-            size=size,
-            q=q,
-            status=status,
-            status_group=status_group,
-            is_active=is_active,
-            partner_id=partner_id,
-            product_id=product_id,
-            order_date_from=order_date_from,
-            order_date_to=order_date_to,
-            due_date_from=due_date_from,
-            due_date_to=due_date_to,
-        )
 
 
 order_line_crud = OrderLineCRUD()

@@ -13,6 +13,7 @@ from app.schemas.partner import (
     PartnerUpdate,
     PartnerBulkCreateRequest,
     PartnerBulkCreateResult,
+    PartnerType,
 )
 from app.services.bulk.partner_bulk_service import partner_bulk_service
 
@@ -85,12 +86,16 @@ def list_partners(
     size: int = Query(20, ge=1, le=100),
     q: str | None = Query(None),
     is_active: bool | None = Query(True),
+    partner_type: PartnerType | None = Query(None),
     db: Session = Depends(get_db),
 ):
     base = db.query(Partner)
 
     if is_active is not None:
         base = base.filter(Partner.is_active == is_active)
+
+    if partner_type is not None:
+        base = base.filter(Partner.partner_type == partner_type.value)
 
     if q:
         like = f"%{q}%"

@@ -13,7 +13,6 @@ from app.api.v1.drawing_revisions import router as drawing_revision_router
 from app.api.v1.products import router as product_router
 from app.api.v1.order_lines import router as order_line_router
 from app.api.v1.lots import router as lot_router
-from app.api.v1.lot_steps import router as lot_step_router
 from app.api.v1.inspection_schedules import router as inspection_schedule_router
 from app.api.v1.inspection_results import router as inspection_result_router
 from app.api.v1.defect_types import router as defect_type_router
@@ -24,6 +23,7 @@ from app.api.v1.dashboard import router as dashboard_router
 from app.api.v1.inventories import router as inventory_router
 from app.api.v1.raw_materials import router as raw_material_router
 from app.api.v1.shipments import router as shipment_router
+from app.api.v1.vendor_portal import router as vendor_portal_router
 
 from app.core.auth import  require_any_permission, require_method_any_permission, require_permission
 
@@ -32,6 +32,7 @@ router = APIRouter()
 # 인증 예외
 router.include_router(health_router)
 router.include_router(auth_router)
+router.include_router(vendor_portal_router)
 
 # 회원 / 역할 / 권한 관리는 각 endpoint 내부에서 세부 권한 검증
 router.include_router(user_router)
@@ -164,18 +165,6 @@ router.include_router(
 router.include_router(
     production_daily_router,
     dependencies=[Depends(require_permission("PRODUCTION_DAILY.VIEW"))],
-)
-
-router.include_router(
-    lot_step_router,
-    dependencies=[
-        Depends(
-            require_method_any_permission(
-                read_permission_codes=("LOTS.VIEW",),
-                write_permission_codes=("LOTS.WRITE",),
-            )
-        )
-    ],
 )
 
 router.include_router(

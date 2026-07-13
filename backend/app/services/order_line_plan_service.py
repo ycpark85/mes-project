@@ -15,6 +15,7 @@ from app.models.product_inventory_lot import ProductInventoryLot
 from app.models.product_inventory_movement import ProductInventoryMovement
 from app.models.shipment_line import ShipmentLine
 from app.schemas.order_line import (
+    OrderLineFulfillmentPlanUpdate,
     OrderLineFulfillmentMode,
     OrderLinePlanConfirmRequest,
     OrderLinePlanType,
@@ -282,6 +283,46 @@ def get_planned_production_qty(
         extra_production_qty = 0
 
     return base_planned_production_qty + extra_production_qty
+
+
+def update_order_line_fulfillment_plan_config(
+    db: Session,
+    *,
+    order_line_id: int,
+    payload: OrderLineFulfillmentPlanUpdate,
+) -> OrderLine:
+    order_line = db.get(OrderLine, order_line_id)
+    if not order_line or not order_line.is_active:
+        raise HTTPException(status_code=404, detail="OrderLine not found")
+
+    if order_line.status in {OrderLineStatus.DONE.value, OrderLineStatus.CANCELED.value}:
+        raise HTTPException(status_code=409, detail="DONE 또는 CANCELED 상태의 수주는 처리계획을 변경할 수 없습니다.")
+
+    order_line.fulfillment_mode = payload.fulfillment_mode.value
+    order_line.production_policy = payload.production_policy.value
+    order_line.extra_production_qty = (
+        0
+        if payload.production_policy == OrderLineProductionPolicy.ORDER_ONLY
+        else int(payload.extra_production_qty or 0)
+    )
+    order_line.decision_made = True
+    order_line.decision_made_at = datetime.now(timezone.utc)
+
+    partner = db.get(Partner, order_line.partner_id)
+    partner_name = partner.name if partner else ""
+
+    planned_production_qty = get_planned_production_qty(db, order_line, partner_name)
+
+    if planned_production_qty <= 0:
+        create_stock_shipment_waiting_if_needed(
+            db,
+            order_line,
+            partner_name,
+        )
+
+    db.flush()
+    db.refresh(order_line)
+    return order_line
 
 
 def confirm_order_line_plan_decision(

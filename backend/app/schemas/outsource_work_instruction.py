@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from decimal import Decimal
 
 class OutsourceWorkInstructionFileCreate(BaseModel):
@@ -36,15 +36,6 @@ class OutsourceWorkInstructionGroupCreate(BaseModel):
     items: List[OutsourceWorkInstructionGroupItemCreate] = Field(..., min_length=1)
     raw_material_allocations: List[OutsourceWorkInstructionRawMaterialAllocationCreate] = Field(default_factory=list)
 
-class OutsourceWorkInstructionCreate(BaseModel):
-    instruction_date: date
-    process_type: str
-    customer_partner_id: int
-    lot_ids: List[int] = Field(..., min_length=1)
-    memo: Optional[str] = None
-    files: List[OutsourceWorkInstructionFileCreate] = Field(default_factory=list)
-    groups: List[OutsourceWorkInstructionGroupCreate] = Field(default_factory=list)
-
 class OutsourceWorkInstructionBatchGroupCreate(BaseModel):
     customer_partner_id: int
     lot_ids: List[int] = Field(..., min_length=1)
@@ -58,17 +49,17 @@ class OutsourceWorkInstructionBatchCreate(BaseModel):
 
 
 class OutsourceWorkInstructionFileOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     outsource_work_instruction_file_id: int
     file_name: str
     file_path: str
     content_type: Optional[str] = None
     created_at: datetime
 
-    class Config:
-        from_attributes = True
-
-
 class OutsourceWorkInstructionItemOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     outsource_work_instruction_item_id: int
     lot_id: int
     lot_no: Optional[str] = None
@@ -79,11 +70,9 @@ class OutsourceWorkInstructionItemOut(BaseModel):
     lot_qty: Optional[int] = None
     process_type: str
 
-    class Config:
-        from_attributes = True
-
-
 class OutsourceWorkInstructionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     outsource_work_instruction_id: int
     instruction_no: str
     instruction_date: date
@@ -95,10 +84,6 @@ class OutsourceWorkInstructionOut(BaseModel):
     updated_at: datetime
     items: List[OutsourceWorkInstructionItemOut] = Field(default_factory=list)
     files: List[OutsourceWorkInstructionFileOut] = Field(default_factory=list)
-
-    class Config:
-        from_attributes = True
-
 
 class OutsourceWorkInstructionCandidateLotOut(BaseModel):
     lot_id: int
@@ -263,7 +248,10 @@ class OutsourceWorkGroupUpdateIn(BaseModel):
 
 
 class OutsourcePurchaseOrderTargetListOut(BaseModel):
-    items: List[OutsourcePurchaseOrderTargetOut]
+    items: List[OutsourcePurchaseOrderTargetOut] = Field(default_factory=list)
+    total_count: int = 0
+    page: int = 1
+    size: int = 100
 
 class OutsourceWorkInstructionCandidateLotListOut(BaseModel):
     items: List[OutsourceWorkInstructionCandidateLotOut]
@@ -297,6 +285,8 @@ class OutsourcePurchaseOrderCreate(BaseModel):
 
 
 class OutsourcePurchaseOrderItemOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     outsource_purchase_order_item_id: int
     outsource_purchase_order_id: int
     lot_id: int
@@ -319,11 +309,9 @@ class OutsourcePurchaseOrderItemOut(BaseModel):
     product_name: Optional[str] = None
     lot_qty: Optional[int] = None
 
-    class Config:
-        from_attributes = True
-
-
 class OutsourcePurchaseOrderOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     outsource_purchase_order_id: int
     purchase_order_no: str
     purchase_order_date: date
@@ -344,15 +332,6 @@ class OutsourcePurchaseOrderOut(BaseModel):
     outsource_partner_name: Optional[str] = None
     inbound_partner_name: Optional[str] = None
     items: List[OutsourcePurchaseOrderItemOut] = Field(default_factory=list)
-
-    class Config:
-        from_attributes = True
-
-
-class OutsourcePurchaseOrderWorkDone(BaseModel):
-    work_done_qty: int = Field(..., ge=0)
-    bad_qty: int = Field(0, ge=0)
-    work_done_remark: Optional[str] = None    
 
 class OutsourcePurchaseOrderCutSnapshotRow(BaseModel):
     no: int
@@ -409,6 +388,9 @@ class OutsourcePurchaseOrderListItemOut(BaseModel):
 
 class OutsourcePurchaseOrderListOut(BaseModel):
     items: List[OutsourcePurchaseOrderListItemOut] = Field(default_factory=list)
+    total_count: int = 0
+    page: int = 1
+    size: int = 100
 
 
 # =========================

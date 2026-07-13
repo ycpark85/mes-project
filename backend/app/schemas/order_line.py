@@ -5,7 +5,7 @@ from datetime import date, datetime
 from enum import Enum
 from typing import Optional, List
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class OrderLineStatus(str, Enum):
@@ -66,6 +66,8 @@ class OrderLineUpdate(BaseModel):
 
 
 class OrderLineOut(OrderLineBase):
+    model_config = ConfigDict(from_attributes=True)
+
     order_line_id: int
     status: OrderLineStatus
     is_active: bool
@@ -111,10 +113,6 @@ class OrderLineOut(OrderLineBase):
     shortage_closed: bool = False
 
     
-
-    class Config:
-        from_attributes = True
-
 
 class PageMeta(BaseModel):
     page: int
@@ -248,6 +246,8 @@ class OrderLinePlanConfirmRequest(BaseModel):
 
 
 class OrderLinePlanHistoryOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     plan_history_id: int
     order_line_id: int
     plan_type: OrderLinePlanType
@@ -261,9 +261,6 @@ class OrderLinePlanHistoryOut(BaseModel):
     memo: Optional[str] = None
     created_by: Optional[str] = None
     created_at: datetime
-
-    class Config:
-        from_attributes = True
 
 class OrderLineBaseLotCreateResult(BaseModel):
     order_line_id: int

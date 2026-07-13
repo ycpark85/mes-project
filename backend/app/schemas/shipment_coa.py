@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ShipmentCoaOut(BaseModel):
@@ -28,8 +28,7 @@ class ShipmentCoaOut(BaseModel):
     updated_at: datetime
     memo: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ShipmentCoaUpdateRequest(BaseModel):

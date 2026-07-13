@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import List, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 Disposition = Literal["SHIP_AS_IS", "NOT_SHIPPABLE"]
 
@@ -50,6 +50,8 @@ class DefectAttachmentUploadOut(BaseModel):
 
 
 class DefectAttachmentOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     inspection_defect_attachment_id: int
     file_uri: str
     file_name: Optional[str] = None
@@ -57,11 +59,9 @@ class DefectAttachmentOut(BaseModel):
     memo: Optional[str] = None
     created_at: datetime
 
-    class Config:
-        from_attributes = True
-
-
 class DefectLineOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     inspection_defect_id: int
     defect_type_id: int
     defect_qty: int
@@ -70,11 +70,9 @@ class DefectLineOut(BaseModel):
     created_at: datetime
     attachments: List[DefectAttachmentOut] = Field(default_factory=list)
 
-    class Config:
-        from_attributes = True
-
-
 class InspectionResultOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     inspection_result_id: int
     inspection_schedule_id: int
     good_qty: int
@@ -93,10 +91,6 @@ class InspectionResultOut(BaseModel):
     updated_at: datetime
 
     defects: List[DefectLineOut] = Field(default_factory=list)
-
-    class Config:
-        from_attributes = True
-
 
 class InspectionAccumulatedSummaryOut(BaseModel):
     good_qty: int = 0

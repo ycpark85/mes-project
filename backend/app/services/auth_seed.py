@@ -11,6 +11,8 @@ from app.core.config import settings
 
 ADMIN_ROLE_CODE = "ADMIN"
 ADMIN_ROLE_NAME = "관리자"
+VENDOR_PORTAL_ROLE_CODE = "VENDOR_PORTAL"
+VENDOR_PORTAL_ROLE_NAME = "외주업체 포털"
 
 
 ADMIN_USER_NAME = "관리자"
@@ -403,6 +405,7 @@ PERMISSION_SEEDS = [
 def ensure_auth_seed_data(db: Session) -> None:
     try:
         admin_role = _ensure_admin_role(db)
+        _ensure_vendor_portal_role(db)
         _ensure_permissions(db)
 
         admin_user = _ensure_admin_user(db)
@@ -434,6 +437,29 @@ def _ensure_admin_role(db: Session) -> Role:
         return role
 
     role.role_name = ADMIN_ROLE_NAME
+    role.is_system = True
+    role.is_active = True
+
+    return role
+
+
+def _ensure_vendor_portal_role(db: Session) -> Role:
+    role = db.query(Role).filter(Role.role_code == VENDOR_PORTAL_ROLE_CODE).first()
+
+    if role is None:
+        role = Role(
+            role_code=VENDOR_PORTAL_ROLE_CODE,
+            role_name=VENDOR_PORTAL_ROLE_NAME,
+            description="외주업체 전용 WPF 로그인 계정 역할",
+            is_system=True,
+            is_active=True,
+        )
+        db.add(role)
+        db.flush()
+        return role
+
+    role.role_name = VENDOR_PORTAL_ROLE_NAME
+    role.description = "외주업체 전용 WPF 로그인 계정 역할"
     role.is_system = True
     role.is_active = True
 
