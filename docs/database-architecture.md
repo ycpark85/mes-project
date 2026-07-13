@@ -45,8 +45,11 @@ Important columns:
 - `outsource_work_group_id`: affected Bohyun outsource work group when the action targets a work group.
 - `action_type`: examples include `VIEW_LIST`, `INBOUND`, `WORK_DONE`, and `SHIP`.
 - `before_status`, `after_status`: status transition context.
-- `request_ip`, `user_agent`: external access trace context.
+- `request_ip`, `user_agent`: external access trace context. `user_agent` uses `Text` so valid long client identifiers cannot fail the business transaction.
+- `user_agent_truncated`: `true` when the server shortened an oversized User-Agent before storage.
 - `remark`: optional action context, such as work-done remarks.
+
+The login audit table `auth_audit_logs` uses the same User-Agent columns and normalization policy. Both audit paths limit stored User-Agent values to 2,000 characters, replace control characters with spaces, and preserve whether truncation occurred.
 
 ## Raw Material Inventory Tables
 

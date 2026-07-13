@@ -29,6 +29,8 @@ External vendor access is handled by a separate vendor WPF app and a dedicated v
 - Internal API paths, database ports, RDP, development ports, `/docs`, and `/openapi.json` must remain unavailable from the internet.
 - Vendor portal API endpoints must enforce vendor account and partner-scope checks server-side.
 - Existing Bohyun outsource status rules should be shared through a backend service so internal WPF and vendor WPF produce identical state transitions.
+- Login and vendor-action audit logs use the same request metadata policy: User-Agent is sanitized, capped at 2,000 characters, and marked with `user_agent_truncated` when shortened.
+- Audit logging remains in the same transaction as the protected action so a vendor status change cannot commit without its audit record.
 
 Vendor account maintenance:
 

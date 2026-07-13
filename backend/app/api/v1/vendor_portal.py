@@ -19,6 +19,7 @@ from app.schemas.outsource_work_instruction import (
 )
 from app.schemas.vendor_portal import VendorPortalBohyunWorkDone
 import app.services.bohyun_outsource_service as bohyun_outsource_service
+from app.services.audit_request_metadata import normalize_user_agent
 
 
 router = APIRouter(prefix="/vendor-portal", tags=["VendorPortal"])
@@ -205,7 +206,7 @@ def _write_vendor_audit_log(
     after_status: str | None,
     remark: str | None,
 ) -> None:
-    user_agent = request.headers.get("user-agent")
+    user_agent = normalize_user_agent(request.headers.get("user-agent"))
     client_host = request.client.host if request.client else None
 
     db.add(
@@ -217,7 +218,8 @@ def _write_vendor_audit_log(
             before_status=before_status,
             after_status=after_status,
             request_ip=client_host,
-            user_agent=user_agent,
+            user_agent=user_agent.value,
+            user_agent_truncated=user_agent.truncated,
             remark=remark,
         )
     )

@@ -26,6 +26,7 @@ from app.schemas.auth import (
     AuthRoleOut,
     AuthUserOut,
 )
+from app.services.audit_request_metadata import normalize_user_agent
 
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -35,15 +36,6 @@ def _client_ip_from_request(request: Request) -> str | None:
         return None
 
     return request.client.host
-
-
-def _user_agent_from_request(request: Request) -> str | None:
-    user_agent = request.headers.get("user-agent")
-
-    if not user_agent:
-        return None
-
-    return user_agent[:500]
 
 
 def _write_auth_audit_log(
@@ -56,6 +48,7 @@ def _write_auth_audit_log(
     success: bool,
     reason: str | None = None,
 ) -> None:
+    user_agent = normalize_user_agent(request.headers.get("user-agent"))
     db.add(
         AuthAuditLog(
             event_type=event_type,
@@ -64,7 +57,8 @@ def _write_auth_audit_log(
             success=success,
             reason=reason,
             client_ip=_client_ip_from_request(request),
-            user_agent=_user_agent_from_request(request),
+            user_agent=user_agent.value,
+            user_agent_truncated=user_agent.truncated,
         )
     )
 
