@@ -96,6 +96,13 @@ class OutsourceWorkInstructionQueryTests(unittest.TestCase):
         self.assertEqual([2], [item.lot_id for item in print_result.items])
         self.assertEqual([], cut_result.items)
 
+    def test_list_candidate_lots_requires_full_order_number(self) -> None:
+        partial_result = list_candidate_lots(self.db, q="SO-")
+        exact_result = list_candidate_lots(self.db, q=" so-002 ")
+
+        self.assertEqual([], partial_result.items)
+        self.assertEqual([2], [item.lot_id for item in exact_result.items])
+
     def test_list_candidate_lots_rejects_invalid_process_type(self) -> None:
         with self.assertRaises(HTTPException) as error:
             list_candidate_lots(self.db, process_type="DIECUT")

@@ -18,6 +18,18 @@ class Product(Base):
         UniqueConstraint("product_code", name="uq_product__product_code"),
         UniqueConstraint("drawing_id", name="uq_product__drawing_id"),  # ✅ 1:1 강제
         Index("ix_product__is_active", "is_active"),
+        Index(
+            "ix_product__product_code_trgm",
+            "product_code",
+            postgresql_using="gin",
+            postgresql_ops={"product_code": "gin_trgm_ops"},
+        ),
+        Index(
+            "ix_product__product_name_trgm",
+            "product_name",
+            postgresql_using="gin",
+            postgresql_ops={"product_name": "gin_trgm_ops"},
+        ),
     )
 
     product_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)

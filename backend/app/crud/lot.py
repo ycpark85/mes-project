@@ -206,12 +206,13 @@ class LotCRUD:
         if created_date_to:
             conds.append(Lot.created_date <= created_date_to)
 
-        if q:
-            like = f"%{q}%"
+        if q and q.strip():
+            normalized_q = q.strip()
+            like = f"%{normalized_q}%"
             conds.append(
                 or_(
                     Lot.lot_no.ilike(like),
-                    OrderLine.order_no.ilike(like),
+                    OrderLine.order_no == normalized_q.upper(),
                     Partner.name.ilike(like),
                     Product.product_name.ilike(like),
                     Product.product_code.ilike(like),

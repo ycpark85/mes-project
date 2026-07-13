@@ -128,14 +128,15 @@ def list_candidate_lots(
         .order_by(Lot.created_date.desc(), Lot.lot_no.asc())
     )
 
-    if q:
-        like = f"%{q.strip()}%"
+    if q and q.strip():
+        normalized_q = q.strip()
+        like = f"%{normalized_q}%"
         stmt = stmt.where(
-            (Lot.lot_no.like(like))
-            | (OrderLine.order_no.like(like))
-            | (Product.product_code.like(like))
-            | (Product.product_name.like(like))
-            | (Partner.name.like(like))
+            (Lot.lot_no.ilike(like))
+            | (OrderLine.order_no == normalized_q.upper())
+            | (Product.product_code.ilike(like))
+            | (Product.product_name.ilike(like))
+            | (Partner.name.ilike(like))
         )
 
     rows = db.execute(stmt).all()
@@ -275,13 +276,13 @@ def list_work_groups(
             .join(Product, Product.product_id == Lot.product_id)
             .where(
                 (Lot.lot_no.like(like))
-                | (Product.product_code.like(like))
-                | (Product.product_name.like(like))
+                | (Product.product_code.ilike(like))
+                | (Product.product_name.ilike(like))
             )
         )
         condition = (
             OutsourceWorkInstruction.instruction_no.like(like)
-            | Partner.name.like(like)
+            | Partner.name.ilike(like)
             | OutsourceWorkGroup.group_seq.like(like)
             | OutsourceWorkGroup.fabric_lot_no.like(like)
             | OutsourceWorkGroup.outsource_work_group_id.in_(lot_match)

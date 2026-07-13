@@ -104,14 +104,14 @@ def _get_work_group_targets(
             )
             .where(
                 (Lot.lot_no.like(like))
-                | (Product.product_code.like(like))
-                | (Product.product_name.like(like))
+                | (Product.product_code.ilike(like))
+                | (Product.product_name.ilike(like))
             )
             .limit(1)
         )
         stmt = stmt.where(
             (OutsourceWorkInstruction.instruction_no.like(like))
-            | (Partner.name.like(like))
+            | (Partner.name.ilike(like))
             | exists(item_exists)
         )
 

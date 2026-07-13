@@ -283,3 +283,12 @@ Important columns:
 - `actual_allocated_amount`
 
 The allocation snapshot prevents historical monthly closing data from changing when product specs or LOT data are later modified.
+
+## Business Search Policy
+
+User-facing keyword searches follow the way operators identify master data and business numbers.
+
+- Partner name, product name, and product code use case-insensitive substring search. PostgreSQL `pg_trgm` GIN indexes support these searches at scale.
+- Product specification is displayed where needed but is excluded from the general product keyword search.
+- Sales order numbers, customer purchase order numbers, and outsource purchase order numbers require an exact full-number match after trimming whitespace and normalizing letter case.
+- Existing B-tree indexes on internal order numbers remain the primary path for exact-number lookup.

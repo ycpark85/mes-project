@@ -144,6 +144,13 @@ class OutsourcePurchaseOrderQueryTests(unittest.TestCase):
             [item.outsource_partner_name for item in result.items],
         )
 
+    def test_list_purchase_orders_requires_full_purchase_order_number(self) -> None:
+        partial_result = list_purchase_orders(self.db, q="OCUT-20260103")
+        exact_result = list_purchase_orders(self.db, q=" ocut-20260103-001 ")
+
+        self.assertEqual(0, partial_result.total_count)
+        self.assertEqual([1], [item.outsource_purchase_order_id for item in exact_result.items])
+
     def test_list_purchase_order_targets_excludes_already_ordered_groups(self) -> None:
         result = list_purchase_order_targets(self.db, process_type="cut")
 

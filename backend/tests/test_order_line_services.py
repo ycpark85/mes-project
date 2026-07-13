@@ -46,6 +46,7 @@ from app.services.order_line_delete_service import delete_order_line_group
 from app.services.order_line_detail_query import get_order_line_detail_dto
 from app.services.order_line_detail_update_service import update_order_line_detail_fields
 from app.services.order_line_lot_context_query import get_lot_create_context_dto
+from app.services.order_line_list_query import list_order_lines_for_grid
 from app.services.order_line_plan_service import update_order_line_fulfillment_plan_config
 from app.services.order_line_response_builder import build_order_line_out, get_order_line_out_by_id
 from app.services.order_line_short_close_service import short_close_order_line_status
@@ -109,6 +110,33 @@ class OrderLineServicesTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.db.close()
         self.engine.dispose()
+
+    def test_order_line_search_uses_exact_business_numbers_and_partial_product_code(self) -> None:
+        order_line = self._seed_open_order_line_without_lots()
+        order_line.customer_po = "PO-CUSTOMER-001"
+        self.db.commit()
+
+        partial_order_items, _ = list_order_lines_for_grid(
+            self.db, page=1, size=20, q="SO-"
+        )
+        exact_order_items, _ = list_order_lines_for_grid(
+            self.db, page=1, size=20, q=" so-open "
+        )
+        partial_po_items, _ = list_order_lines_for_grid(
+            self.db, page=1, size=20, q="PO-CUSTOMER"
+        )
+        exact_po_items, _ = list_order_lines_for_grid(
+            self.db, page=1, size=20, q=" po-customer-001 "
+        )
+        partial_product_items, _ = list_order_lines_for_grid(
+            self.db, page=1, size=20, q="001"
+        )
+
+        self.assertEqual([], partial_order_items)
+        self.assertEqual([200], [item["order_line_id"] for item in exact_order_items])
+        self.assertEqual([], partial_po_items)
+        self.assertEqual([200], [item["order_line_id"] for item in exact_po_items])
+        self.assertEqual([200], [item["order_line_id"] for item in partial_product_items])
 
     def test_create_order_line_without_inventory_creates_primary_lot(self) -> None:
         with patch("app.services.order_line_creation_service.refresh_order_line_snapshot") as refresh:

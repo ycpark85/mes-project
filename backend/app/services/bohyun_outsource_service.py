@@ -126,8 +126,9 @@ def list_bohyun_outsource_groups(
             )
         )
 
-    if q:
-        like = f"%{q.strip()}%"
+    if q and q.strip():
+        normalized_q = q.strip()
+        like = f"%{normalized_q}%"
 
         exists_item_stmt = (
             select(OutsourceWorkGroupItem.outsource_work_group_item_id)
@@ -139,17 +140,17 @@ def list_bohyun_outsource_groups(
                 == OutsourceWorkGroup.outsource_work_group_id
             )
             .where(
-                (Lot.lot_no.like(like))
-                | (OrderLine.order_no.like(like))
-                | (Product.product_code.like(like))
-                | (Product.product_name.like(like))
+                (Lot.lot_no.ilike(like))
+                | (OrderLine.order_no == normalized_q.upper())
+                | (Product.product_code.ilike(like))
+                | (Product.product_name.ilike(like))
             )
             .limit(1)
         )
 
         stmt = stmt.where(
-            (OutsourceWorkInstruction.instruction_no.like(like))
-            | (Partner.name.like(like))
+            (OutsourceWorkInstruction.instruction_no.ilike(like))
+            | (Partner.name.ilike(like))
             | exists(exists_item_stmt)
         )
 

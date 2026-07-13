@@ -1,4 +1,4 @@
-from sqlalchemy import String, Boolean,BigInteger
+from sqlalchemy import String, Boolean, BigInteger, Index
 from sqlalchemy.orm import Mapped, mapped_column,relationship
 from typing import List
 from app.db.base import Base
@@ -6,6 +6,14 @@ from app.db.base import Base
 
 class Partner(Base):
     __tablename__ = "partner"
+    __table_args__ = (
+        Index(
+            "ix_partner__name_trgm",
+            "name",
+            postgresql_using="gin",
+            postgresql_ops={"name": "gin_trgm_ops"},
+        ),
+    )
 
     partner_id: Mapped[int] = mapped_column(BigInteger,primary_key=True)
 

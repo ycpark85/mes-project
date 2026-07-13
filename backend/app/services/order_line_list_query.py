@@ -109,12 +109,14 @@ def list_order_lines_for_grid(
     if due_date_to:
         conds.append(OrderLine.due_date <= due_date_to)
 
-    if q:
-        like = f"%{q}%"
+    if q and q.strip():
+        normalized_q = q.strip()
+        normalized_number = normalized_q.upper()
+        like = f"%{normalized_q}%"
         conds.append(
             or_(
-                OrderLine.order_no.ilike(like),
-                OrderLine.customer_po.ilike(like),
+                OrderLine.order_no == normalized_number,
+                func.upper(OrderLine.customer_po) == normalized_number,
                 OrderLine.memo.ilike(like),
                 Partner.name.ilike(like),
                 Product.product_name.ilike(like),

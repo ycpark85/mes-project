@@ -95,6 +95,15 @@ class LotQueryTests(unittest.TestCase):
         self.assertEqual(1, result.meta.total)
         self.assertEqual("LOT-PARENT", result.items[0].lot_no)
 
+    def test_list_lots_requires_full_order_number_but_keeps_partial_product_search(self) -> None:
+        partial_order_result = list_lots(self.db, page=1, size=20, q="SO-")
+        exact_order_result = list_lots(self.db, page=1, size=20, q=" so-1 ")
+        partial_product_result = list_lots(self.db, page=1, size=20, q="RD-A")
+
+        self.assertEqual(0, partial_order_result.meta.total)
+        self.assertEqual(4, exact_order_result.meta.total)
+        self.assertEqual(4, partial_product_result.meta.total)
+
     def test_get_lot_detail_builds_order_product_partner_and_steps(self) -> None:
         result = get_lot_detail(self.db, 1)
 

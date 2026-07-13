@@ -55,10 +55,11 @@ def list_shipments_for_grid(
         .where(ShipmentLine.status == status)
     )
 
-    if q:
-        keyword = f"%{q.strip()}%"
+    if q and q.strip():
+        normalized_q = q.strip()
+        keyword = f"%{normalized_q}%"
         search_cond = or_(
-            OrderLine.order_no.ilike(keyword),
+            OrderLine.order_no == normalized_q.upper(),
             Partner.name.ilike(keyword),
             Product.product_code.ilike(keyword),
             Product.product_name.ilike(keyword),

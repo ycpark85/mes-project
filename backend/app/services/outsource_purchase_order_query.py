@@ -189,11 +189,12 @@ def list_purchase_orders(
         conditions.append(OutsourcePurchaseOrder.process_type == normalized_process_type)
 
     if q and q.strip():
-        like = f"%{q.strip()}%"
+        normalized_q = q.strip()
+        like = f"%{normalized_q}%"
         conditions.append(
-            (OutsourcePurchaseOrder.purchase_order_no.like(like))
-            | (OutsourcePurchaseOrder.remark.like(like))
-            | (Partner.name.like(like))
+            (OutsourcePurchaseOrder.purchase_order_no == normalized_q.upper())
+            | (OutsourcePurchaseOrder.remark.ilike(like))
+            | (Partner.name.ilike(like))
         )
 
     count_stmt = (
