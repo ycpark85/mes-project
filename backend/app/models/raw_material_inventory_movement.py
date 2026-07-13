@@ -4,7 +4,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Optional
 
-from sqlalchemy import BigInteger, CheckConstraint, DateTime, ForeignKey, Index, Numeric, String, Text, func
+from sqlalchemy import BigInteger, CheckConstraint, DateTime, ForeignKey, Index, Numeric, String, Text, func, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -27,6 +27,13 @@ class RawMaterialInventoryMovement(Base):
         Index("ix_raw_material_inventory_movement__lot_id", "raw_material_inventory_lot_id"),
         Index("ix_raw_material_inventory_movement__created_at", "created_at"),
         Index("ix_raw_material_inventory_movement__transfer_key", "transfer_key"),
+        Index(
+            "ix_raw_material_inventory_movement__lot_no_trgm",
+            "lot_no",
+            postgresql_using="gin",
+            postgresql_ops={"lot_no": "gin_trgm_ops"},
+            postgresql_where=text("lot_no IS NOT NULL"),
+        ),
     )
 
     raw_material_inventory_movement_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)

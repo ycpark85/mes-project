@@ -115,6 +115,7 @@ Important columns:
 - `transfer_key`: groups paired transfer-out and transfer-in rows.
 - Movement history queries should support raw material, LOT number, location, movement type, and date filters so the original inbound row and later location transfers can be reviewed together for the same raw material LOT.
 - `source_type` and `source_id` link outsource consumption rows to `outsource_work_group_raw_material_allocation`.
+- LOT-number contains-search uses the PostgreSQL `pg_trgm` extension and a partial GIN index on non-null `lot_no` values. This keeps the existing `ILIKE '%keyword%'` search behavior usable as movement history grows.
 
 ### `outsource_work_group_raw_material_allocation`
 

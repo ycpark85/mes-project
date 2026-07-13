@@ -6,6 +6,8 @@ from decimal import Decimal
 
 from fastapi import HTTPException
 from sqlalchemy import BigInteger, create_engine, select
+from sqlalchemy.dialects import postgresql
+from sqlalchemy.schema import CreateIndex
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import sessionmaker
 
@@ -118,6 +120,19 @@ class RawMaterialQueryTests(unittest.TestCase):
         self.assertEqual(1, result.total)
         self.assertEqual("RMLOT-A1", result.items[0].lot_no)
         self.assertEqual("TRANSFER_OUT", result.items[0].movement_type)
+
+    def test_movement_lot_search_index_compiles_as_partial_trigram_gin(self) -> None:
+        index = next(
+            index
+            for index in RawMaterialInventoryMovement.__table__.indexes
+            if index.name == "ix_raw_material_inventory_movement__lot_no_trgm"
+        )
+
+        ddl = str(CreateIndex(index).compile(dialect=postgresql.dialect()))
+
+        self.assertIn("USING gin", ddl)
+        self.assertIn("lot_no gin_trgm_ops", ddl)
+        self.assertIn("WHERE lot_no IS NOT NULL", ddl)
 
     def test_inbound_creates_new_lot_inventory_and_movement(self) -> None:
         result = inbound_raw_material_in_session(
