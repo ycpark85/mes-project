@@ -27,7 +27,7 @@ namespace Mes.Wpf.Modules.MyPage.ViewModels
             _isRequired = isRequired;
         }
 
-        public event Action<AuthMeResponse>? PasswordChanged;
+        public event Action<AuthChangePasswordResponse>? PasswordChanged;
 
         public bool IsRequired => _isRequired;
 
@@ -100,7 +100,7 @@ namespace Mes.Wpf.Modules.MyPage.ViewModels
                     NewPassword = newPassword
                 };
 
-                var result = await _apiClient.PatchAsync<ChangePasswordRequest, AuthMeResponse>(
+                var result = await _apiClient.PatchAsync<ChangePasswordRequest, AuthChangePasswordResponse>(
                     ApiRoutes.AuthChangePassword,
                     request);
 
@@ -109,6 +109,14 @@ namespace Mes.Wpf.Modules.MyPage.ViewModels
                     ErrorMessage = result.Message ?? "비밀번호 변경에 실패했습니다.";
                     return;
                 }
+
+                if (string.IsNullOrWhiteSpace(result.Data.AccessToken))
+                {
+                    ErrorMessage = "비밀번호 변경 응답에 새 토큰 정보가 없습니다.";
+                    return;
+                }
+
+                _apiClient.SetAccessToken(result.Data.AccessToken);
 
                 _messageService.ShowInfo("비밀번호가 변경되었습니다.");
                 PasswordChanged?.Invoke(result.Data);

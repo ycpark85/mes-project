@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -19,6 +20,7 @@ from app.schemas.role import (
     RolePermissionUpdate,
     RoleUpdate,
 )
+from app.services.auth_session_service import revoke_role_user_sessions
 
 
 router = APIRouter(prefix="/roles", tags=["Role"])
@@ -102,6 +104,7 @@ def update_role(
     if payload.description is not None:
         role.description = _normalize_optional(payload.description)
 
+    auth_context_changed = False
     if payload.is_active is not None:
         if role.is_system and payload.is_active is False:
             raise HTTPException(
@@ -109,7 +112,12 @@ def update_role(
                 detail="시스템 역할은 비활성화할 수 없습니다.",
             )
 
-        role.is_active = payload.is_active
+        if role.is_active != payload.is_active:
+            role.is_active = payload.is_active
+            auth_context_changed = True
+
+    if auth_context_changed:
+        revoke_role_user_sessions(db, role.role_id)
 
     return role_crud.commit(db, role)
 
@@ -128,7 +136,10 @@ def delete_role(
             detail="시스템 역할은 삭제할 수 없습니다.",
         )
 
-    return role_crud.soft_delete(db, role_id)
+    if role.is_active:
+        role.is_active = False
+        revoke_role_user_sessions(db, role.role_id)
+    return role_crud.commit(db, role)
 
 
 @router.get("/{role_id}/permissions", response_model=RolePermissionOut)
@@ -162,9 +173,18 @@ def update_role_permissions(
         )
 
     permission_ids = _validate_permission_ids(db, payload.permission_ids)
+    existing_permission_ids = set(
+        db.execute(
+            select(RolePermission.permission_id).where(
+                RolePermission.role_id == role.role_id
+            )
+        ).scalars()
+    )
 
     try:
-        _replace_role_permissions(db, role.role_id, permission_ids)
+        if existing_permission_ids != set(permission_ids):
+            _replace_role_permissions(db, role.role_id, permission_ids)
+            revoke_role_user_sessions(db, role.role_id)
         db.commit()
     except IntegrityError:
         db.rollback()

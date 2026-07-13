@@ -218,6 +218,9 @@ namespace Mes.Wpf.Views.Shell
 
             if (result == true && window.ChangedAuthContext?.User != null && _loginResponse?.User != null)
             {
+                _loginResponse.AccessToken = window.ChangedAuthContext.AccessToken;
+                _loginResponse.TokenType = window.ChangedAuthContext.TokenType;
+                _loginResponse.ExpiresInMinutes = window.ChangedAuthContext.ExpiresInMinutes;
                 _loginResponse.User.PasswordChangeRequired = window.ChangedAuthContext.User.PasswordChangeRequired;
                 return true;
             }

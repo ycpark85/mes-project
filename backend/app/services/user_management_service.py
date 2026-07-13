@@ -12,6 +12,7 @@ from app.models.user import User
 from app.models.user_role import UserRole
 from app.models.vendor_user_access import VendorUserAccess
 from app.schemas.user import UserCreate, UserResetPassword, UserUpdate
+from app.services.auth_session_service import revoke_user_sessions
 
 
 def create_user(db: Session, payload: UserCreate) -> User:
@@ -49,6 +50,7 @@ def update_user(
     current_user_id: int,
 ) -> User:
     user = user_crud.get_or_404(db, user_id, active_only=False)
+    security_context_changed = False
 
     if payload.user_name is not None:
         user.user_name = _normalize_required(payload.user_name, "user_name")
@@ -62,16 +64,23 @@ def update_user(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="\ud604\uc7ac \ub85c\uadf8\uc778 \uc0ac\uc6a9\uc790\ub294 \ube44\ud65c\uc131\ud654\ud560 \uc218 \uc5c6\uc2b5\ub2c8\ub2e4.",
             )
-        user.is_active = payload.is_active
+        if user.is_active != payload.is_active:
+            user.is_active = payload.is_active
+            security_context_changed = True
 
     if payload.role_ids is not None:
-        _replace_user_roles(
-            db,
-            user.user_id,
-            _validate_role_ids(db, payload.role_ids),
+        role_ids = _validate_role_ids(db, payload.role_ids)
+        existing_role_ids = set(
+            db.execute(
+                select(UserRole.role_id).where(UserRole.user_id == user.user_id)
+            ).scalars()
         )
+        if existing_role_ids != set(role_ids):
+            _replace_user_roles(db, user.user_id, role_ids)
+            security_context_changed = True
 
     if payload.is_vendor_user is not None:
+        vendor_access_before = _get_vendor_access_state(db, user.user_id)
         vendor_partner = _replace_vendor_access(
             db,
             user_id=user.user_id,
@@ -84,8 +93,14 @@ def update_user(
             ),
         )
         _apply_vendor_profile_defaults(user, vendor_partner)
+        security_context_changed = (
+            security_context_changed
+            or vendor_access_before != _get_vendor_access_state(db, user.user_id)
+        )
 
     db.flush()
+    if security_context_changed:
+        revoke_user_sessions(db, user.user_id)
     return user
 
 
@@ -98,6 +113,7 @@ def reset_user_password(
     user.password_hash = hash_password(payload.new_password)
     user.password_change_required = True
     db.flush()
+    revoke_user_sessions(db, user.user_id)
     return user
 
 
@@ -114,7 +130,10 @@ def deactivate_user(
         )
 
     user = user_crud.get_or_404(db, user_id, active_only=False)
-    user.is_active = False
+    if user.is_active:
+        user.is_active = False
+        db.flush()
+        revoke_user_sessions(db, user.user_id)
     db.flush()
     return user
 
@@ -206,6 +225,16 @@ def _replace_vendor_access(
 
     db.flush()
     return partner
+
+
+def _get_vendor_access_state(
+    db: Session,
+    user_id: int,
+) -> tuple[tuple[int, bool], ...]:
+    rows = db.execute(
+        select(VendorUserAccess).where(VendorUserAccess.user_id == user_id)
+    ).scalars().all()
+    return tuple(sorted((int(row.partner_id), bool(row.is_active)) for row in rows))
 
 
 def _apply_vendor_profile_defaults(user: User, partner: Partner | None) -> None:

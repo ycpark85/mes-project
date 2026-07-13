@@ -84,6 +84,7 @@ def create_access_token(user: User) -> str:
     payload = {
         "sub": str(user.user_id),
         "login_id": user.login_id,
+        "auth_version": user.auth_version,
         "iat": int(now.timestamp()),
         "exp": int(expires_at.timestamp()),
     }
@@ -155,6 +156,14 @@ def get_current_user(
     )
 
     if user is None:
+        raise _credentials_exception()
+
+    token_auth_version = payload.get("auth_version")
+    if (
+        isinstance(token_auth_version, bool)
+        or not isinstance(token_auth_version, int)
+        or token_auth_version != user.auth_version
+    ):
         raise _credentials_exception()
 
     return user

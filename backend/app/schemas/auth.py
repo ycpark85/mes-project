@@ -46,5 +46,9 @@ class AuthLoginResponse(AuthContextOut):
     expires_in_minutes: int
 
 
+class AuthChangePasswordResponse(AuthLoginResponse):
+    pass
+
+
 class AuthMeResponse(AuthContextOut):
     pass

@@ -20,7 +20,7 @@ namespace Mes.Wpf.Modules.MyPage.Views
             _viewModel.PasswordChanged += OnPasswordChanged;
         }
 
-        public AuthMeResponse? ChangedAuthContext { get; private set; }
+        public AuthChangePasswordResponse? ChangedAuthContext { get; private set; }
 
         private async void ChangeButton_Click(object sender, RoutedEventArgs e)
         {
@@ -35,7 +35,7 @@ namespace Mes.Wpf.Modules.MyPage.Views
             Close();
         }
 
-        private void OnPasswordChanged(AuthMeResponse response)
+        private void OnPasswordChanged(AuthChangePasswordResponse response)
         {
             _passwordChanged = true;
             ChangedAuthContext = response;

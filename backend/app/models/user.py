@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import BigInteger, Boolean, DateTime, Index, String, func
+from sqlalchemy import BigInteger, Boolean, CheckConstraint, DateTime, Index, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -13,6 +13,10 @@ class User(Base):
     __tablename__ = "users"
 
     __table_args__ = (
+        CheckConstraint(
+            "auth_version >= 1",
+            name="ck_users__auth_version_positive",
+        ),
         Index("ix_users__login_id", "login_id"),
         Index("ix_users__user_name", "user_name"),
         Index("ix_users__is_active", "is_active"),
@@ -23,6 +27,13 @@ class User(Base):
     user_name: Mapped[str] = mapped_column(String(100), nullable=False)
 
     password_hash: Mapped[str] = mapped_column(String(500), nullable=False)
+
+    auth_version: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=1,
+        server_default="1",
+    )
 
     password_change_required: Mapped[bool] = mapped_column(
         Boolean,
@@ -59,5 +70,3 @@ class User(Base):
         back_populates="user",
         cascade="all, delete-orphan",
     )
-
-    

@@ -19,6 +19,7 @@ from app.core.time import utc_now
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.auth import (
+    AuthChangePasswordResponse,
     AuthChangePasswordRequest,
     AuthLoginRequest,
     AuthLoginResponse,
@@ -27,6 +28,7 @@ from app.schemas.auth import (
     AuthUserOut,
 )
 from app.services.audit_request_metadata import normalize_user_agent
+from app.services.auth_session_service import revoke_user_sessions
 
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -216,7 +218,7 @@ def me(
         "permissions": permissions,
     }
 
-@router.patch("/change-password", response_model=AuthMeResponse)
+@router.patch("/change-password", response_model=AuthChangePasswordResponse)
 def change_password(
     payload: AuthChangePasswordRequest,
     request: Request,
@@ -237,6 +239,8 @@ def change_password(
 
     current_user.password_hash = hash_password(payload.new_password)
     current_user.password_change_required = False
+    db.flush()
+    revoke_user_sessions(db, current_user.user_id)
 
     _write_auth_audit_log(
         db,
@@ -252,10 +256,15 @@ def change_password(
     db.commit()
     db.refresh(current_user)
 
+    access_token = create_access_token(current_user)
+
     roles = get_user_roles(db, current_user.user_id)
     permissions = get_user_permission_codes(db, current_user.user_id)
 
     return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "expires_in_minutes": settings.AUTH_ACCESS_TOKEN_EXPIRE_MINUTES,
         "user": AuthUserOut.model_validate(current_user),
         "roles": [AuthRoleOut.model_validate(role) for role in roles],
         "permissions": permissions,

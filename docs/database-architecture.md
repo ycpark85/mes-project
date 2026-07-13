@@ -10,6 +10,19 @@ The project uses one SQLAlchemy declarative metadata source.
 - Alembic imports all models and uses `app.db.base.Base.metadata` as `target_metadata`.
 - Do not introduce another `DeclarativeBase` or `declarative_base()` instance. A second metadata registry can cause Alembic autogenerate to miss tables or report false create/drop changes.
 
+## Authentication Session Version
+
+The `users.auth_version` column is the server-side version of a user's active authentication context.
+
+- It is `NOT NULL`, starts at `1`, and is protected by `ck_users__auth_version_positive`.
+- Every access token carries the version that was current when the token was issued.
+- An authenticated request is accepted only when the token version matches the current user row.
+- Password reset, actual user-role changes, vendor-access changes, account activation changes, and role permission/activation changes increment the affected users' versions.
+- A user's own password change invalidates all earlier tokens and returns a replacement token for the current WPF session.
+- Tokens issued before this column and claim exist are intentionally rejected after rollout, so the schema migration requires users to sign in once again.
+
+No token blacklist table is used. This keeps revocation checks bounded to the existing user lookup performed for every authenticated request.
+
 ## Vendor Portal Access Tables
 
 External vendor access is scoped through dedicated vendor-portal tables instead of exposing the internal MES authorization surface directly.

@@ -1,5 +1,15 @@
 # Project Operations
 
+## Authentication Session Revocation
+
+- Account deactivation is checked on every authenticated request and immediately blocks the account.
+- Access tokens also contain the user's `auth_version`; a mismatch with `users.auth_version` returns HTTP 401.
+- Administrator password reset, actual user-role changes, vendor-account access changes, and account activation changes revoke all existing tokens for that user.
+- Role activation and role-permission changes revoke existing tokens only for users assigned to that role.
+- Profile-only edits and saving an unchanged role/vendor configuration do not revoke sessions.
+- A user's own password change revokes all old sessions, returns a new access token, and the MES WPF client replaces its current token before continuing.
+- Applying the `18c2d3e4f5a6` migration makes tokens issued by older server versions invalid. Plan for a one-time login prompt after deployment.
+
 ## WPF ClickOnce Deployment
 
 The WPF client is published with `ClickOnceProfile`.
