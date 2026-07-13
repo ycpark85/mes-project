@@ -292,3 +292,16 @@ User-facing keyword searches follow the way operators identify master data and b
 - Product specification is displayed where needed but is excluded from the general product keyword search.
 - Sales order numbers, customer purchase order numbers, and outsource purchase order numbers require an exact full-number match after trimming whitespace and normalizing letter case.
 - Existing B-tree indexes on internal order numbers remain the primary path for exact-number lookup.
+
+## LOT Status Integrity
+
+The stored `lot.status` is protected by the `ck_lot__status_enum` database constraint.
+
+- `WAITING`: LOT created or waiting for the next operational event.
+- `RECEIVED`: company inbound completed and inspection is waiting.
+- `IN_PROGRESS`: inspection is in progress.
+- `PARTIAL_DONE`: a partial inspection result was saved.
+- `DONE`: all active inspection schedules for the LOT are complete.
+- `CANCELED`: the LOT was canceled.
+
+The LOT management screen may derive a separate display status, such as showing an active outsource LOT as `IN_PROGRESS` while the stored status remains `WAITING`. Display-only values such as `CREATED` and `INSPECTION_DONE` are not stored in `lot.status` and are intentionally excluded from the constraint.

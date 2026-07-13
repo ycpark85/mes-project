@@ -5,6 +5,7 @@ from datetime import date
 
 from fastapi import HTTPException
 from sqlalchemy import BigInteger, create_engine
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import sessionmaker
 
@@ -94,6 +95,25 @@ class LotQueryTests(unittest.TestCase):
 
         self.assertEqual(1, result.meta.total)
         self.assertEqual("LOT-PARENT", result.items[0].lot_no)
+
+    def test_lot_status_constraint_accepts_workflow_states_and_rejects_unknown_state(self) -> None:
+        lot = self.db.get(Lot, 1)
+
+        for status in (
+            "WAITING",
+            "RECEIVED",
+            "IN_PROGRESS",
+            "PARTIAL_DONE",
+            "DONE",
+            "CANCELED",
+        ):
+            lot.status = status
+            self.db.flush()
+
+        lot.status = "UNKNOWN"
+        with self.assertRaises(IntegrityError):
+            self.db.flush()
+        self.db.rollback()
 
     def test_list_lots_requires_full_order_number_but_keeps_partial_product_search(self) -> None:
         partial_order_result = list_lots(self.db, page=1, size=20, q="SO-")

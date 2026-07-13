@@ -22,6 +22,7 @@ from app.models.product_inventory_lot import ProductInventoryLot
 from app.models.product_inventory_movement import ProductInventoryMovement
 from app.models.shipment_line import ShipmentLine
 from app.services.inventory_fifo_service import allocate_inventory_lots_fifo
+from app.services.lot_status import derive_lot_status_from_inspection_statuses
 from app.services.production_daily_query import (
     refresh_order_line_snapshots_for_lots,
     refresh_order_line_snapshots_for_product,
@@ -395,18 +396,7 @@ def _sync_lot_status_from_inspection_schedules(
     if not statuses:
         return
 
-    next_status: str | None = None
-
-    if "IN_PROGRESS" in statuses:
-        next_status = "IN_PROGRESS"
-    elif "RECEIVED" in statuses:
-        next_status = "RECEIVED"
-    elif "PARTIAL_DONE" in statuses:
-        next_status = "PARTIAL_DONE"
-    elif "WAITING" in statuses:
-        next_status = "WAITING"
-    elif all(status == "DONE" for status in statuses):
-        next_status = "DONE"
+    next_status = derive_lot_status_from_inspection_statuses(statuses)
 
     if next_status is None:
         return

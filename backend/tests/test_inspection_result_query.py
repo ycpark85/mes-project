@@ -164,7 +164,7 @@ class InspectionResultQueryTests(unittest.TestCase):
                     uom="EA",
                     created_date=date(2026, 7, 1),
                     due_date=date(2026, 7, 20),
-                    status="INSPECTION",
+                    status="DONE",
                 ),
                 InspectionSchedule(
                     inspection_schedule_id=1,

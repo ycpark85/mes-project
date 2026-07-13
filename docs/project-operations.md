@@ -356,6 +356,8 @@ Product history monitoring is a product-to-LOT trace view.
 - LOT detail and product history screens use the common `GET /api/v1/lots/{lot_id}/detail` trace API.
 - LOT management list and basic LOT detail lookup are assembled by `lot_query.py`; the router only receives filters and delegates the query.
 - LOT management list status treats a LOT as `IN_PROGRESS` when it belongs to an active, non-canceled outsource work group, even if the stored `lot.status` is still `WAITING`.
+- Stored LOT status is limited to `WAITING`, `RECEIVED`, `IN_PROGRESS`, `PARTIAL_DONE`, `DONE`, and `CANCELED`; `CREATED` and `INSPECTION_DONE` are list display states only.
+- Historical `PARTIAL_DONE` inspection schedules do not block LOT completion; when the follow-up inspection is `DONE`, the stored LOT status becomes `DONE`.
 - The legacy `POST /api/v1/lot-steps/{id}/start` and `POST /api/v1/lot-steps/{id}/complete` manual process-control APIs were removed after confirming they are not used externally.
 - Current outsource process control must use outsource work instruction groups, Bohyun inbound/work-done/shipment status, inspection schedule receive/start, and inspection result registration instead of manual LOT-step start/complete.
 - Keep `lot_step` rows as routing/process snapshots for LOT creation, detail display, and not-started checks, but do not use the legacy LOT-step APIs as the operational progress source.

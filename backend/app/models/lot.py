@@ -34,6 +34,10 @@ class Lot(Base):
     __table_args__ = (
         CheckConstraint("lot_qty > 0", name="ck_lot__lot_qty_gt_0"),
         CheckConstraint(
+            "status IN ('WAITING','RECEIVED','IN_PROGRESS','PARTIAL_DONE','DONE','CANCELED')",
+            name="ck_lot__status_enum",
+        ),
+        CheckConstraint(
             "material_used_qty IS NULL OR material_used_qty > 0",
             name="ck_lot__material_used_qty_gt_0",
         ),

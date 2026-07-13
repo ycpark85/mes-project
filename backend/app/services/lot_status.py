@@ -6,6 +6,24 @@ from sqlalchemy.orm import Session
 from app.models.lot import Lot
 
 
+def derive_lot_status_from_inspection_statuses(
+    statuses: list[str],
+) -> str | None:
+    active_statuses = [status for status in statuses if status != "CANCELED"]
+
+    if not active_statuses:
+        return None
+
+    for active_status in ("IN_PROGRESS", "RECEIVED", "WAITING"):
+        if active_status in active_statuses:
+            return active_status
+
+    if all(status in {"PARTIAL_DONE", "DONE"} for status in active_statuses):
+        return "DONE" if "DONE" in active_statuses else "PARTIAL_DONE"
+
+    return None
+
+
 def recalc_lot_status(db: Session, lot: Lot) -> str:
     """
     Deprecated.
