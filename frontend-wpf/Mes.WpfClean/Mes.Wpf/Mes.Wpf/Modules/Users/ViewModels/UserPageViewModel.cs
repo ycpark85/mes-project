@@ -2,6 +2,7 @@
 using Mes.Wpf.Core.Common.ViewModels;
 using Mes.Wpf.Core.Constants;
 using Mes.Wpf.Core.Interfaces;
+using Mes.Wpf.Modules.Partners.Dtos;
 using Mes.Wpf.Modules.Users.Dtos;
 using System;
 using System.Collections.Generic;
@@ -15,6 +16,7 @@ namespace Mes.Wpf.Modules.Users.ViewModels
     {
         private readonly IApiClient _apiClient;
         private readonly IMessageService _messageService;
+        private const string VendorPortalRoleCode = "VENDOR_PORTAL";
 
         private string _searchKeyword = string.Empty;
         private string _selectedUseYn = "사용";
@@ -30,6 +32,7 @@ namespace Mes.Wpf.Modules.Users.ViewModels
             Items = new ObservableCollection<UserDto>();
             UseYnOptions = new ObservableCollection<string> { "사용", "미사용" };
             RoleOptions = new ObservableCollection<UserRoleCheckItem>();
+            VendorPartnerOptions = new ObservableCollection<PartnerDto>();
 
             EditModel = new UserEditModel();
 
@@ -43,6 +46,8 @@ namespace Mes.Wpf.Modules.Users.ViewModels
         public ObservableCollection<string> UseYnOptions { get; }
 
         public ObservableCollection<UserRoleCheckItem> RoleOptions { get; }
+
+        public ObservableCollection<PartnerDto> VendorPartnerOptions { get; }
 
         public UserEditModel EditModel { get; }
 
@@ -73,6 +78,7 @@ namespace Mes.Wpf.Modules.Users.ViewModels
         public async Task InitializeAsync()
         {
             await LoadRoleOptionsAsync();
+            await LoadVendorPartnerOptionsAsync();
             await SearchAsync();
         }
 
@@ -284,7 +290,10 @@ namespace Mes.Wpf.Modules.Users.ViewModels
                 RoleIds = EditModel.RoleIds,
                 Department = EmptyToNull(EditModel.Department),
                 Position = EmptyToNull(EditModel.Position),
-                IsActive = EditModel.IsActive
+                IsActive = EditModel.IsActive,
+                IsVendorUser = EditModel.IsVendorUser,
+                VendorPartnerId = EditModel.IsVendorUser ? EditModel.VendorPartnerId : null,
+                VendorAccessActive = true
             };
 
             var result = await _apiClient.PostAsync<UserCreateRequest, UserDto>(
@@ -315,7 +324,10 @@ namespace Mes.Wpf.Modules.Users.ViewModels
                 RoleIds = EditModel.RoleIds,
                 Department = EmptyToNull(EditModel.Department),
                 Position = EmptyToNull(EditModel.Position),
-                IsActive = EditModel.IsActive
+                IsActive = EditModel.IsActive,
+                IsVendorUser = EditModel.IsVendorUser,
+                VendorPartnerId = EditModel.IsVendorUser ? EditModel.VendorPartnerId : null,
+                VendorAccessActive = true
             };
 
             var result = await _apiClient.PatchAsync<UserUpdateRequest, UserDto>(
@@ -388,6 +400,12 @@ namespace Mes.Wpf.Modules.Users.ViewModels
                 return false;
             }
 
+            if (EditModel.IsVendorUser && !EditModel.VendorPartnerId.HasValue)
+            {
+                _messageService.ShowWarning("외주업체 계정은 외주업체를 선택해야 합니다.");
+                return false;
+            }
+
             return true;
         }
 
@@ -409,6 +427,20 @@ namespace Mes.Wpf.Modules.Users.ViewModels
                 .Distinct()
                 .OrderBy(x => x)
                 .ToList();
+
+            if (EditModel.IsVendorUser)
+            {
+                var vendorRole = RoleOptions.FirstOrDefault(x => x.RoleCode == VendorPortalRoleCode);
+                if (vendorRole != null && !EditModel.RoleIds.Contains(vendorRole.RoleId))
+                {
+                    vendorRole.IsSelected = true;
+                    EditModel.RoleIds.Add(vendorRole.RoleId);
+                    EditModel.RoleIds = EditModel.RoleIds
+                        .Distinct()
+                        .OrderBy(x => x)
+                        .ToList();
+                }
+            }
         }
 
         private void ApplyRoleSelection(List<long> roleIds)
@@ -457,6 +489,27 @@ namespace Mes.Wpf.Modules.Users.ViewModels
         private static string? EmptyToNull(string? value)
         {
             return string.IsNullOrWhiteSpace(value) ? null : value;
+        }
+
+        private async Task LoadVendorPartnerOptionsAsync()
+        {
+            var result = await _apiClient.GetAsync<PartnerListDto>(
+                $"{ApiRoutes.Partners}?page=1&size=100&is_active=true&partner_type=VENDOR");
+
+            if (!result.Success)
+            {
+                _messageService.ShowError(result.Message ?? "외주업체 목록 조회 중 오류가 발생했습니다.");
+                return;
+            }
+
+            VendorPartnerOptions.Clear();
+
+            foreach (var partner in (result.Data?.Items ?? new List<PartnerDto>())
+                         .Where(x => x.PartnerType == "VENDOR")
+                         .OrderBy(x => x.Name))
+            {
+                VendorPartnerOptions.Add(partner);
+            }
         }
     }
 }

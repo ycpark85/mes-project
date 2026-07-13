@@ -435,8 +435,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
 
                 var request = new InspectionScheduleUpdateRequest
                 {
-                    InspectionDate = targetDate,
-                    Memo = string.IsNullOrWhiteSpace(EditModel.Memo) ? null : EditModel.Memo.Trim()
+                    InspectionDate = targetDate
                 };
 
                 var result = await _apiClient.PatchAsync<InspectionScheduleUpdateRequest, object>(

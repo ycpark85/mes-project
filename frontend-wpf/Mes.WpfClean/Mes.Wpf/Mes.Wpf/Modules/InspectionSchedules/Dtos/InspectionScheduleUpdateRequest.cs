@@ -7,8 +7,5 @@ namespace Mes.Wpf.Modules.InspectionSchedules.Dtos
     {
         [JsonPropertyName("inspection_date")]
         public DateTime? InspectionDate { get; set; }
-
-        [JsonPropertyName("memo")]
-        public string? Memo { get; set; }
     }
 }

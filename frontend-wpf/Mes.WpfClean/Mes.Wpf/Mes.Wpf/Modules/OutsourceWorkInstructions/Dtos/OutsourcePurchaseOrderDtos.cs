@@ -286,6 +286,15 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
     {
         [JsonPropertyName("items")]
         public List<OutsourcePurchaseOrderListItemDto> Items { get; set; } = new();
+
+        [JsonPropertyName("total_count")]
+        public int TotalCount { get; set; }
+
+        [JsonPropertyName("page")]
+        public int Page { get; set; } = 1;
+
+        [JsonPropertyName("size")]
+        public int Size { get; set; } = 100;
     }
 
     public sealed class OutsourcePurchaseOrderListItemDto

@@ -252,17 +252,17 @@
                                                 ElementStyle="{StaticResource DataGridTextElementStyle}"
                                                 Binding="{Binding ProductNamesText}"
                                                 IsReadOnly="True"/>
-                            <DataGridTextColumn Header="표준작업비"
+                            <DataGridTextColumn Header="표준배부액"
                                                 Width="105"
                                                 ElementStyle="{StaticResource DataGridTextElementStyle}"
                                                 Binding="{Binding StandardAmount, StringFormat={}{0:N0}}"
                                                 IsReadOnly="True"/>
-                            <DataGridTextColumn Header="실제가공비"
+                            <DataGridTextColumn Header="실제배부액"
                                                 Width="105"
                                                 ElementStyle="{StaticResource DataGridTextElementStyle}"
                                                 Binding="{Binding ActualAmount, StringFormat={}{0:N0}}"
                                                 IsReadOnly="True"/>
-                            <DataGridTextColumn Header="원가차액"
+                            <DataGridTextColumn Header="배부차액"
                                                 Width="90"
                                                 ElementStyle="{StaticResource DataGridTextElementStyle}"
                                                 Binding="{Binding AmountDifference, StringFormat={}{0:N0}}"
@@ -285,7 +285,7 @@
             <ScrollViewer Grid.Column="1"
                           VerticalScrollBarVisibility="Auto">
                 <StackPanel>
-                    <GroupBox Header="선택 대상 가공비 입력"
+                    <GroupBox Header="가공비 묶음 전체금액 입력"
                               Margin="0,0,0,10">
                         <StackPanel Margin="10">
                             <TextBlock Text="{Binding SelectedTarget.AlreadyCostGroupNo, StringFormat=비용묶음번호: {0}}"
@@ -301,7 +301,7 @@
                         </StackPanel>
                     </GroupBox>
 
-                    <GroupBox Header="표준작업비"
+                    <GroupBox Header="묶음 전체 표준작업비"
                               Margin="0,0,0,10">
                         <Grid Margin="10">
                             <Grid.RowDefinitions>
@@ -316,7 +316,7 @@
 
                             <TextBlock Grid.Row="0"
                                        Grid.Column="0"
-                                       Text="공급가액"
+                                       Text="전체금액"
                                        VerticalAlignment="Center"/>
                             <TextBox Grid.Row="0"
                                      Grid.Column="1"
@@ -347,7 +347,7 @@
                         </Grid>
                     </GroupBox>
 
-                    <GroupBox Header="실제가공비"
+                    <GroupBox Header="묶음 전체 실제가공비"
                               Margin="0,0,0,10">
                         <Grid Margin="10">
                             <Grid.RowDefinitions>
@@ -363,7 +363,7 @@
 
                             <TextBlock Grid.Row="0"
                                        Grid.Column="0"
-                                       Text="공급가액"
+                                       Text="전체금액"
                                        VerticalAlignment="Center"/>
                             <TextBox Grid.Row="0"
                                      Grid.Column="1"

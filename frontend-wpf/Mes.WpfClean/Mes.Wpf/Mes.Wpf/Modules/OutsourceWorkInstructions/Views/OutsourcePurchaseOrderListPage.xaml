@@ -97,6 +97,8 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="12" />
             <RowDefinition Height="*" />
+            <RowDefinition Height="12" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <Border Grid.Row="0"
@@ -204,7 +206,43 @@
             </DataGrid>
         </Border>
 
-        <Grid Grid.RowSpan="3"
+        <Border Grid.Row="4"
+                BorderBrush="#D1D5DB"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="12"
+                Background="White">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="12" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="12" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0"
+                           Text="{Binding PageInfo}"
+                           VerticalAlignment="Center"
+                           Foreground="#374151"
+                           FontWeight="SemiBold" />
+
+                <Button Grid.Column="1"
+                        Content="이전"
+                        Command="{Binding PreviousPageCommand}"
+                        IsEnabled="{Binding CanGoPrevious}"
+                        MinWidth="80" />
+
+                <Button Grid.Column="3"
+                        Content="다음"
+                        Command="{Binding NextPageCommand}"
+                        IsEnabled="{Binding CanGoNext}"
+                        MinWidth="80" />
+            </Grid>
+        </Border>
+
+        <Grid Grid.RowSpan="5"
               Background="#66000000"
               Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}">
             <Border Width="240"

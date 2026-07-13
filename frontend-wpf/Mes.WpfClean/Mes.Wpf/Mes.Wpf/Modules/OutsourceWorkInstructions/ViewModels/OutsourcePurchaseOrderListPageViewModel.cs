@@ -21,6 +21,9 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
         private string _selectedProcessType = "전체";
         private string _searchKeyword = string.Empty;
         private OutsourcePurchaseOrderListItemDto? _selectedItem;
+        private int _page = 1;
+        private int _pageSize = 100;
+        private int _totalCount;
 
         public OutsourcePurchaseOrderListPageViewModel(
             IApiClient apiClient,
@@ -32,9 +35,13 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
             Items = new ObservableCollection<OutsourcePurchaseOrderListItemDto>();
             ProcessTypeOptions = new ObservableCollection<string> { "전체", "CUT", "PRINT" };
 
-            SearchCommand = new AsyncRelayCommand(SearchAsync);
+            SearchCommand = new AsyncRelayCommand(SearchFromFirstPageAsync, () => !IsLoading);
             ResetCommand = new RelayCommand(Reset);
-            DownloadCommand = new AsyncRelayCommand(DownloadAsync);
+            PreviousPageCommand = new AsyncRelayCommand(PreviousPageAsync, () => CanGoPrevious);
+            NextPageCommand = new AsyncRelayCommand(NextPageAsync, () => CanGoNext);
+            DownloadCommand = new AsyncRelayCommand(
+                DownloadAsync,
+                parameter => !IsLoading && (parameter is OutsourcePurchaseOrderListItemDto || SelectedItem != null));
         }
 
         public ObservableCollection<OutsourcePurchaseOrderListItemDto> Items { get; }
@@ -42,12 +49,21 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
 
         public AsyncRelayCommand SearchCommand { get; }
         public RelayCommand ResetCommand { get; }
+        public AsyncRelayCommand PreviousPageCommand { get; }
+        public AsyncRelayCommand NextPageCommand { get; }
         public AsyncRelayCommand DownloadCommand { get; }
 
         public bool IsLoading
         {
             get => _isLoading;
-            set => SetProperty(ref _isLoading, value);
+            set
+            {
+                if (SetProperty(ref _isLoading, value))
+                {
+                    RaisePagingStateChanged();
+                    RaiseCommandCanExecuteChanged();
+                }
+            }
         }
 
         public DateTime? DateFrom
@@ -77,11 +93,70 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
         public OutsourcePurchaseOrderListItemDto? SelectedItem
         {
             get => _selectedItem;
-            set => SetProperty(ref _selectedItem, value);
+            set
+            {
+                if (SetProperty(ref _selectedItem, value))
+                {
+                    RaiseCommandCanExecuteChanged();
+                }
+            }
         }
+
+        public int Page
+        {
+            get => _page;
+            set
+            {
+                var normalized = Math.Max(1, value);
+                if (SetProperty(ref _page, normalized))
+                {
+                    RaisePagingStateChanged();
+                }
+            }
+        }
+
+        public int PageSize
+        {
+            get => _pageSize;
+            set
+            {
+                var normalized = Math.Max(1, value);
+                if (SetProperty(ref _pageSize, normalized))
+                {
+                    RaisePagingStateChanged();
+                }
+            }
+        }
+
+        public int TotalCount
+        {
+            get => _totalCount;
+            set
+            {
+                var normalized = Math.Max(0, value);
+                if (SetProperty(ref _totalCount, normalized))
+                {
+                    RaisePagingStateChanged();
+                }
+            }
+        }
+
+        public int TotalPages => Math.Max(1, (int)Math.Ceiling(TotalCount / (double)Math.Max(1, PageSize)));
+
+        public string PageInfo => $"{TotalCount:N0}건 / {Page:N0} / {TotalPages:N0} 페이지";
+
+        public bool CanGoPrevious => !IsLoading && Page > 1;
+
+        public bool CanGoNext => !IsLoading && Page < TotalPages;
 
         public async Task InitializeAsync()
         {
+            await SearchAsync();
+        }
+
+        private async Task SearchFromFirstPageAsync()
+        {
+            Page = 1;
             await SearchAsync();
         }
 
@@ -96,15 +171,22 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
                 if (result == null || !result.Success || result.Data == null)
                 {
                     Items.Clear();
+                    TotalCount = 0;
                     _messageService.ShowError(result?.Message ?? "외주발주 목록 조회 중 오류가 발생했습니다.");
                     return;
                 }
+
+                TotalCount = result.Data.TotalCount;
+                Page = result.Data.Page;
+                PageSize = result.Data.Size;
 
                 Items.Clear();
                 foreach (var item in result.Data.Items)
                 {
                     Items.Add(item);
                 }
+
+                SelectedItem = Items.Count > 0 ? Items[0] : null;
             }
             finally
             {
@@ -119,12 +201,35 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
             SelectedProcessType = "전체";
             SearchKeyword = string.Empty;
             SelectedItem = null;
+            Page = 1;
             _ = SearchAsync();
         }
 
-        private async Task DownloadAsync()
+        private async Task PreviousPageAsync()
         {
-            var target = SelectedItem;
+            if (!CanGoPrevious)
+            {
+                return;
+            }
+
+            Page--;
+            await SearchAsync();
+        }
+
+        private async Task NextPageAsync()
+        {
+            if (!CanGoNext)
+            {
+                return;
+            }
+
+            Page++;
+            await SearchAsync();
+        }
+
+        private async Task DownloadAsync(object? parameter)
+        {
+            var target = parameter as OutsourcePurchaseOrderListItemDto ?? SelectedItem;
 
             if (target == null)
             {
@@ -173,6 +278,9 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
         {
             var query = new System.Collections.Generic.List<string>();
 
+            query.Add($"page={Page}");
+            query.Add($"size={PageSize}");
+
             if (DateFrom.HasValue)
             {
                 query.Add($"date_from={DateFrom.Value:yyyy-MM-dd}");
@@ -196,6 +304,23 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
             return query.Count > 0
                 ? $"{ApiRoutes.OutsourcePurchaseOrders}?{string.Join("&", query)}"
                 : ApiRoutes.OutsourcePurchaseOrders;
+        }
+
+        private void RaisePagingStateChanged()
+        {
+            OnPropertyChanged(nameof(TotalPages));
+            OnPropertyChanged(nameof(PageInfo));
+            OnPropertyChanged(nameof(CanGoPrevious));
+            OnPropertyChanged(nameof(CanGoNext));
+            RaiseCommandCanExecuteChanged();
+        }
+
+        private void RaiseCommandCanExecuteChanged()
+        {
+            SearchCommand.RaiseCanExecuteChanged();
+            PreviousPageCommand.RaiseCanExecuteChanged();
+            NextPageCommand.RaiseCanExecuteChanged();
+            DownloadCommand.RaiseCanExecuteChanged();
         }
     }
 }

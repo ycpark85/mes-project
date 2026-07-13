@@ -5,6 +5,18 @@ using System.Text.Json.Serialization;
 
 namespace Mes.Wpf.Modules.Users.Dtos
 {
+    public class UserVendorAccessDto
+    {
+        [JsonPropertyName("partner_id")]
+        public long PartnerId { get; set; }
+
+        [JsonPropertyName("partner_name")]
+        public string PartnerName { get; set; } = string.Empty;
+
+        [JsonPropertyName("is_active")]
+        public bool IsActive { get; set; }
+    }
+
     public class UserDto
     {
         [JsonPropertyName("user_id")]
@@ -37,6 +49,9 @@ namespace Mes.Wpf.Modules.Users.Dtos
         [JsonPropertyName("roles")]
         public List<UserRoleDto> Roles { get; set; } = new();
 
+        [JsonPropertyName("vendor_access")]
+        public UserVendorAccessDto? VendorAccess { get; set; }
+
         public string RoleNames
         {
             get
@@ -51,5 +66,7 @@ namespace Mes.Wpf.Modules.Users.Dtos
         }
 
         public string UseYn => IsActive ? "사용" : "미사용";
+
+        public string VendorPartnerName => VendorAccess?.PartnerName ?? string.Empty;
     }
 }

@@ -21,23 +21,18 @@
         public const string OrderLines = "api/v1/order-lines";
 
         public const string Lots = "api/v1/lots";
-        public const string LotSteps = "api/v1/lot-steps";
         public const string ProductionDaily = "api/v1/production-daily";
 
         public const string InspectionSchedules = "api/v1/inspection-schedules";
         public const string InspectionWorkInstructionTargets = "api/v1/inspection-schedules/work-instruction-targets";
         public const string InspectionResults = "api/v1/inspection-schedules/results/list";
 
-        public const string OutsourceWorkInstructions = "api/v1/outsource-work-instructions";
         public const string OutsourceWorkInstructionCandidates = "api/v1/outsource-work-instructions/candidates";
         public const string OutsourceWorkInstructionGroups = "api/v1/outsource-work-instructions/groups";
         public const string OutsourceWorkInstructionPlateUpload = "api/v1/outsource-work-instructions/upload-plate-data";
         public const string OutsourcePurchaseOrderTargets = "api/v1/outsource-work-instructions/purchase-order-targets";
         public const string OutsourceWorkInstructionBatch = "api/v1/outsource-work-instructions/batch";
         public const string OutsourcePurchaseOrders = "api/v1/outsource-work-instructions/purchase-orders";
-        public const string OutsourcePurchaseOrderItemVendorReceive = "api/v1/outsource-work-instructions/purchase-orders/items";
-        public const string OutsourcePurchaseOrderItemWorkDone = "api/v1/outsource-work-instructions/purchase-orders/items";
-        public const string OutsourcePurchaseOrderItemShip = "api/v1/outsource-work-instructions/purchase-orders/items";
         public const string OutsourcePurchaseOrderExcel = "api/v1/outsource-work-instructions/purchase-orders";
         public const string BohyunOutsourceGroups = "api/v1/outsource-work-instructions/bohyun-groups";
         public const string OutsourceProcessingCosts = "api/v1/outsource-processing-costs";

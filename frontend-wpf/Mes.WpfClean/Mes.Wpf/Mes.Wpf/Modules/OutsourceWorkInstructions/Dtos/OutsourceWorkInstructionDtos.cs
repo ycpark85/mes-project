@@ -340,30 +340,6 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
         public List<OutsourceWorkInstructionRawMaterialAllocationCreateRequest> RawMaterialAllocations { get; set; } = new();
     }
 
-    public class OutsourceWorkInstructionCreateRequest
-    {
-        [JsonPropertyName("instruction_date")]
-        public DateTime InstructionDate { get; set; }
-
-        [JsonPropertyName("process_type")]
-        public string ProcessType { get; set; } = "CUT";
-
-        [JsonPropertyName("customer_partner_id")]
-        public long CustomerPartnerId { get; set; }
-
-        [JsonPropertyName("lot_ids")]
-        public List<long> LotIds { get; set; } = new();
-
-        [JsonPropertyName("memo")]
-        public string? Memo { get; set; }
-
-        [JsonPropertyName("files")]
-        public List<OutsourceWorkInstructionFileCreateRequest> Files { get; set; } = new();
-
-        [JsonPropertyName("groups")]
-        public List<OutsourceWorkInstructionGroupCreateRequest> Groups { get; set; } = new();
-    }
-
     public class OutsourceWorkInstructionItemDto
     {
         [JsonPropertyName("outsource_work_instruction_item_id")]
@@ -820,6 +796,15 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
     {
         [JsonPropertyName("items")]
         public List<OutsourcePurchaseOrderTargetDto> Items { get; set; } = new();
+
+        [JsonPropertyName("total_count")]
+        public int TotalCount { get; set; }
+
+        [JsonPropertyName("page")]
+        public int Page { get; set; } = 1;
+
+        [JsonPropertyName("size")]
+        public int Size { get; set; } = 100;
     }
 
     public class OutsourcePurchaseOrderTargetGroupRowModel : ViewModelBase

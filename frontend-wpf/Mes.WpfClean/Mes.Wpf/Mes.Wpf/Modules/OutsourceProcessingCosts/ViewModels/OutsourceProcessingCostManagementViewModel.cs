@@ -4,9 +4,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Windows.Input;
 using Mes.Wpf.Core.Common;
-using Mes.Wpf.Core.Constants;
 using Mes.Wpf.Core.Interfaces;
 using Mes.Wpf.Modules.OutsourceProcessingCosts.Dtos;
 
@@ -14,6 +12,11 @@ namespace Mes.Wpf.Modules.OutsourceProcessingCosts.ViewModels
 {
     public class OutsourceProcessingCostManagementViewModel : ViewModelBase
     {
+        private const string CloseAction = "close";
+        private const string ReopenAction = "reopen";
+        private const string CancelAction = "cancel";
+        private const int MinimumBundleTargetCount = 2;
+
         private readonly IApiClient _apiClient;
         private readonly IMessageService _messageService;
 
@@ -22,8 +25,8 @@ namespace Mes.Wpf.Modules.OutsourceProcessingCosts.ViewModels
         private bool _useSettlementMonth = true;
         private DateTime? _dateFrom;
         private DateTime? _dateTo;
-        private string _selectedProcessType = "CUT";
-        private string _selectedStatusCode = "ALL";
+        private string _selectedProcessType = OutsourceProcessingCostDisplayOptions.CutProcessTypeCode;
+        private string _selectedStatusCode = OutsourceProcessingCostDisplayOptions.AllStatusCode;
         private string _searchKeyword = string.Empty;
         private OutsourceProcessingCostTargetRowModel? _selectedTarget;
         private OutsourceProcessingCostGroupRowModel? _selectedCostGroup;
@@ -47,21 +50,8 @@ namespace Mes.Wpf.Modules.OutsourceProcessingCosts.ViewModels
             _apiClient = apiClient;
             _messageService = messageService;
 
-            ProcessTypeOptions = new ObservableCollection<CodeNameOption>
-            {
-                new("CUT", "재단"),
-                new("PRINT", "인쇄"),
-                new("DIECUT", "도무송")
-            };
-            StatusOptions = new ObservableCollection<CodeNameOption>
-            {
-                new("ALL", "전체"),
-                new("UNREGISTERED", "미등록"),
-                new("DRAFT", "작성중"),
-                new("COST_VARIANCE", "원가차액"),
-                new("CLOSED", "월마감"),
-                new("CANCELED", "취소")
-            };
+            ProcessTypeOptions = new ObservableCollection<CodeNameOption>(OutsourceProcessingCostDisplayOptions.ProcessTypes);
+            StatusOptions = new ObservableCollection<CodeNameOption>(OutsourceProcessingCostDisplayOptions.Statuses);
             Targets = new ObservableCollection<OutsourceProcessingCostTargetRowModel>();
             CostGroups = new ObservableCollection<OutsourceProcessingCostGroupRowModel>();
             Allocations = new ObservableCollection<OutsourceProcessingCostAllocationRowModel>();
@@ -81,13 +71,13 @@ namespace Mes.Wpf.Modules.OutsourceProcessingCosts.ViewModels
         public ObservableCollection<OutsourceProcessingCostGroupRowModel> CostGroups { get; }
         public ObservableCollection<OutsourceProcessingCostAllocationRowModel> Allocations { get; }
 
-        public ICommand SearchCommand { get; }
-        public ICommand ResetCommand { get; }
-        public ICommand CreateGroupCommand { get; }
-        public ICommand SaveCostCommand { get; }
-        public ICommand CloseCommand { get; }
-        public ICommand ReopenCommand { get; }
-        public ICommand CancelCommand { get; }
+        public AsyncRelayCommand SearchCommand { get; }
+        public AsyncRelayCommand ResetCommand { get; }
+        public AsyncRelayCommand CreateGroupCommand { get; }
+        public AsyncRelayCommand SaveCostCommand { get; }
+        public AsyncRelayCommand CloseCommand { get; }
+        public AsyncRelayCommand ReopenCommand { get; }
+        public AsyncRelayCommand CancelCommand { get; }
 
         public bool IsLoading
         {
@@ -255,53 +245,57 @@ namespace Mes.Wpf.Modules.OutsourceProcessingCosts.ViewModels
             }
         }
 
-        public bool CanCreateBundle => CheckedTargetCount >= 2;
+        public bool CanCreateBundle => CheckedTargetCount >= MinimumBundleTargetCount;
 
         public async Task InitializeAsync()
         {
-            var today = DateTime.Today;
-            SettlementMonth = new DateTime(today.Year, today.Month, 1);
-            ActualBillingMonth = SettlementMonth;
-            DateFrom = today.AddMonths(-1);
-            DateTo = today;
+            ResetDefaultDateRange();
 
             await SearchAsync();
         }
 
         private async Task SearchAsync()
         {
-            try
-            {
-                IsLoading = true;
-                await LoadCostGroupsAsync();
-                await LoadTargetsAsync();
-            }
-            finally
-            {
-                IsLoading = false;
-            }
+            await RunWithLoadingAsync(LoadSearchDataAsync);
+        }
+
+        private async Task LoadSearchDataAsync()
+        {
+            await LoadCostGroupsAsync();
+            await LoadTargetsAsync();
         }
 
         private async Task ResetAsync()
         {
-            var today = DateTime.Today;
-            SettlementMonth = new DateTime(today.Year, today.Month, 1);
-            UseSettlementMonth = true;
-            DateFrom = today.AddMonths(-1);
-            DateTo = today;
-            SelectedProcessType = "CUT";
-            SelectedStatusCode = "ALL";
-            SearchKeyword = string.Empty;
+            ResetDefaultSearchConditions();
             ClearCostInput();
 
             await SearchAsync();
+        }
+
+        private void ResetDefaultSearchConditions()
+        {
+            ResetDefaultDateRange();
+            UseSettlementMonth = true;
+            SelectedProcessType = OutsourceProcessingCostDisplayOptions.CutProcessTypeCode;
+            SelectedStatusCode = OutsourceProcessingCostDisplayOptions.AllStatusCode;
+            SearchKeyword = string.Empty;
+        }
+
+        private void ResetDefaultDateRange()
+        {
+            var today = DateTime.Today;
+            SettlementMonth = new DateTime(today.Year, today.Month, 1);
+            ActualBillingMonth = SettlementMonth;
+            DateFrom = today.AddMonths(-1);
+            DateTo = today;
         }
 
         private async Task LoadTargetsAsync()
         {
             var result = await _apiClient.GetAsync<OutsourceProcessingCostTargetListDto>(BuildTargetUrl());
 
-            Targets.Clear();
+            ReplaceTargets(null);
             SelectedTarget = null;
 
             if (!result.Success || result.Data == null)
@@ -310,67 +304,99 @@ namespace Mes.Wpf.Modules.OutsourceProcessingCosts.ViewModels
                 return;
             }
 
-            foreach (var item in result.Data.Items)
-            {
-                var target = OutsourceProcessingCostTargetRowModel.FromDto(item);
-                target.PropertyChanged += Target_PropertyChanged;
-                Targets.Add(target);
-            }
-
-            UpdateCheckedTargetCount();
+            ReplaceTargets(result.Data.Items.Select(OutsourceProcessingCostTargetRowModel.FromDto));
         }
 
         private async Task LoadCostGroupsAsync()
         {
             var result = await _apiClient.GetAsync<OutsourceProcessingCostGroupListDto>(BuildCostGroupUrl());
 
-            CostGroups.Clear();
+            ReplaceCostGroups(null);
             SelectedCostGroup = null;
-            Allocations.Clear();
+            ReplaceAllocations(null);
 
             if (!result.Success || result.Data == null)
             {
                 _messageService.ShowError(result.Message ?? "외주가공비 목록 조회에 실패했습니다.");
-                TotalCount = 0;
-                StandardTotal = 0;
-                ActualTotal = 0;
-                DifferenceTotal = 0;
-                UnclosedCount = 0;
+                ResetCostGroupSummary();
                 return;
             }
 
-            foreach (var item in result.Data.Items)
+            ReplaceCostGroups(result.Data.Items.Select(OutsourceProcessingCostGroupRowModel.FromDto));
+            ApplyCostGroupSummary(result.Data);
+        }
+
+        private void ReplaceTargets(IEnumerable<OutsourceProcessingCostTargetRowModel>? targets)
+        {
+            foreach (var target in Targets)
             {
-                CostGroups.Add(OutsourceProcessingCostGroupRowModel.FromDto(item));
+                target.PropertyChanged -= Target_PropertyChanged;
             }
 
-            TotalCount = result.Data.TotalCount;
-            StandardTotal = result.Data.StandardTotal;
-            ActualTotal = result.Data.ActualTotal;
-            DifferenceTotal = result.Data.DifferenceTotal;
-            UnclosedCount = result.Data.UnclosedCount;
+            Targets.Clear();
+
+            if (targets != null)
+            {
+                foreach (var target in targets)
+                {
+                    target.PropertyChanged += Target_PropertyChanged;
+                    Targets.Add(target);
+                }
+            }
+
+            UpdateCheckedTargetCount();
+        }
+
+        private void ReplaceCostGroups(IEnumerable<OutsourceProcessingCostGroupRowModel>? costGroups)
+        {
+            CostGroups.Clear();
+
+            if (costGroups == null)
+            {
+                return;
+            }
+
+            foreach (var costGroup in costGroups)
+            {
+                CostGroups.Add(costGroup);
+            }
+        }
+
+        private void ApplyCostGroupSummary(OutsourceProcessingCostGroupListDto summary)
+        {
+            TotalCount = summary.TotalCount;
+            StandardTotal = summary.StandardTotal;
+            ActualTotal = summary.ActualTotal;
+            DifferenceTotal = summary.DifferenceTotal;
+            UnclosedCount = summary.UnclosedCount;
+        }
+
+        private void ResetCostGroupSummary()
+        {
+            TotalCount = 0;
+            StandardTotal = 0;
+            ActualTotal = 0;
+            DifferenceTotal = 0;
+            UnclosedCount = 0;
         }
 
         private async Task CreateGroupAsync()
         {
             var selectedTargets = Targets.Where(x => x.IsChecked).ToList();
 
-            if (selectedTargets.Count < 2)
+            if (selectedTargets.Count < MinimumBundleTargetCount)
             {
                 _messageService.ShowWarning("가공비 묶음에 포함할 대상을 선택하세요.");
                 return;
             }
 
-            if (!SettlementMonth.HasValue)
+            if (!EnsureSettlementMonthSelected())
             {
-                _messageService.ShowWarning("정산기준월을 선택하세요.");
                 return;
             }
 
-            var activeRegistered = selectedTargets.FirstOrDefault(x => x.IsActiveRegistered);
-            if (activeRegistered != null)
+            if (!EnsureTargetsNotActiveRegistered(selectedTargets, "이미 비용묶음에 포함된 대상이 있습니다."))
             {
-                _messageService.ShowWarning($"이미 비용묶음에 포함된 대상이 있습니다. 비용묶음: {activeRegistered.AlreadyCostGroupNo}");
                 return;
             }
 
@@ -381,26 +407,10 @@ namespace Mes.Wpf.Modules.OutsourceProcessingCosts.ViewModels
                 return;
             }
 
-            try
-            {
-                IsLoading = true;
-                var result = await _apiClient.PostAsync<OutsourceProcessingCostSaveRequest, OutsourceProcessingCostGroupDto>(
-                    ApiRoutes.OutsourceProcessingCosts,
-                    request);
-
-                if (!result.Success)
-                {
-                    _messageService.ShowError(result.Message ?? "가공비 묶음 생성에 실패했습니다.");
-                    return;
-                }
-
-                _messageService.ShowInfo("가공비 묶음이 생성되었습니다.");
-                await SearchAsync();
-            }
-            finally
-            {
-                IsLoading = false;
-            }
+            await CreateCostGroupAsync(
+                request,
+                "가공비 묶음이 생성되었습니다.",
+                "가공비 묶음 생성에 실패했습니다.");
         }
 
         private async Task SaveCostAsync()
@@ -411,27 +421,19 @@ namespace Mes.Wpf.Modules.OutsourceProcessingCosts.ViewModels
                 return;
             }
 
-            if (!SettlementMonth.HasValue)
+            if (!EnsureSettlementMonthSelected())
             {
-                _messageService.ShowWarning("정산기준월을 선택하세요.");
                 return;
             }
 
             if (SelectedCostGroup == null)
             {
-                if (SelectedTarget.IsActiveRegistered)
+                if (!EnsureTargetNotActiveRegistered(SelectedTarget, "이미 등록된 대상입니다."))
                 {
-                    _messageService.ShowWarning($"이미 등록된 대상입니다. 비용묶음: {SelectedTarget.AlreadyCostGroupNo}");
                     return;
                 }
 
                 await CreateSingleCostGroupAsync(SelectedTarget);
-                return;
-            }
-
-            if (SelectedCostGroup == null)
-            {
-                _messageService.ShowWarning("먼저 등록대상에서 비용묶음이 생성된 행을 선택하세요.");
                 return;
             }
 
@@ -441,10 +443,47 @@ namespace Mes.Wpf.Modules.OutsourceProcessingCosts.ViewModels
                 return;
             }
 
-            try
+            await UpdateCostGroupAsync(SelectedCostGroup);
+        }
+
+        private bool EnsureSettlementMonthSelected()
+        {
+            if (SettlementMonth.HasValue)
             {
-                IsLoading = true;
-                var url = $"{ApiRoutes.OutsourceProcessingCosts}/{SelectedCostGroup.OutsourceProcessingCostGroupId}";
+                return true;
+            }
+
+            _messageService.ShowWarning("정산기준월을 선택하세요.");
+            return false;
+        }
+
+        private bool EnsureTargetsNotActiveRegistered(
+            IEnumerable<OutsourceProcessingCostTargetRowModel> targets,
+            string warningPrefix)
+        {
+            var activeRegistered = targets.FirstOrDefault(x => x.IsActiveRegistered);
+            return activeRegistered == null || EnsureTargetNotActiveRegistered(activeRegistered, warningPrefix);
+        }
+
+        private bool EnsureTargetNotActiveRegistered(
+            OutsourceProcessingCostTargetRowModel target,
+            string warningPrefix)
+        {
+            if (!target.IsActiveRegistered)
+            {
+                return true;
+            }
+
+            _messageService.ShowWarning($"{warningPrefix} 비용묶음: {target.AlreadyCostGroupNo}");
+            return false;
+        }
+
+        private async Task UpdateCostGroupAsync(OutsourceProcessingCostGroupRowModel costGroup)
+        {
+            await RunWithLoadingAsync(async () =>
+            {
+                var url = OutsourceProcessingCostQueryBuilder.BuildCostGroupDetailUrl(
+                    costGroup.OutsourceProcessingCostGroupId);
                 var result = await _apiClient.PatchAsync<OutsourceProcessingCostSaveRequest, OutsourceProcessingCostGroupDto>(
                     url,
                     BuildSaveRequest());
@@ -456,12 +495,8 @@ namespace Mes.Wpf.Modules.OutsourceProcessingCosts.ViewModels
                 }
 
                 _messageService.ShowInfo("가공비가 저장되었습니다.");
-                await SearchAsync();
-            }
-            finally
-            {
-                IsLoading = false;
-            }
+                await LoadSearchDataAsync();
+            });
         }
 
         private async Task CloseAsync()
@@ -477,17 +512,12 @@ namespace Mes.Wpf.Modules.OutsourceProcessingCosts.ViewModels
                 return;
             }
 
-            var confirmMessage = SelectedCostGroup.AmountDifference.HasValue
-                && SelectedCostGroup.AmountDifference.Value != 0
-                ? $"[{SelectedCostGroup.CostGroupNo}] 원가차액 {SelectedCostGroup.AmountDifference.Value:N0}원이 있습니다. 확인 후 월마감을 확정하시겠습니까?"
-                : $"[{SelectedCostGroup.CostGroupNo}] 월마감을 확정하시겠습니까?";
-
-            if (!_messageService.Confirm(confirmMessage))
+            if (!_messageService.Confirm(BuildCloseConfirmMessage(SelectedCostGroup)))
             {
                 return;
             }
 
-            await PostStatusAsync($"{ApiRoutes.OutsourceProcessingCosts}/{SelectedCostGroup.OutsourceProcessingCostGroupId}/close", "월마감 처리되었습니다.");
+            await PostCostGroupStatusAsync(SelectedCostGroup, CloseAction, "월마감 처리되었습니다.");
         }
 
         private async Task ReopenAsync()
@@ -497,12 +527,12 @@ namespace Mes.Wpf.Modules.OutsourceProcessingCosts.ViewModels
                 return;
             }
 
-            if (!_messageService.Confirm($"[{SelectedCostGroup.CostGroupNo}] 마감을 취소하시겠습니까?"))
+            if (!ConfirmCostGroupAction(SelectedCostGroup, "마감을 취소하시겠습니까?"))
             {
                 return;
             }
 
-            await PostStatusAsync($"{ApiRoutes.OutsourceProcessingCosts}/{SelectedCostGroup.OutsourceProcessingCostGroupId}/reopen", "마감취소 처리되었습니다.");
+            await PostCostGroupStatusAsync(SelectedCostGroup, ReopenAction, "마감취소 처리되었습니다.");
         }
 
         private async Task CancelAsync()
@@ -512,19 +542,36 @@ namespace Mes.Wpf.Modules.OutsourceProcessingCosts.ViewModels
                 return;
             }
 
-            if (!_messageService.Confirm($"[{SelectedCostGroup.CostGroupNo}] 가공비 묶음을 취소처리하시겠습니까?"))
+            if (!ConfirmCostGroupAction(SelectedCostGroup, "가공비 묶음을 취소처리하시겠습니까?"))
             {
                 return;
             }
 
-            await PostStatusAsync($"{ApiRoutes.OutsourceProcessingCosts}/{SelectedCostGroup.OutsourceProcessingCostGroupId}/cancel", "취소처리되었습니다.");
+            await PostCostGroupStatusAsync(SelectedCostGroup, CancelAction, "취소처리되었습니다.");
         }
 
-        private async Task PostStatusAsync(string url, string successMessage)
+        private bool ConfirmCostGroupAction(OutsourceProcessingCostGroupRowModel costGroup, string message)
         {
-            try
+            return _messageService.Confirm($"[{costGroup.CostGroupNo}] {message}");
+        }
+
+        private static string BuildCloseConfirmMessage(OutsourceProcessingCostGroupRowModel costGroup)
+        {
+            return costGroup.AmountDifference.HasValue && costGroup.AmountDifference.Value != 0
+                ? $"[{costGroup.CostGroupNo}] 원가차액 {costGroup.AmountDifference.Value:N0}원이 있습니다. 확인 후 월마감을 확정하시겠습니까?"
+                : $"[{costGroup.CostGroupNo}] 월마감을 확정하시겠습니까?";
+        }
+
+        private async Task PostCostGroupStatusAsync(
+            OutsourceProcessingCostGroupRowModel costGroup,
+            string action,
+            string successMessage)
+        {
+            await RunWithLoadingAsync(async () =>
             {
-                IsLoading = true;
+                var url = OutsourceProcessingCostQueryBuilder.BuildCostGroupStatusUrl(
+                    costGroup.OutsourceProcessingCostGroupId,
+                    action);
                 var result = await _apiClient.PostAsync<object, OutsourceProcessingCostGroupDto>(url, new { });
 
                 if (!result.Success)
@@ -534,63 +581,73 @@ namespace Mes.Wpf.Modules.OutsourceProcessingCosts.ViewModels
                 }
 
                 _messageService.ShowInfo(successMessage);
-                await SearchAsync();
-            }
-            finally
-            {
-                IsLoading = false;
-            }
+                await LoadSearchDataAsync();
+            });
         }
 
         private OutsourceProcessingCostSaveRequest BuildSaveRequest()
         {
-            return new OutsourceProcessingCostSaveRequest
-            {
-                SettlementMonth = NormalizeMonth(SettlementMonth) ?? DateTime.Today,
-                ProcessType = SelectedProcessType,
-                StandardAmount = StandardAmount,
-                StandardMemo = EmptyToNull(StandardMemo),
-                ActualAmount = ActualAmount,
-                ActualBillingMonth = NormalizeMonth(ActualBillingMonth),
-                ActualMemo = EmptyToNull(ActualMemo),
-                Remark = EmptyToNull(Remark)
-            };
+            return OutsourceProcessingCostSaveRequestBuilder.Build(
+                SettlementMonth,
+                SelectedProcessType,
+                StandardAmount,
+                StandardMemo,
+                ActualAmount,
+                ActualBillingMonth,
+                ActualMemo,
+                Remark);
         }
 
         private OutsourceProcessingCostSaveRequest BuildSaveRequest(IEnumerable<OutsourceProcessingCostTargetRowModel> targets)
         {
-            var request = BuildSaveRequest();
-            var selectedTargets = targets.ToList();
-
-            request.TargetWorkGroupIds = selectedTargets
-                .Where(x => x.OutsourceWorkGroupId.HasValue)
-                .Select(x => x.OutsourceWorkGroupId!.Value)
-                .ToList();
-            request.TargetLotIds = selectedTargets
-                .Where(x => x.LotId.HasValue)
-                .Select(x => x.LotId!.Value)
-                .ToList();
-
-            return request;
+            return OutsourceProcessingCostSaveRequestBuilder.BuildForTargets(
+                SettlementMonth,
+                SelectedProcessType,
+                StandardAmount,
+                StandardMemo,
+                ActualAmount,
+                ActualBillingMonth,
+                ActualMemo,
+                Remark,
+                targets);
         }
 
         private async Task CreateSingleCostGroupAsync(OutsourceProcessingCostTargetRowModel target)
         {
-            try
+            await CreateCostGroupAsync(
+                BuildSaveRequest(new[] { target }),
+                "가공비가 저장되었습니다.",
+                "가공비 등록에 실패했습니다.");
+        }
+
+        private async Task CreateCostGroupAsync(
+            OutsourceProcessingCostSaveRequest request,
+            string successMessage,
+            string fallbackErrorMessage)
+        {
+            await RunWithLoadingAsync(async () =>
             {
-                IsLoading = true;
                 var result = await _apiClient.PostAsync<OutsourceProcessingCostSaveRequest, OutsourceProcessingCostGroupDto>(
-                    ApiRoutes.OutsourceProcessingCosts,
-                    BuildSaveRequest(new[] { target }));
+                    OutsourceProcessingCostQueryBuilder.BuildCostGroupCollectionUrl(),
+                    request);
 
                 if (!result.Success)
                 {
-                    _messageService.ShowError(result.Message ?? "가공비 등록에 실패했습니다.");
+                    _messageService.ShowError(result.Message ?? fallbackErrorMessage);
                     return;
                 }
 
-                _messageService.ShowInfo("가공비가 저장되었습니다.");
-                await SearchAsync();
+                _messageService.ShowInfo(successMessage);
+                await LoadSearchDataAsync();
+            });
+        }
+
+        private async Task RunWithLoadingAsync(Func<Task> action)
+        {
+            try
+            {
+                IsLoading = true;
+                await action();
             }
             finally
             {
@@ -601,58 +658,23 @@ namespace Mes.Wpf.Modules.OutsourceProcessingCosts.ViewModels
         private string BuildTargetUrl()
         {
             NormalizeSearchConditions();
-            var query = new List<string>
-            {
-                $"process_type={Uri.EscapeDataString(SelectedProcessType)}"
-            };
-
-            if (DateFrom.HasValue)
-            {
-                query.Add($"date_from={DateFrom.Value:yyyy-MM-dd}");
-            }
-
-            if (DateTo.HasValue)
-            {
-                query.Add($"date_to={DateTo.Value:yyyy-MM-dd}");
-            }
-
-            if (SelectedStatusCode != "ALL")
-            {
-                query.Add($"status={Uri.EscapeDataString(SelectedStatusCode)}");
-            }
-
-            if (!string.IsNullOrWhiteSpace(SearchKeyword))
-            {
-                query.Add($"q={Uri.EscapeDataString(SearchKeyword)}");
-            }
-
-            return $"{ApiRoutes.OutsourceProcessingCostTargets}?{string.Join("&", query)}";
+            return OutsourceProcessingCostQueryBuilder.BuildTargetUrl(
+                SelectedProcessType,
+                DateFrom,
+                DateTo,
+                SelectedStatusCode,
+                SearchKeyword);
         }
 
         private string BuildCostGroupUrl()
         {
             NormalizeSearchConditions();
-            var query = new List<string>
-            {
-                $"process_type={Uri.EscapeDataString(SelectedProcessType)}"
-            };
-
-            if (UseSettlementMonth && SettlementMonth.HasValue)
-            {
-                query.Add($"settlement_month={SettlementMonth.Value:yyyy-MM-dd}");
-            }
-
-            if (SelectedStatusCode is "DRAFT" or "CLOSED" or "CANCELED" or "COST_VARIANCE")
-            {
-                query.Add($"status={Uri.EscapeDataString(SelectedStatusCode)}");
-            }
-
-            if (!string.IsNullOrWhiteSpace(SearchKeyword))
-            {
-                query.Add($"q={Uri.EscapeDataString(SearchKeyword)}");
-            }
-
-            return $"{ApiRoutes.OutsourceProcessingCosts}?{string.Join("&", query)}";
+            return OutsourceProcessingCostQueryBuilder.BuildCostGroupUrl(
+                SelectedProcessType,
+                UseSettlementMonth,
+                SettlementMonth,
+                SelectedStatusCode,
+                SearchKeyword);
         }
 
         private void LoadSelectedTarget(OutsourceProcessingCostTargetRowModel? target)
@@ -676,40 +698,29 @@ namespace Mes.Wpf.Modules.OutsourceProcessingCosts.ViewModels
 
         private void LoadTargetAllocationPreview(OutsourceProcessingCostTargetRowModel? target)
         {
-            Allocations.Clear();
-
-            if (target == null)
-            {
-                return;
-            }
-
-            foreach (var allocation in target.Allocations)
-            {
-                Allocations.Add(allocation);
-            }
+            ReplaceAllocations(target?.Allocations);
         }
 
         private void LoadSelectedCostGroup(OutsourceProcessingCostGroupRowModel? item)
         {
-            Allocations.Clear();
-
             if (item == null)
             {
                 ClearCostInput();
                 return;
             }
 
+            LoadCostInput(item);
+            ReplaceAllocations(item.Allocations);
+        }
+
+        private void LoadCostInput(OutsourceProcessingCostGroupRowModel item)
+        {
             StandardAmount = item.StandardAmount;
             StandardMemo = item.StandardMemo ?? string.Empty;
             ActualAmount = item.ActualAmount;
             ActualBillingMonth = item.ActualBillingMonth ?? SettlementMonth;
             ActualMemo = item.ActualMemo ?? string.Empty;
             Remark = item.Remark ?? string.Empty;
-
-            foreach (var allocation in item.Allocations)
-            {
-                Allocations.Add(allocation);
-            }
         }
 
         private void ClearCostInput()
@@ -720,7 +731,22 @@ namespace Mes.Wpf.Modules.OutsourceProcessingCosts.ViewModels
             ActualBillingMonth = SettlementMonth;
             ActualMemo = string.Empty;
             Remark = string.Empty;
+            ReplaceAllocations(null);
+        }
+
+        private void ReplaceAllocations(IEnumerable<OutsourceProcessingCostAllocationRowModel>? allocations)
+        {
             Allocations.Clear();
+
+            if (allocations == null)
+            {
+                return;
+            }
+
+            foreach (var allocation in allocations)
+            {
+                Allocations.Add(allocation);
+            }
         }
 
         private void Target_PropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -738,9 +764,11 @@ namespace Mes.Wpf.Modules.OutsourceProcessingCosts.ViewModels
 
         private void NormalizeSearchConditions()
         {
-            SelectedProcessType = (SelectedProcessType ?? "CUT").Trim().ToUpperInvariant();
+            SelectedProcessType = (SelectedProcessType ?? OutsourceProcessingCostDisplayOptions.CutProcessTypeCode)
+                .Trim()
+                .ToUpperInvariant();
             SelectedStatusCode = string.IsNullOrWhiteSpace(SelectedStatusCode)
-                ? "ALL"
+                ? OutsourceProcessingCostDisplayOptions.AllStatusCode
                 : SelectedStatusCode.Trim().ToUpperInvariant();
             SearchKeyword = SearchKeyword?.Trim() ?? string.Empty;
         }
@@ -753,11 +781,6 @@ namespace Mes.Wpf.Modules.OutsourceProcessingCosts.ViewModels
             }
 
             return new DateTime(value.Value.Year, value.Value.Month, 1);
-        }
-
-        private static string? EmptyToNull(string value)
-        {
-            return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
         }
 
         private void RaiseCommandCanExecuteChanged()
@@ -773,218 +796,10 @@ namespace Mes.Wpf.Modules.OutsourceProcessingCosts.ViewModels
                 CancelCommand
             })
             {
-                if (command is AsyncRelayCommand asyncCommand)
-                {
-                    asyncCommand.RaiseCanExecuteChanged();
-                }
+                command.RaiseCanExecuteChanged();
             }
         }
+
     }
 
-    public record CodeNameOption(string Code, string Name);
-
-    public class OutsourceProcessingCostTargetRowModel : BindableBase
-    {
-        private bool _isChecked;
-
-        public bool IsChecked
-        {
-            get => _isChecked;
-            set => SetProperty(ref _isChecked, value);
-        }
-
-        public string TargetKey { get; set; } = string.Empty;
-        public string ProcessType { get; set; } = string.Empty;
-        public string ProcessTypeName => DisplayProcessName(ProcessType);
-        public long? OutsourceWorkGroupId { get; set; }
-        public long? LotId { get; set; }
-        public string? InstructionNo { get; set; }
-        public DateTime? InstructionDate { get; set; }
-        public string? PartnerName { get; set; }
-        public string? GroupSeq { get; set; }
-        public bool IsBundle { get; set; }
-        public int LotCount { get; set; }
-        public string? RepresentativeLotNo { get; set; }
-        public string LotNosText { get; set; } = string.Empty;
-        public string ProductNamesText { get; set; } = string.Empty;
-        public string ProductSpecText { get; set; } = string.Empty;
-        public long? SheetQty { get; set; }
-        public long? InstructionOutputQty { get; set; }
-        public string AllocationBasisType { get; set; } = string.Empty;
-        public decimal AllocationBasisValue { get; set; }
-        public long? OutsourceProcessingCostGroupId { get; set; }
-        public string? AlreadyCostGroupNo { get; set; }
-        public string? CostStatusCode { get; set; }
-        public string CostStatusName => string.IsNullOrWhiteSpace(CostStatusCode)
-            ? "미등록"
-            : IsCostVariance
-                ? "원가차액"
-            : DisplayStatusName(CostStatusCode);
-        public string StatusVisualCode => IsCostVariance
-            ? "COST_VARIANCE"
-            : string.IsNullOrWhiteSpace(CostStatusCode)
-                ? "UNREGISTERED"
-                : CostStatusCode;
-        public decimal? StandardAmount { get; set; }
-        public decimal? ActualAmount { get; set; }
-        public decimal? AmountDifference { get; set; }
-        public DateTime? SettlementMonth { get; set; }
-        public List<OutsourceProcessingCostAllocationRowModel> Allocations { get; set; } = new();
-        public bool IsActiveRegistered => CostStatusCode is "DRAFT" or "CLOSED";
-        public bool IsCostVariance =>
-            CostStatusCode == "DRAFT"
-            && StandardAmount.HasValue
-            && ActualAmount.HasValue
-            && AmountDifference.HasValue
-            && AmountDifference.Value != 0;
-
-        public static OutsourceProcessingCostTargetRowModel FromDto(OutsourceProcessingCostTargetDto dto)
-        {
-            return new OutsourceProcessingCostTargetRowModel
-            {
-                TargetKey = dto.TargetKey,
-                ProcessType = dto.ProcessType,
-                OutsourceWorkGroupId = dto.OutsourceWorkGroupId,
-                LotId = dto.LotId,
-                InstructionNo = dto.InstructionNo,
-                InstructionDate = dto.InstructionDate,
-                PartnerName = dto.PartnerName,
-                GroupSeq = dto.GroupSeq,
-                IsBundle = dto.IsBundle,
-                LotCount = dto.LotCount,
-                RepresentativeLotNo = dto.RepresentativeLotNo,
-                LotNosText = !string.IsNullOrWhiteSpace(dto.RepresentativeLotNo)
-                    ? dto.RepresentativeLotNo
-                    : string.Join(", ", dto.LotNos),
-                ProductNamesText = !string.IsNullOrWhiteSpace(dto.RepresentativeProductName)
-                    ? dto.RepresentativeProductName
-                    : string.Join(", ", dto.ProductNames),
-                ProductSpecText = string.Join(", ", dto.ProductSpecs),
-                SheetQty = dto.SheetQty,
-                InstructionOutputQty = dto.InstructionOutputQty,
-                AllocationBasisType = dto.AllocationBasisType == "AREA" ? "면적" : "수량",
-                AllocationBasisValue = dto.AllocationBasisValue,
-                OutsourceProcessingCostGroupId = dto.OutsourceProcessingCostGroupId,
-                AlreadyCostGroupNo = dto.AlreadyCostGroupNo,
-                CostStatusCode = dto.CostStatus,
-                StandardAmount = dto.StandardAmount,
-                ActualAmount = dto.ActualAmount,
-                AmountDifference = dto.AmountDifference,
-                SettlementMonth = dto.SettlementMonth,
-                Allocations = dto.Allocations
-                    .Select(OutsourceProcessingCostAllocationRowModel.FromDto)
-                    .ToList()
-            };
-        }
-
-        private static string DisplayProcessName(string processType)
-        {
-            return processType switch
-            {
-                "CUT" => "재단",
-                "PRINT" => "인쇄",
-                "DIECUT" => "도무송",
-                _ => processType
-            };
-        }
-
-        private static string DisplayStatusName(string status)
-        {
-            return status switch
-            {
-                "DRAFT" => "작성중",
-                "COST_VARIANCE" => "원가차액",
-                "CLOSED" => "월마감",
-                "CANCELED" => "취소",
-                _ => status
-            };
-        }
-    }
-
-    public class OutsourceProcessingCostGroupRowModel
-    {
-        public long OutsourceProcessingCostGroupId { get; set; }
-        public string CostGroupNo { get; set; } = string.Empty;
-        public DateTime SettlementMonth { get; set; }
-        public string ProcessType { get; set; } = string.Empty;
-        public string Status { get; set; } = string.Empty;
-        public bool CanEdit => Status == "DRAFT";
-        public decimal? StandardAmount { get; set; }
-        public decimal? ActualAmount { get; set; }
-        public decimal? AmountDifference { get; set; }
-        public string? StandardMemo { get; set; }
-        public DateTime? ActualBillingMonth { get; set; }
-        public string? ActualMemo { get; set; }
-        public string? Remark { get; set; }
-        public List<OutsourceProcessingCostAllocationRowModel> Allocations { get; set; } = new();
-
-        public static OutsourceProcessingCostGroupRowModel FromDto(OutsourceProcessingCostGroupDto dto)
-        {
-            return new OutsourceProcessingCostGroupRowModel
-            {
-                OutsourceProcessingCostGroupId = dto.OutsourceProcessingCostGroupId,
-                CostGroupNo = dto.CostGroupNo,
-                SettlementMonth = dto.SettlementMonth,
-                ProcessType = dto.ProcessType,
-                Status = dto.Status,
-                StandardAmount = dto.StandardAmount,
-                ActualAmount = dto.ActualAmount,
-                AmountDifference = dto.AmountDifference,
-                StandardMemo = dto.StandardMemo,
-                ActualBillingMonth = dto.ActualBillingMonth,
-                ActualMemo = dto.ActualMemo,
-                Remark = dto.Remark,
-                Allocations = dto.Allocations
-                    .Select(OutsourceProcessingCostAllocationRowModel.FromDto)
-                    .ToList()
-            };
-        }
-    }
-
-    public class OutsourceProcessingCostAllocationRowModel
-    {
-        public string LotNo { get; set; } = string.Empty;
-        public string? ProductName { get; set; }
-        public string ProductSpecText { get; set; } = string.Empty;
-        public int? CutsPerSheet { get; set; }
-        public long? SheetQty { get; set; }
-        public long? InstructionOutputQty { get; set; }
-        public string BasisTypeName { get; set; } = string.Empty;
-        public decimal BasisValue { get; set; }
-        public decimal? BasisAreaSqm { get; set; }
-        public decimal AllocationRatioPercent { get; set; }
-        public decimal? StandardAllocatedAmount { get; set; }
-        public decimal? ActualAllocatedAmount { get; set; }
-        public decimal? AmountDifference { get; set; }
-
-        public static OutsourceProcessingCostAllocationRowModel FromDto(OutsourceProcessingCostAllocationDto dto)
-        {
-            return new OutsourceProcessingCostAllocationRowModel
-            {
-                LotNo = dto.LotNo,
-                ProductName = dto.ProductName,
-                ProductSpecText = BuildSpecText(dto),
-                CutsPerSheet = dto.CutsPerSheet,
-                SheetQty = dto.SheetQty,
-                InstructionOutputQty = dto.InstructionOutputQty,
-                BasisTypeName = dto.BasisType == "AREA" ? "면적" : "수량",
-                BasisValue = dto.BasisValue,
-                BasisAreaSqm = dto.BasisAreaSqm,
-                AllocationRatioPercent = dto.AllocationRatio * 100,
-                StandardAllocatedAmount = dto.StandardAllocatedAmount,
-                ActualAllocatedAmount = dto.ActualAllocatedAmount,
-                AmountDifference = dto.AmountDifference
-            };
-        }
-
-        private static string BuildSpecText(OutsourceProcessingCostAllocationDto dto)
-        {
-            if (dto.PanelWidthMm.HasValue && dto.PanelLengthMm.HasValue)
-            {
-                return $"{dto.PanelWidthMm}x{dto.PanelLengthMm}";
-            }
-
-            return dto.ProductSpec ?? string.Empty;
-        }
-    }
 }

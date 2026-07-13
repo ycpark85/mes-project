@@ -101,6 +101,9 @@
                         <DataGridTextColumn Header="역할"
                                             Binding="{Binding RoleNames}"
                                             Width="180" />
+                        <DataGridTextColumn Header="외주업체"
+                                            Binding="{Binding VendorPartnerName}"
+                                            Width="130" />
                         <DataGridTextColumn Header="부서"
                                             Binding="{Binding Department}"
                                             Width="110" />
@@ -179,6 +182,21 @@
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
                         </Border>
+
+                        <CheckBox Content="외주업체 계정"
+                                  IsChecked="{Binding EditModel.IsVendorUser, Mode=TwoWay}"
+                                  Margin="0,0,0,8" />
+
+                        <TextBlock Text="연결 외주업체"
+                                   FontWeight="SemiBold"
+                                   Margin="0,0,0,6" />
+                        <ComboBox ItemsSource="{Binding VendorPartnerOptions}"
+                                  SelectedValue="{Binding EditModel.VendorPartnerId, Mode=TwoWay}"
+                                  SelectedValuePath="PartnerId"
+                                  DisplayMemberPath="Name"
+                                  IsEnabled="{Binding EditModel.IsVendorUser}"
+                                  Height="34"
+                                  Margin="0,0,0,8" />
 
                         <TextBlock Text="부서"
                                    FontWeight="SemiBold"

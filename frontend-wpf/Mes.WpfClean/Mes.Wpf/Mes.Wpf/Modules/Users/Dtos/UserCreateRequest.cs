@@ -25,5 +25,14 @@ namespace Mes.Wpf.Modules.Users.Dtos
 
         [JsonPropertyName("is_active")]
         public bool IsActive { get; set; } = true;
+
+        [JsonPropertyName("is_vendor_user")]
+        public bool IsVendorUser { get; set; }
+
+        [JsonPropertyName("vendor_partner_id")]
+        public long? VendorPartnerId { get; set; }
+
+        [JsonPropertyName("vendor_access_active")]
+        public bool VendorAccessActive { get; set; } = true;
     }
 }

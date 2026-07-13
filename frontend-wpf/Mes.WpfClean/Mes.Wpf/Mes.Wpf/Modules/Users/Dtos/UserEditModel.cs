@@ -14,6 +14,9 @@ namespace Mes.Wpf.Modules.Users.Dtos
         private string _department = string.Empty;
         private string _position = string.Empty;
         private bool _isActive = true;
+        private bool _isVendorUser;
+        private long? _vendorPartnerId;
+        private bool _vendorAccessActive = true;
         private List<long> _roleIds = new();
 
         public long? UserId
@@ -64,6 +67,24 @@ namespace Mes.Wpf.Modules.Users.Dtos
             set => SetProperty(ref _isActive, value);
         }
 
+        public bool IsVendorUser
+        {
+            get => _isVendorUser;
+            set => SetProperty(ref _isVendorUser, value);
+        }
+
+        public long? VendorPartnerId
+        {
+            get => _vendorPartnerId;
+            set => SetProperty(ref _vendorPartnerId, value);
+        }
+
+        public bool VendorAccessActive
+        {
+            get => _vendorAccessActive;
+            set => SetProperty(ref _vendorAccessActive, value);
+        }
+
         public List<long> RoleIds
         {
             get => _roleIds;
@@ -80,6 +101,9 @@ namespace Mes.Wpf.Modules.Users.Dtos
             Department = dto.Department ?? string.Empty;
             Position = dto.Position ?? string.Empty;
             IsActive = dto.IsActive;
+            IsVendorUser = dto.VendorAccess != null;
+            VendorPartnerId = dto.VendorAccess?.PartnerId;
+            VendorAccessActive = dto.VendorAccess?.IsActive ?? true;
             RoleIds = dto.Roles?.Select(x => x.RoleId).ToList() ?? new List<long>();
         }
 
@@ -93,6 +117,9 @@ namespace Mes.Wpf.Modules.Users.Dtos
             Department = string.Empty;
             Position = string.Empty;
             IsActive = true;
+            IsVendorUser = false;
+            VendorPartnerId = null;
+            VendorAccessActive = true;
             RoleIds = new List<long>();
         }
     }

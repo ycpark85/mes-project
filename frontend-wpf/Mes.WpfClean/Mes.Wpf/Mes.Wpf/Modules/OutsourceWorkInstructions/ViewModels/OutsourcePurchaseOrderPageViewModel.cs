@@ -16,6 +16,8 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
 {
     public class OutsourcePurchaseOrderPageViewModel : ViewModelBase
     {
+        private const int TargetPageSize = 200;
+
         private readonly IApiClient _apiClient;
         private readonly IMessageService _messageService;
 
@@ -131,7 +133,7 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
             ObservableCollection<OutsourcePurchaseOrderTargetGroupRowModel> targetCollection)
         {
             var route =
-                $"{ApiRoutes.OutsourcePurchaseOrderTargets}?process_type={Uri.EscapeDataString(processType)}";
+                $"{ApiRoutes.OutsourcePurchaseOrderTargets}?process_type={Uri.EscapeDataString(processType)}&page=1&size={TargetPageSize}";
 
             var result = await _apiClient.GetAsync<OutsourcePurchaseOrderTargetListDto>(route);
 
@@ -195,6 +197,12 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
             foreach (var item in grouped)
             {
                 targetCollection.Add(item);
+            }
+
+            if (result.Data.TotalCount > grouped.Count)
+            {
+                _messageService.ShowWarning(
+                    $"{processType} 발주 대상은 {result.Data.TotalCount:N0}개 작업그룹 중 {grouped.Count:N0}개만 현재 묶음에 표시됩니다.");
             }
         }
 
