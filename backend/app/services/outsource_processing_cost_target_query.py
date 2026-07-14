@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from datetime import date
 from decimal import Decimal
 
@@ -26,7 +27,6 @@ from app.schemas.outsource_processing_cost import (
 )
 from app.services.outsource_processing_cost_basis import (
     calculate_area_basis,
-    get_work_group_item_rows,
     resolve_instruction_output_qty,
 )
 from app.services.outsource_processing_cost_common import (
@@ -116,10 +116,29 @@ def _get_work_group_targets(
         )
 
     rows = db.execute(stmt).all()
+    work_group_ids = [
+        work_group.outsource_work_group_id
+        for work_group, _, _ in rows
+    ]
+    item_rows_by_group_id = _get_work_group_item_rows_by_group_ids(
+        db,
+        work_group_ids,
+    )
+    cost_groups_by_work_group_id = _get_target_cost_groups_by_work_group_ids(
+        db,
+        process_type,
+        work_group_ids,
+        include_canceled=status == "CANCELED",
+    )
+    allocation_amounts_by_target = _get_allocation_amounts_by_target(
+        db,
+        cost_groups_by_work_group_id,
+    )
     targets: list[OutsourceProcessingCostTargetOut] = []
 
     for work_group, instruction, partner in rows:
-        item_rows = get_work_group_item_rows(db, work_group.outsource_work_group_id)
+        work_group_id = work_group.outsource_work_group_id
+        item_rows = item_rows_by_group_id.get(work_group_id, [])
         if not item_rows:
             continue
 
@@ -160,12 +179,7 @@ def _get_work_group_targets(
             basis_total,
         )
 
-        cost_group = find_target_cost_group_for_work_group(
-            db,
-            process_type,
-            work_group.outsource_work_group_id,
-            include_canceled=status == "CANCELED",
-        )
+        cost_group = cost_groups_by_work_group_id.get(work_group_id)
 
         if not _matches_target_status(cost_group, status):
             continue
@@ -192,15 +206,164 @@ def _get_work_group_targets(
                 allocation_basis_type="AREA",
                 allocation_basis_value=basis_total,
                 allocations=target_allocations,
-                **build_target_cost_fields(
-                    db,
+                **_build_target_cost_fields_from_amounts(
                     cost_group,
-                    work_group.outsource_work_group_id,
+                    allocation_amounts_by_target.get(
+                        (
+                            cost_group.outsource_processing_cost_group_id,
+                            work_group_id,
+                        )
+                        if cost_group is not None
+                        else None
+                    ),
                 ),
             )
         )
 
     return targets
+
+
+def _get_work_group_item_rows_by_group_ids(
+    db: Session,
+    work_group_ids: list[int],
+) -> dict[int, list[tuple[OutsourceWorkGroupItem, Lot, Product]]]:
+    if not work_group_ids:
+        return {}
+
+    rows = db.execute(
+        select(OutsourceWorkGroupItem, Lot, Product)
+        .join(Lot, Lot.lot_id == OutsourceWorkGroupItem.lot_id)
+        .join(Product, Product.product_id == Lot.product_id)
+        .where(OutsourceWorkGroupItem.outsource_work_group_id.in_(work_group_ids))
+        .order_by(
+            OutsourceWorkGroupItem.outsource_work_group_id.asc(),
+            Lot.lot_no.asc(),
+            OutsourceWorkGroupItem.outsource_work_group_item_id.asc(),
+        )
+    ).all()
+    result = defaultdict(list)
+
+    for row in rows:
+        result[row[0].outsource_work_group_id].append(row)
+
+    return dict(result)
+
+
+def _get_target_cost_groups_by_work_group_ids(
+    db: Session,
+    process_type: str,
+    work_group_ids: list[int],
+    *,
+    include_canceled: bool,
+) -> dict[int, OutsourceProcessingCostGroup]:
+    if not work_group_ids:
+        return {}
+
+    stmt = (
+        select(
+            OutsourceProcessingCostWorkGroup.outsource_work_group_id,
+            OutsourceProcessingCostGroup,
+        )
+        .join(
+            OutsourceProcessingCostGroup,
+            OutsourceProcessingCostGroup.outsource_processing_cost_group_id
+            == OutsourceProcessingCostWorkGroup.outsource_processing_cost_group_id,
+        )
+        .where(
+            OutsourceProcessingCostGroup.process_type == process_type,
+            OutsourceProcessingCostWorkGroup.outsource_work_group_id.in_(
+                work_group_ids
+            ),
+        )
+        .order_by(
+            OutsourceProcessingCostWorkGroup.outsource_work_group_id.asc(),
+            OutsourceProcessingCostGroup.created_at.desc(),
+            OutsourceProcessingCostGroup.outsource_processing_cost_group_id.desc(),
+        )
+    )
+
+    if not include_canceled:
+        stmt = stmt.where(OutsourceProcessingCostGroup.status != "CANCELED")
+
+    result: dict[int, OutsourceProcessingCostGroup] = {}
+    for work_group_id, cost_group in db.execute(stmt):
+        result.setdefault(work_group_id, cost_group)
+
+    return result
+
+
+def _get_allocation_amounts_by_target(
+    db: Session,
+    cost_groups_by_work_group_id: dict[int, OutsourceProcessingCostGroup],
+) -> dict[tuple[int, int], tuple[Decimal | None, Decimal | None]]:
+    if not cost_groups_by_work_group_id:
+        return {}
+
+    target_pairs = {
+        (cost_group.outsource_processing_cost_group_id, work_group_id)
+        for work_group_id, cost_group in cost_groups_by_work_group_id.items()
+    }
+    cost_group_ids = {cost_group_id for cost_group_id, _ in target_pairs}
+    work_group_ids = {work_group_id for _, work_group_id in target_pairs}
+    rows = db.execute(
+        select(
+            OutsourceProcessingCostAllocation.outsource_processing_cost_group_id,
+            OutsourceProcessingCostAllocation.outsource_work_group_id,
+            func.sum(OutsourceProcessingCostAllocation.standard_allocated_amount),
+            func.sum(OutsourceProcessingCostAllocation.actual_allocated_amount),
+        )
+        .where(
+            OutsourceProcessingCostAllocation.outsource_processing_cost_group_id.in_(
+                cost_group_ids
+            ),
+            OutsourceProcessingCostAllocation.outsource_work_group_id.in_(
+                work_group_ids
+            ),
+        )
+        .group_by(
+            OutsourceProcessingCostAllocation.outsource_processing_cost_group_id,
+            OutsourceProcessingCostAllocation.outsource_work_group_id,
+        )
+    )
+
+    return {
+        (cost_group_id, work_group_id): (standard_amount, actual_amount)
+        for cost_group_id, work_group_id, standard_amount, actual_amount in rows
+        if (cost_group_id, work_group_id) in target_pairs
+    }
+
+
+def _build_target_cost_fields_from_amounts(
+    cost_group: OutsourceProcessingCostGroup | None,
+    amounts: tuple[Decimal | None, Decimal | None] | None,
+) -> dict:
+    if cost_group is None:
+        return {
+            "outsource_processing_cost_group_id": None,
+            "already_cost_group_no": None,
+            "cost_status": None,
+            "standard_amount": None,
+            "actual_amount": None,
+            "amount_difference": None,
+            "settlement_month": None,
+        }
+
+    standard_amount, actual_amount = amounts or (None, None)
+    difference = (
+        actual_amount - standard_amount
+        if actual_amount is not None and standard_amount is not None
+        else None
+    )
+
+    return {
+        "outsource_processing_cost_group_id": cost_group.outsource_processing_cost_group_id,
+        "already_cost_group_no": cost_group.cost_group_no,
+        "cost_status": cost_group.status,
+        "standard_amount": standard_amount,
+        "actual_amount": actual_amount,
+        "amount_difference": difference,
+        "settlement_month": cost_group.settlement_month,
+    }
 
 
 def _build_target_allocation_preview(

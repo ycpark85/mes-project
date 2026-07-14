@@ -6,7 +6,7 @@ from decimal import Decimal
 from unittest.mock import patch
 
 from fastapi import HTTPException
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
 import app.models  # noqa: F401
@@ -157,6 +157,24 @@ class BohyunOutsourceServiceTests(unittest.TestCase):
 
         self.assertEqual([1, 2], [item.outsource_work_group_id for item in result.items])
         self.assertEqual(2, result.total_count)
+
+    def test_list_uses_two_queries_for_multiple_groups(self) -> None:
+        self._add_work_group(group_id=1, status=None)
+        self._add_work_group(group_id=2, status=service.BOHYUN_DB_STATUS_WORK_DONE)
+        statement_count = 0
+
+        def count_statement(*_args) -> None:
+            nonlocal statement_count
+            statement_count += 1
+
+        event.listen(self.engine, "before_cursor_execute", count_statement)
+        try:
+            result = service.list_bohyun_outsource_groups(self.db)
+        finally:
+            event.remove(self.engine, "before_cursor_execute", count_statement)
+
+        self.assertEqual(2, len(result.items))
+        self.assertEqual(2, statement_count)
 
     def _seed_base_data(self) -> None:
         self.db.add_all(

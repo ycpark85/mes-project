@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from datetime import date
 from decimal import Decimal
-from typing import Iterable
+from typing import Iterable, Mapping
 
 from fastapi import HTTPException
 from sqlalchemy import exists, or_, select
@@ -157,10 +158,20 @@ def list_bohyun_outsource_groups(
         )
 
     rows = db.execute(stmt).all()
+    item_rows_by_group_id = _get_bohyun_target_group_item_rows_by_group_ids(
+        db,
+        {
+            work_group.outsource_work_group_id: work_group.process_type
+            for work_group, _, _ in rows
+        },
+    )
     result_items: list[BohyunOutsourceGroupListItemOut] = []
 
     for work_group, instruction, partner in rows:
-        group_item_rows = _get_bohyun_target_group_item_rows(db, work_group)
+        group_item_rows = item_rows_by_group_id.get(
+            work_group.outsource_work_group_id,
+            [],
+        )
 
         if not group_item_rows:
             continue
@@ -428,6 +439,20 @@ def _get_bohyun_target_group_item_rows(
     db: Session,
     work_group: OutsourceWorkGroup,
 ):
+    return _get_bohyun_target_group_item_rows_by_group_ids(
+        db,
+        {work_group.outsource_work_group_id: work_group.process_type},
+    ).get(work_group.outsource_work_group_id, [])
+
+
+def _get_bohyun_target_group_item_rows_by_group_ids(
+    db: Session,
+    process_type_by_group_id: Mapping[int, str],
+):
+    normalized_group_ids = list(process_type_by_group_id)
+    if not normalized_group_ids:
+        return {}
+
     group_item_rows = (
         db.execute(
             select(
@@ -445,10 +470,12 @@ def _get_bohyun_target_group_item_rows(
                 RoutingTemplate.routing_template_id == Product.routing_template_id,
             )
             .where(
-                OutsourceWorkGroupItem.outsource_work_group_id
-                == work_group.outsource_work_group_id
+                OutsourceWorkGroupItem.outsource_work_group_id.in_(
+                    normalized_group_ids
+                )
             )
             .order_by(
+                OutsourceWorkGroupItem.outsource_work_group_id.asc(),
                 Lot.lot_no.asc(),
                 OutsourceWorkGroupItem.outsource_work_group_item_id.asc(),
             )
@@ -456,14 +483,17 @@ def _get_bohyun_target_group_item_rows(
         .all()
     )
 
-    return [
-        row
-        for row in group_item_rows
+    result = defaultdict(list)
+
+    for row in group_item_rows:
+        group_id = row[0].outsource_work_group_id
         if _is_bohyun_target_work_group(
-            work_group.process_type,
+            process_type_by_group_id[group_id],
             row[4].template_name,
-        )
-    ]
+        ):
+            result[group_id].append(row)
+
+    return dict(result)
 
 
 def _is_bohyun_target_work_group_by_db(

@@ -5,7 +5,7 @@ from datetime import date
 from decimal import Decimal
 
 from fastapi import HTTPException
-from sqlalchemy import BigInteger, create_engine
+from sqlalchemy import BigInteger, create_engine, event
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import sessionmaker
 
@@ -104,6 +104,48 @@ class OutsourceProcessingCostQueryTests(unittest.TestCase):
         self.assertEqual(Decimal("2.000000"), item.allocation_basis_value)
         self.assertEqual(1, len(item.allocations))
         self.assertEqual(Decimal("2.000000"), item.allocations[0].basis_value)
+
+    def test_list_outsource_processing_cost_targets_uses_bounded_queries(self) -> None:
+        self._seed_target()
+        self.db.add_all(
+            [
+                OutsourceWorkGroup(
+                    outsource_work_group_id=2,
+                    outsource_work_instruction_id=1,
+                    group_seq="G-002",
+                    process_type="CUT",
+                    is_bundle=False,
+                    sheet_qty=2,
+                    sheet_cut_count=1,
+                    representative_lot_id=1,
+                ),
+                OutsourceWorkGroupItem(
+                    outsource_work_group_item_id=2,
+                    outsource_work_group_id=2,
+                    lot_id=1,
+                    cuts_per_sheet=1,
+                    expected_output_qty=2,
+                ),
+            ]
+        )
+        self.db.commit()
+        statement_count = 0
+
+        def count_statement(*_args) -> None:
+            nonlocal statement_count
+            statement_count += 1
+
+        event.listen(self.engine, "before_cursor_execute", count_statement)
+        try:
+            result = list_outsource_processing_cost_targets(
+                self.db,
+                process_type="CUT",
+            )
+        finally:
+            event.remove(self.engine, "before_cursor_execute", count_statement)
+
+        self.assertEqual(2, len(result.items))
+        self.assertLessEqual(statement_count, 3)
 
     def test_normalize_process_type_rejects_invalid_value(self) -> None:
         with self.assertRaises(HTTPException) as ctx:
