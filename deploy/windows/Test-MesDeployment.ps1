@@ -121,9 +121,13 @@ if ($failures.Count -eq 0) {
 
     Push-Location $config.BackendRoot
     try {
-        $null = Invoke-MesNativeCommand -Executable $config.PythonPath -Arguments @('-m', 'alembic', 'current')
+        $alembicPrefix = @(
+            '-m', 'dotenv', '-f', $config.EnvFile, 'run', '--',
+            $config.PythonPath, '-m', 'alembic'
+        )
+        $null = Invoke-MesNativeCommand -Executable $config.PythonPath -Arguments ($alembicPrefix + @('current'))
         Add-CheckSuccess 'Alembic current revision is readable.'
-        $null = Invoke-MesNativeCommand -Executable $config.PythonPath -Arguments @('-m', 'alembic', 'heads')
+        $null = Invoke-MesNativeCommand -Executable $config.PythonPath -Arguments ($alembicPrefix + @('heads'))
         Add-CheckSuccess 'Alembic migration heads are readable.'
 
         $checkArguments = @(

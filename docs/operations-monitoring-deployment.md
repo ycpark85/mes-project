@@ -15,6 +15,9 @@ The operational tools are:
 - `deploy/windows/Test-MesDeployment.ps1`: read-only production preflight.
 - `deploy/windows/Prepare-MesPythonRuntime.ps1`: verified offline virtual-environment preparation for a staged release.
 - `deploy/windows/Test-MesRuntimeRehearsal.ps1`: isolated runtime, health, readiness, and startup-failure rehearsal.
+- `deploy/windows/Invoke-MesReleaseActivation.ps1`: approved package staging, backup, candidate schema check, pointer switch, API restart, smoke test, and application rollback.
+- `deploy/windows/Test-MesReleaseActivationRehearsal.ps1`: isolated successful activation and failed-candidate rollback rehearsal.
+- `deploy/windows/Test-MesGoLiveReadiness.ps1`: exact-commit and package-hash evidence consistency gate.
 - `deploy/windows/Invoke-MesDeployment.ps1`: maintenance backup, approved PostgreSQL setup, migration, task registration, and smoke-test orchestration.
 - `deploy/windows/Set-MesOperationsScheduledTasks.ps1`: idempotent task registration or removal.
 - `deploy/windows/Invoke-MesScheduledOperation.ps1`: scheduled backup and monitoring runner with file logs.
@@ -168,3 +171,5 @@ No backup-retention deletion is performed. Configure retention in the approved b
 - Smoke test fails: keep the release under investigation and verify readiness, database revision, application logs, file permissions, and the request ID before allowing normal use.
 
 Record every production deployment revision, backup ID, Alembic revision, operator, start/end time, warnings, and rollback decision in the operating log.
+
+The release activation sequence and migration compatibility approval are documented in `docs/release-activation.md`. Final evidence assembly is documented in `docs/go-live-readiness.md`.

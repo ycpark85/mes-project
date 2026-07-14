@@ -121,11 +121,15 @@ try {
             }
 
             if ($ApplyMigration -and $PSCmdlet.ShouldProcess('MES database', 'Apply Alembic upgrade to head')) {
-                $null = Invoke-MesNativeCommand -Executable $config.PythonPath -Arguments @('-m', 'alembic', 'current')
-                $null = Invoke-MesNativeCommand -Executable $config.PythonPath -Arguments @('-m', 'alembic', 'heads')
-                $null = Invoke-MesNativeCommand -Executable $config.PythonPath -Arguments @('-m', 'alembic', 'upgrade', 'head')
-                $null = Invoke-MesNativeCommand -Executable $config.PythonPath -Arguments @('-m', 'alembic', 'current', '--check-heads')
-                $null = Invoke-MesNativeCommand -Executable $config.PythonPath -Arguments @('-m', 'alembic', 'check')
+                $alembicPrefix = @(
+                    '-m', 'dotenv', '-f', $config.EnvFile, 'run', '--',
+                    $config.PythonPath, '-m', 'alembic'
+                )
+                $null = Invoke-MesNativeCommand -Executable $config.PythonPath -Arguments ($alembicPrefix + @('current'))
+                $null = Invoke-MesNativeCommand -Executable $config.PythonPath -Arguments ($alembicPrefix + @('heads'))
+                $null = Invoke-MesNativeCommand -Executable $config.PythonPath -Arguments ($alembicPrefix + @('upgrade', 'head'))
+                $null = Invoke-MesNativeCommand -Executable $config.PythonPath -Arguments ($alembicPrefix + @('current', '--check-heads'))
+                $null = Invoke-MesNativeCommand -Executable $config.PythonPath -Arguments ($alembicPrefix + @('check'))
             }
         }
         finally {

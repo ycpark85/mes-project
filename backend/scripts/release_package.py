@@ -47,14 +47,18 @@ SOURCE_FILES = {
     "backend/scripts/verify_python_runtime.py",
     "deploy/windows/Prepare-MesPythonRuntime.ps1",
     "deploy/windows/Invoke-MesDeployment.ps1",
+    "deploy/windows/Invoke-MesReleaseActivation.ps1",
     "deploy/windows/Invoke-MesScheduledOperation.ps1",
     "deploy/windows/Install-MesRelease.ps1",
     "deploy/windows/MesDeployment.Common.ps1",
     "deploy/windows/MesRelease.Installation.Common.ps1",
+    "deploy/windows/MesRelease.Activation.Common.ps1",
     "deploy/windows/MesPythonRuntime.Common.ps1",
     "deploy/windows/Set-MesOperationsScheduledTasks.ps1",
     "deploy/windows/Test-MesDeployment.ps1",
     "deploy/windows/Test-MesReleaseInstallation.ps1",
+    "deploy/windows/Test-MesReleaseActivationRehearsal.ps1",
+    "deploy/windows/Test-MesGoLiveReadiness.ps1",
     "deploy/windows/Test-MesRuntimeRehearsal.ps1",
     "deploy/windows/mes-deployment.example.psd1",
 }
@@ -68,12 +72,16 @@ REQUIRED_FILES = {
     "backend/scripts/check_mes_operations.py",
     "backend/scripts/verify_python_runtime.py",
     "deploy/windows/Invoke-MesDeployment.ps1",
+    "deploy/windows/Invoke-MesReleaseActivation.ps1",
     "deploy/windows/Install-MesRelease.ps1",
     "deploy/windows/MesRelease.Installation.Common.ps1",
+    "deploy/windows/MesRelease.Activation.Common.ps1",
     "deploy/windows/MesPythonRuntime.Common.ps1",
     "deploy/windows/Prepare-MesPythonRuntime.ps1",
     "deploy/windows/Test-MesDeployment.ps1",
     "deploy/windows/Test-MesReleaseInstallation.ps1",
+    "deploy/windows/Test-MesReleaseActivationRehearsal.ps1",
+    "deploy/windows/Test-MesGoLiveReadiness.ps1",
     "deploy/windows/Test-MesRuntimeRehearsal.ps1",
     "clients/internal/Mes.Wpf.exe",
     "clients/internal/Mes.Wpf.dll",
@@ -641,6 +649,7 @@ def finalize_package(
         "Prepare backend/.venv with Prepare-MesPythonRuntime.ps1 before activation.\n"
         "Run the documented deployment preflight before changing server state.\n"
         "Rehearse installation, runtime startup, and pointer rollback before activation.\n"
+        "Require matching go-live evidence before production activation.\n"
     )
     (staging_root / README_NAME).write_text(readme, encoding="ascii")
 

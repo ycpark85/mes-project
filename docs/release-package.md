@@ -32,7 +32,7 @@ The ZIP contains:
 
 The output directory also receives a manifest sidecar, a package SHA-256 sidecar, and the complete quality-gate report directory.
 
-The Windows deployment directory also includes verified release staging and isolated installation-rehearsal tools. The package excludes tests, Python caches, development settings, fallback `appsettings.json`, PDB files, local environments, certificates, keys, and release-building tools. Production env files are never packaged and must remain in the protected external configuration directory.
+The Windows deployment directory also includes verified release staging, runtime preparation, release activation, rollback rehearsal, and final evidence tools. The package excludes tests, Python caches, development settings, fallback `appsettings.json`, PDB files, local environments, certificates, keys, and release-building tools. Production env files are never packaged and must remain in the protected external configuration directory.
 
 ## Validation
 
@@ -53,4 +53,4 @@ ZIP entries are sorted and use the Git commit time. Combined with deterministic 
 
 ## Installation Boundary
 
-Install the approved ZIP with `Install-MesRelease.ps1`; do not manually extract over the running release. Run the isolated file-switch and recovery rehearsal documented in `docs/release-installation-rehearsal.md`, then run the offline Python and API-startup rehearsal documented in `docs/runtime-rehearsal.md`. Protected production env-file connection, ACL application, service switching, migration approval, production smoke testing, and rollback remain separate deployment steps documented in `docs/operations-monitoring-deployment.md`.
+Install the approved ZIP with `Install-MesRelease.ps1`; do not manually extract over the running release. Complete the installation, runtime, and activation rehearsals, then assemble matching evidence as documented in `docs/go-live-readiness.md`. Protected production env-file connection, ACL application, migration approval, service switching, smoke testing, and rollback are documented in `docs/release-activation.md` and `docs/operations-monitoring-deployment.md`.
