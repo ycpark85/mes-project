@@ -25,6 +25,7 @@ from scripts.mes_backup_common import (
     sha256_file,
     validate_restore_database_name,
     verify_file_records,
+    write_manifest,
 )
 
 
@@ -42,6 +43,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--work-root", type=Path, required=True)
     parser.add_argument("--target-database")
     parser.add_argument("--keep-restored-artifacts", action="store_true")
+    parser.add_argument(
+        "--record-file",
+        type=Path,
+        help="Write an atomic restore-rehearsal success record after cleanup.",
+    )
     return parser
 
 
@@ -57,10 +63,38 @@ def _verify_database_snapshot(
             )
 
 
+def _write_restore_record(
+    record_path: Path,
+    *,
+    backup_id: str,
+    target_database: str,
+    database_snapshot: dict[str, object],
+    storage_set_count: int,
+) -> None:
+    parent = record_path.parent.resolve(strict=True)
+    destination = parent / record_path.name
+    write_manifest(
+        destination,
+        {
+            "format_version": 1,
+            "verified_at_utc": datetime.now(UTC).isoformat(),
+            "backup_id": backup_id,
+            "target_database": target_database,
+            "alembic_version": database_snapshot["alembic_version"],
+            "public_table_count": database_snapshot["public_table_count"],
+            "storage_set_count": storage_set_count,
+            "restored_artifacts_removed": True,
+        },
+    )
+
+
 def main() -> int:
     args = build_parser().parse_args()
     backup_directory = args.backup_dir.resolve(strict=True)
     manifest = load_manifest(backup_directory)
+    record_path = args.record_file.resolve() if args.record_file else None
+    if record_path and record_path.is_relative_to(backup_directory):
+        raise ValueError("Restore record must not modify the backup directory")
     values = load_runtime_values(args.env_file)
     database_url = values.get("DATABASE_URL", "").strip()
     if not database_url:
@@ -183,6 +217,15 @@ def main() -> int:
         print(f"restored_files={restore_directory}")
     else:
         print("restored_test_artifacts_removed=true")
+        if record_path is not None:
+            _write_restore_record(
+                record_path,
+                backup_id=str(manifest["backup_id"]),
+                target_database=target_database,
+                database_snapshot=actual_database,
+                storage_set_count=len(manifest["storage_sets"]),
+            )
+            print(f"restore_record={record_path}")
     return 0
 
 

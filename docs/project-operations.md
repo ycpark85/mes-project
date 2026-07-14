@@ -555,6 +555,23 @@ The application now bounds connections and records slow operations, but ten-year
 
 Backup and isolated restore commands, safety guards, and the verified local drill are documented in `docs/backup-restore-runbook.md`.
 
+## Operations Monitoring And Deployment Automation
+
+Long-term database and backup checks are implemented as an external read-only command, not as a privileged API endpoint or FastAPI startup task.
+
+- `check_mes_operations.py` checks connection usage, lock waits, long queries, idle transactions, autovacuum/statistics settings, dead tuples, index validity, planner statistics, `pg_monitor`, `pg_stat_statements`, DB incidents, backup age, restore-rehearsal age, and monitored-volume free space.
+- The check uses a read-only transaction with a 10-second statement timeout and emits no SQL text, parameters, connection URLs, or passwords.
+- Normal, warning, and critical results use exit codes `0`, `1`, and `2`; JSON history can be stored outside the release tree for trend review.
+- `configure_postgres_monitoring.py` is idempotent and runs only from the approved deployment process. It never runs during application startup.
+- PostgreSQL preload changes return exit code `3`; service restart requires a separate deployment approval before extension finalization.
+- The monitor login must be separate from the application and deployment roles and receives `pg_monitor` plus database `CONNECT`, not application-table write permission.
+- A successful isolated restore can atomically update the restore-rehearsal record only after generated DB/file cleanup succeeds.
+- Windows scheduled tasks run one online daily backup and one daily read-only operations check. Deployment and quarterly baseline backups remain maintenance-mode operations.
+- Scheduled-task registration is repeatable and supports explicit removal without deleting backups, monitoring history, or logs.
+- `Invoke-MesDeployment.ps1` assumes a reviewed release is already staged. It performs preflight, API service stop, maintenance backup, explicitly approved monitoring setup/restart, explicitly approved migration, task registration, API restart, and optional health/readiness verification.
+
+Detailed configuration, thresholds, commands, failure handling, and service-account rules are documented in `docs/operations-monitoring-deployment.md`.
+
 ## V2 Pre-Deployment Gate
 
 V2 remains local until the feature set is complete. Before the first server deployment:

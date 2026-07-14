@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -16,6 +17,7 @@ from scripts.mes_backup_common import (
     validate_restore_database_name,
     verify_file_records,
 )
+from scripts.verify_mes_restore import _write_restore_record
 
 
 class PostgresUrlTests(unittest.TestCase):
@@ -158,6 +160,24 @@ class RestoreSafetyTests(unittest.TestCase):
             root = Path(temp_directory)
             with self.assertRaisesRegex(ValueError, "Unsafe"):
                 safe_child_path(root, "../database.dump")
+
+    def test_restore_success_record_is_written_atomically(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_directory:
+            record = Path(temp_directory) / "restore-record.json"
+            _write_restore_record(
+                record,
+                backup_id="mes_20260714T012236Z",
+                target_database="mes_restore_test_20260714_012803",
+                database_snapshot={
+                    "alembic_version": "29d3e4f5a6b7",
+                    "public_table_count": 51,
+                },
+                storage_set_count=1,
+            )
+            payload = json.loads(record.read_text(encoding="utf-8"))
+
+        self.assertEqual("mes_20260714T012236Z", payload["backup_id"])
+        self.assertTrue(payload["restored_artifacts_removed"])
 
 
 if __name__ == "__main__":

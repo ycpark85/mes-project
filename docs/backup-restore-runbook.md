@@ -11,6 +11,7 @@ The backup tools are:
 
 - `backend/scripts/backup_mes.py`
 - `backend/scripts/verify_mes_restore.py`
+- `backend/scripts/check_mes_operations.py`
 
 They do not store database passwords in command arguments, the manifest, or logs. The application `DATABASE_URL` is read from the selected env file or process environment, and the password is passed to PostgreSQL tools only through the child-process environment.
 
@@ -31,7 +32,7 @@ Stop MES write traffic before using maintenance mode. The tool records the selec
 
 ```powershell
 cd C:\path\to\mes-v1\backend
-.\.venv\Scripts\python.exe scripts\backup_mes.py `
+.\.venv\Scripts\python.exe -m scripts.backup_mes `
   --backup-root E:\mes_backups `
   --consistency-mode maintenance
 ```
@@ -39,7 +40,7 @@ cd C:\path\to\mes-v1\backend
 If storage paths are not explicitly present in the selected env file, pass the effective application path. Repeat the option only for distinct roots; duplicate resolved paths are backed up once.
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\backup_mes.py `
+.\.venv\Scripts\python.exe -m scripts.backup_mes `
   --backup-root E:\mes_backups `
   --storage-root C:\mes_storage `
   --consistency-mode maintenance
@@ -70,9 +71,10 @@ Provide its connection through the process environment, not `backend/.env`. Pref
 ```powershell
 $env:MES_BACKUP_ADMIN_DATABASE_URL = 'postgresql://mes_restore_operator@127.0.0.1:5432/postgres'
 
-.\.venv\Scripts\python.exe scripts\verify_mes_restore.py `
+.\.venv\Scripts\python.exe -m scripts.verify_mes_restore `
   --backup-dir E:\mes_backups\mes_YYYYMMDDTHHMMSSZ `
-  --work-root E:\mes_restore_work
+  --work-root E:\mes_restore_work `
+  --record-file E:\mes_monitoring\last-restore.json
 
 Remove-Item Env:\MES_BACKUP_ADMIN_DATABASE_URL
 ```
@@ -87,12 +89,13 @@ The verification performs these checks:
 6. Server encoding, Alembic revision, and public table count comparison.
 7. File copy into a separate restore directory and a second hash comparison.
 8. Test DB and restored-file cleanup.
+9. Atomic restore-success record writing after cleanup when `--record-file` is supplied.
 
 If cleanup is intentionally disabled with `--keep-restored-artifacts`, the operator is responsible for deleting only the generated test DB and restore directory after inspection.
 
 ## Scheduling And Retention
 
-Do not register a production scheduled task until the server service name, backup destination, and alert destination are confirmed.
+Production task registration is provided by `deploy/windows/Set-MesOperationsScheduledTasks.ps1`. Do not register it until the server service account, backup destination, monitor history path, and alert-review process are confirmed. The deployment and monitoring details are in `docs/operations-monitoring-deployment.md`.
 
 Recommended baseline:
 
