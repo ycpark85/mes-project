@@ -35,6 +35,11 @@ public sealed class AppSettings
             throw new InvalidOperationException("Api:BaseUrl 설정이 비어 있습니다.");
         }
 
+        if (settings.Api.NormalTimeoutSeconds <= 0)
+        {
+            throw new InvalidOperationException("Api:NormalTimeoutSeconds는 1초 이상이어야 합니다.");
+        }
+
         return settings;
     }
 }
@@ -42,4 +47,5 @@ public sealed class AppSettings
 public sealed class ApiSettings
 {
     public string BaseUrl { get; set; } = string.Empty;
+    public int NormalTimeoutSeconds { get; set; } = 45;
 }

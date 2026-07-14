@@ -3,29 +3,49 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Mes.Vendor.Wpf.Infrastructure;
 
 public sealed class ApiClient
 {
+    private const string NetworkErrorMessage =
+        "서버에 연결할 수 없습니다. 네트워크와 서버 상태를 확인하세요.";
+    private const string TimeoutErrorMessage =
+        "요청 시간이 초과되었습니다. 잠시 후 다시 시도하세요.";
+
     private static readonly JsonSerializerOptions JsonOptions = CreateJsonOptions();
     private readonly HttpClient _httpClient;
+    private readonly TimeSpan _normalTimeout;
+
+    public ApiClient(ApiSettings settings)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+
+        if (string.IsNullOrWhiteSpace(settings.BaseUrl))
+        {
+            throw new ArgumentException("API BaseUrl이 비어 있습니다.", nameof(settings));
+        }
+
+        if (settings.NormalTimeoutSeconds <= 0)
+        {
+            throw new ArgumentException("API 제한시간은 1초 이상이어야 합니다.", nameof(settings));
+        }
+
+        _normalTimeout = TimeSpan.FromSeconds(settings.NormalTimeoutSeconds);
+        _httpClient = new HttpClient
+        {
+            BaseAddress = new Uri(settings.BaseUrl, UriKind.Absolute),
+            Timeout = Timeout.InfiniteTimeSpan
+        };
+    }
 
     private static JsonSerializerOptions CreateJsonOptions()
     {
         var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
         options.Converters.Add(new KoreaDateTimeJsonConverter());
         return options;
-    }
-
-    public ApiClient(string baseUrl)
-    {
-        _httpClient = new HttpClient
-        {
-            BaseAddress = new Uri(baseUrl, UriKind.Absolute),
-            Timeout = TimeSpan.FromSeconds(30)
-        };
     }
 
     public void SetAccessToken(string? accessToken)
@@ -40,49 +60,66 @@ public sealed class ApiClient
         _httpClient.DefaultRequestHeaders.Authorization = null;
     }
 
-    public async Task<ApiResult<T>> GetAsync<T>(string relativeUrl)
+    public Task<ApiResult<T>> GetAsync<T>(string relativeUrl)
     {
-        try
-        {
-            var response = await _httpClient.GetAsync(relativeUrl);
-            if (!response.IsSuccessStatusCode)
-            {
-                return ApiResult<T>.Fail(await BuildErrorMessageAsync(response, "GET 요청 실패"));
-            }
-
-            return ApiResult<T>.Ok(await response.Content.ReadFromJsonAsync<T>(JsonOptions));
-        }
-        catch (Exception ex)
-        {
-            return ApiResult<T>.Fail($"예외 발생: {ex.Message}");
-        }
+        return SendAndReadAsync<T>(
+            cancellationToken => _httpClient.GetAsync(relativeUrl, cancellationToken),
+            "GET 요청 실패");
     }
 
-    public async Task<ApiResult<TResponse>> PostAsync<TRequest, TResponse>(
+    public Task<ApiResult<TResponse>> PostAsync<TRequest, TResponse>(
         string relativeUrl,
         TRequest request)
     {
+        return SendAndReadAsync<TResponse>(
+            cancellationToken => _httpClient.PostAsJsonAsync(relativeUrl, request, cancellationToken),
+            "POST 요청 실패");
+    }
+
+    private async Task<ApiResult<T>> SendAndReadAsync<T>(
+        Func<CancellationToken, Task<HttpResponseMessage>> sendAsync,
+        string errorPrefix)
+    {
+        using var timeoutCts = new CancellationTokenSource(_normalTimeout);
+
         try
         {
-            var response = await _httpClient.PostAsJsonAsync(relativeUrl, request);
+            using var response = await sendAsync(timeoutCts.Token);
             if (!response.IsSuccessStatusCode)
             {
-                return ApiResult<TResponse>.Fail(await BuildErrorMessageAsync(response, "POST 요청 실패"));
+                return ApiResult<T>.Fail(await BuildErrorMessageAsync(
+                    response,
+                    errorPrefix,
+                    timeoutCts.Token));
             }
 
-            return ApiResult<TResponse>.Ok(await response.Content.ReadFromJsonAsync<TResponse>(JsonOptions));
+            var data = await response.Content.ReadFromJsonAsync<T>(
+                JsonOptions,
+                timeoutCts.Token);
+            return ApiResult<T>.Ok(data);
+        }
+        catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested)
+        {
+            return ApiResult<T>.Fail(TimeoutErrorMessage);
+        }
+        catch (HttpRequestException)
+        {
+            return ApiResult<T>.Fail(NetworkErrorMessage);
         }
         catch (Exception ex)
         {
-            return ApiResult<TResponse>.Fail($"예외 발생: {ex.Message}");
+            return ApiResult<T>.Fail($"요청 처리 중 오류가 발생했습니다: {ex.Message}");
         }
     }
 
-    private static async Task<string> BuildErrorMessageAsync(HttpResponseMessage response, string defaultPrefix)
+    private static async Task<string> BuildErrorMessageAsync(
+        HttpResponseMessage response,
+        string defaultPrefix,
+        CancellationToken cancellationToken)
     {
         try
         {
-            var raw = await response.Content.ReadAsStringAsync();
+            var raw = await response.Content.ReadAsStringAsync(cancellationToken);
             if (!string.IsNullOrWhiteSpace(raw))
             {
                 using var doc = JsonDocument.Parse(raw);
@@ -96,6 +133,10 @@ public sealed class ApiClient
                     }
                 }
             }
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch
         {

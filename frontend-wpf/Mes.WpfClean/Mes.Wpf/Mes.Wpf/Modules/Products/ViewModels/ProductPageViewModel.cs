@@ -781,7 +781,7 @@ namespace Mes.Wpf.Modules.Products.ViewModels
                     }).ToList()
                 };
 
-                var result = await _apiClient.PostAsync<ProductBulkCreateRequest, ProductBulkResultDto>(
+                var result = await _apiClient.PostBulkAsync<ProductBulkCreateRequest, ProductBulkResultDto>(
                     ApiRoutes.ProductsBulk,
                     request);
 

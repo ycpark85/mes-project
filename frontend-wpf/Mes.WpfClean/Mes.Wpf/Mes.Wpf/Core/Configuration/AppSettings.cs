@@ -48,6 +48,13 @@ namespace Mes.Wpf.Core.Configuration
                 throw new InvalidOperationException($"{Path.GetFileName(filePath)}의 Api:BaseUrl 설정이 비어 있습니다.");
             }
 
+            if (settings.Api.NormalTimeoutSeconds <= 0
+                || settings.Api.BulkTimeoutSeconds <= 0
+                || settings.Api.FileTransferTimeoutSeconds <= 0)
+            {
+                throw new InvalidOperationException($"{Path.GetFileName(filePath)}의 API 제한시간은 1초 이상이어야 합니다.");
+            }
+
             return settings;
         }
     }
@@ -55,5 +62,8 @@ namespace Mes.Wpf.Core.Configuration
     public class ApiSettings
     {
         public string BaseUrl { get; set; } = string.Empty;
+        public int NormalTimeoutSeconds { get; set; } = 45;
+        public int BulkTimeoutSeconds { get; set; } = 150;
+        public int FileTransferTimeoutSeconds { get; set; } = 300;
     }
 }

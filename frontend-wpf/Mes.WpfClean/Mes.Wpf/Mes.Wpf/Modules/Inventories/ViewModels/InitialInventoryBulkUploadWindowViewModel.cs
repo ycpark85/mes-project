@@ -261,7 +261,7 @@ namespace Mes.Wpf.Modules.Inventories.ViewModels
                     }).ToList()
                 };
 
-                var result = await _apiClient.PostAsync<InitialInventoryBulkRequest, InitialInventoryBulkResultDto>(
+                var result = await _apiClient.PostBulkAsync<InitialInventoryBulkRequest, InitialInventoryBulkResultDto>(
                     ApiRoutes.InitialInventoryBulk,
                     request);
 

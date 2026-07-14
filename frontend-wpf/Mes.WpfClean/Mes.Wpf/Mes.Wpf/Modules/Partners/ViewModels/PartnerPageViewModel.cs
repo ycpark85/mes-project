@@ -421,7 +421,7 @@ namespace Mes.Wpf.Modules.Partners.ViewModels
                     }).ToList()
                 };
 
-                var result = await _apiClient.PostAsync<PartnerBulkCreateRequest, PartnerBulkCreateResultDto>(
+                var result = await _apiClient.PostBulkAsync<PartnerBulkCreateRequest, PartnerBulkCreateResultDto>(
                     ApiRoutes.PartnersBulk,
                     request);
 

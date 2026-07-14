@@ -24,7 +24,7 @@ namespace Mes.Wpf
                 ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
                 var appSettings = AppSettings.Load();
-                var apiClient = new ApiClient(appSettings.Api.BaseUrl);
+                var apiClient = new ApiClient(appSettings.Api);
 
                 var loginViewModel = new LoginViewModel(apiClient, messageService);
                 var loginWindow = new LoginWindow(loginViewModel);

@@ -168,7 +168,7 @@ namespace Mes.Wpf.Modules.OrderLines.ViewModels
                     Items = new ObservableCollection<OrderLineBulkImportRowDto>(SourceRows)
                 };
 
-                var result = await _apiClient.PostAsync<OrderLineBulkValidateRequest, OrderLineBulkValidateResultDto>(
+                var result = await _apiClient.PostBulkAsync<OrderLineBulkValidateRequest, OrderLineBulkValidateResultDto>(
                     ApiRoutes.OrderLinesBulkValidate,
                     request);
 
@@ -235,7 +235,7 @@ namespace Mes.Wpf.Modules.OrderLines.ViewModels
                             }))
                 };
 
-                var result = await _apiClient.PostAsync<OrderLineBulkCommitRequest, OrderLineBulkCommitResultDto>(
+                var result = await _apiClient.PostBulkAsync<OrderLineBulkCommitRequest, OrderLineBulkCommitResultDto>(
                     ApiRoutes.OrderLinesBulkCommit,
                     request);
 

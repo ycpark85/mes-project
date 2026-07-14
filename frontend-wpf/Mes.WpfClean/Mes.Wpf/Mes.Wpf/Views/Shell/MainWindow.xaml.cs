@@ -82,7 +82,7 @@ namespace Mes.Wpf.Views.Shell
             if (apiClient == null)
             {
                 var appSettings = AppSettings.Load();
-                _apiClient = new ApiClient(appSettings.Api.BaseUrl);
+                _apiClient = new ApiClient(appSettings.Api);
             }
             else
             {

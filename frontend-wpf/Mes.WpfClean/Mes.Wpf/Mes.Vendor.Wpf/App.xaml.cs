@@ -19,7 +19,7 @@ public partial class App : Application
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
             var settings = AppSettings.Load();
-            var apiClient = new ApiClient(settings.Api.BaseUrl);
+            var apiClient = new ApiClient(settings.Api);
 
             var loginViewModel = new LoginViewModel(apiClient);
             var loginWindow = new LoginWindow(loginViewModel);

@@ -8,6 +8,7 @@ namespace Mes.Wpf.Core.Interfaces
     {
         Task<ApiResult<T>> GetAsync<T>(string relativeUrl);
         Task<ApiResult<TResponse>> PostAsync<TRequest, TResponse>(string relativeUrl, TRequest request);
+        Task<ApiResult<TResponse>> PostBulkAsync<TRequest, TResponse>(string relativeUrl, TRequest request);
         Task<ApiResult<TResponse>> PutAsync<TRequest, TResponse>(string relativeUrl, TRequest request);
         Task<ApiResult<TResponse>> PatchAsync<TRequest, TResponse>(string relativeUrl, TRequest request);
         Task<ApiResult<bool>> DeleteAsync(string relativeUrl);
