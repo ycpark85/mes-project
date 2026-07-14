@@ -553,6 +553,8 @@ The application now bounds connections and records slow operations, but ten-year
 - Keep automated backups and perform a restore rehearsal at least quarterly. A backup that has never been restored is not considered verified.
 - As data grows, archive or partition only after retention rules and actual table growth justify it. Do not delete audit, inventory movement, allocation, or status history merely to improve screen speed.
 
+Backup and isolated restore commands, safety guards, and the verified local drill are documented in `docs/backup-restore-runbook.md`.
+
 ## V2 Pre-Deployment Gate
 
 V2 remains local until the feature set is complete. Before the first server deployment:
