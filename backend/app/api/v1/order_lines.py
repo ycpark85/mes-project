@@ -9,7 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.crud.order_line import order_line_crud
-from app.db.session import get_db
+from app.db.session import get_db, set_local_statement_timeout
 from app.schemas.lot_create_context import LotCreateContextDto
 from app.schemas.order_line import (
     OrderLineBaseLotCreateResult,
@@ -59,6 +59,7 @@ def commit_order_lines_bulk(
     db: Session = Depends(get_db),
 ):
     try:
+        set_local_statement_timeout(db)
         result = order_line_bulk_service.commit_bulk(db, payload)
         db.commit()
     except HTTPException:
@@ -76,6 +77,7 @@ def validate_order_lines_bulk(
     payload: OrderLineBulkValidateRequest,
     db: Session = Depends(get_db),
 ):
+    set_local_statement_timeout(db)
     return order_line_bulk_service.validate_bulk(db, payload)
 
 

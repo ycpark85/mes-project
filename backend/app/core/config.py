@@ -16,6 +16,17 @@ class Settings(BaseSettings):
     app_env: str = "dev"
     database_url: str
 
+    DB_POOL_SIZE: int = Field(default=5, ge=1, le=50)
+    DB_MAX_OVERFLOW: int = Field(default=5, ge=0, le=100)
+    DB_POOL_TIMEOUT_SECONDS: int = Field(default=10, ge=1, le=120)
+    DB_POOL_RECYCLE_SECONDS: int = Field(default=1800, ge=60, le=86400)
+    DB_CONNECT_TIMEOUT_SECONDS: int = Field(default=5, ge=1, le=60)
+    DB_STATEMENT_TIMEOUT_SECONDS: int = Field(default=30, ge=1, le=600)
+    DB_BULK_STATEMENT_TIMEOUT_SECONDS: int = Field(default=120, ge=1, le=1800)
+    DB_LOCK_TIMEOUT_SECONDS: int = Field(default=5, ge=1, le=120)
+    DB_IDLE_TRANSACTION_TIMEOUT_SECONDS: int = Field(default=60, ge=1, le=600)
+    DB_APPLICATION_NAME: str = Field(default="mes-api", min_length=1, max_length=63)
+
     AUTH_SECRET_KEY: str = Field(default="mes-dev-auth-secret-key-change-me")
     AUTH_ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=720, ge=1, le=1440)
 

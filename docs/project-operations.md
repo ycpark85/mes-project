@@ -492,3 +492,12 @@ Current WPF outsource processing cost API usage:
 
 - `OUTSOURCE_PROCESSING_COSTS.VIEW`: view menu and data.
 - `OUTSOURCE_PROCESSING_COSTS.WRITE`: create, update, close, reopen, and cancel cost groups.
+
+## Database Runtime Limits
+
+- PostgreSQL uses an explicit pool per API worker: `DB_POOL_SIZE=5`, `DB_MAX_OVERFLOW=5`, `DB_POOL_TIMEOUT_SECONDS=10`, and `DB_POOL_RECYCLE_SECONDS=1800` by default.
+- Maximum application connections are approximately `worker count * (pool size + max overflow)`. A worker is one API server process, not one MES user.
+- Start production with one worker. Before increasing workers, confirm that the PostgreSQL connection budget also covers administration, migration, backup, and monitoring connections.
+- New connections use a 5-second connect timeout. Normal statements use 30 seconds, lock waits use 5 seconds, and idle transactions use 60 seconds by default.
+- Bulk validation/import endpoints use `DB_BULK_STATEMENT_TIMEOUT_SECONDS=120` only for their current transaction and return to the normal timeout after commit or rollback.
+- These values are environment settings. Increase them only from measured evidence; do not remove the limits to work around a slow query.

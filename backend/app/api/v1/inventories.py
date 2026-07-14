@@ -5,7 +5,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from app.db.session import get_db
+from app.db.session import get_db, set_local_statement_timeout
 from app.schemas.inventory import (
     InitialInventoryBulkIn,
     InitialInventoryBulkResultOut,
@@ -97,6 +97,7 @@ def upload_initial_inventory_bulk(
     db: Session = Depends(get_db),
 ):
     try:
+        set_local_statement_timeout(db)
         result = upload_initial_inventory_bulk_in_session(db, payload)
         db.commit()
         return result

@@ -4,7 +4,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy import func, or_
 from fastapi import Path, Query
 
-from app.db.session import get_db
+from app.db.session import get_db, set_local_statement_timeout
 from app.models.partner import Partner
 from app.schemas.partner import (
     PartnerCreate,
@@ -26,6 +26,7 @@ def create_partners_bulk(
     db: Session = Depends(get_db),
 ):
     try:
+        set_local_statement_timeout(db)
         return partner_bulk_service.create_bulk(db, payload)
     except IntegrityError:
         db.rollback()

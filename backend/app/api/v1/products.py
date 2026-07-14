@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
-from app.db.session import get_db
+from app.db.session import get_db, set_local_statement_timeout
 from app.models.product import Product
 from app.models.drawing import Drawing
 from app.models.order_line import OrderLine
@@ -183,6 +183,7 @@ def create_products_bulk(
     payload: ProductBulkCreateRequest,
     db: Session = Depends(get_db),
 ):
+    set_local_statement_timeout(db)
     return product_bulk_service.create_bulk(db, payload)    
 
 
