@@ -100,7 +100,7 @@ function Get-MesBootstrapPythonMetadata {
     $previousErrorActionPreference = $ErrorActionPreference
     try {
         $ErrorActionPreference = 'Continue'
-        $output = & $python -c 'import json, platform; print(json.dumps({"implementation": platform.python_implementation(), "version": platform.python_version(), "major_minor": ".".join(platform.python_version_tuple()[:2]), "machine": platform.machine()}))' 2>&1
+        $output = & $python -c 'import json, platform; print(json.dumps(dict(implementation=platform.python_implementation(), version=platform.python_version(), major_minor=chr(46).join(platform.python_version_tuple()[:2]), machine=platform.machine())))' 2>&1
         $exitCode = $LASTEXITCODE
     }
     finally {
