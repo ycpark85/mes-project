@@ -8,6 +8,7 @@ The project uses one SQLAlchemy declarative metadata source.
 - Every model imports `Base` from `app.db.base`.
 - `app.core.db` imports and re-exports the same `Base` while creating the engine and session factory.
 - Alembic imports all models and uses `app.db.base.Base.metadata` as `target_metadata`.
+- The `drawing.current_revision_id` foreign key uses `use_alter=True` and the existing constraint name `fk_drawing__current_revision_id`. This breaks the intentional `drawing` / `drawing_revision` DDL sort cycle without changing the database relationship.
 - Do not introduce another `DeclarativeBase` or `declarative_base()` instance. A second metadata registry can cause Alembic autogenerate to miss tables or report false create/drop changes.
 - Run `alembic check` after model or migration changes. A clean schema reports `No new upgrade operations detected`.
 

@@ -9,6 +9,7 @@ from sqlalchemy.orm import sessionmaker
 
 import app.models  # noqa: F401
 from app.db.base import Base
+from app.models.drawing import Drawing
 from app.models.order_line_plan_history import OrderLinePlanHistory
 from app.models.outsource_work_instruction_item import OutsourceWorkInstructionItem
 
@@ -19,6 +20,13 @@ def _compile_big_integer_for_sqlite(_type, compiler, **kw):
 
 
 class IndexMetadataAlignmentTests(unittest.TestCase):
+    def test_drawing_current_revision_foreign_key_breaks_ddl_cycle(self) -> None:
+        foreign_key = next(iter(Drawing.__table__.c.current_revision_id.foreign_keys))
+
+        self.assertEqual("fk_drawing__current_revision_id", foreign_key.constraint.name)
+        self.assertTrue(foreign_key.use_alter)
+        self.assertEqual("SET NULL", foreign_key.ondelete)
+
     def test_latest_plan_history_index_matches_query_order(self) -> None:
         index = next(
             item

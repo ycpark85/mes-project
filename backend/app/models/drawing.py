@@ -23,7 +23,12 @@ class Drawing(Base):
     # 최신 리비전 포인터 (자동 갱신)
     current_revision_id: Mapped[Optional[int]] = mapped_column(
         BigInteger,
-        ForeignKey("drawing_revision.revision_id", ondelete="SET NULL"),
+        ForeignKey(
+            "drawing_revision.revision_id",
+            name="fk_drawing__current_revision_id",
+            ondelete="SET NULL",
+            use_alter=True,
+        ),
         nullable=True,
     )
 
