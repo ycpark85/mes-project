@@ -4,7 +4,7 @@
 
 These tools prepare a staged MES V2 release for Windows operation. They do not copy release binaries, publish WPF clients, configure a reverse proxy, or decide the production server paths. Stage and review the release first, then run the deployment gate from that fixed revision.
 
-Before server preparation, the exact staged revision must pass `deploy/windows/Test-MesRelease.ps1 -RequireCleanWorktree`. The full local quality gate and report format are documented in `docs/release-validation.md`.
+Before server preparation, the exact staged revision must pass `deploy/windows/Test-MesRelease.ps1 -RequireCleanWorktree`, and `deploy/windows/New-MesReleasePackage.ps1` must create the immutable artifact from that same clean commit. The local quality gate is documented in `docs/release-validation.md`; package contents and validation are documented in `docs/release-package.md`.
 
 The operational tools are:
 

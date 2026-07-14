@@ -68,3 +68,5 @@ Each run creates a timestamped directory containing:
 Python bytecode writing is disabled during the gate. Generated .NET outputs remain under ignored `bin` and `obj` paths. The final worktree-integrity step compares Git status before and after validation and fails if the gate itself changed tracked source.
 
 Keep the final successful JSON report with the release record, commit ID, deployment backup ID, migration revision, operator, and deployment result.
+
+After this gate succeeds for a clean commit, create and independently validate the immutable Windows artifact with `deploy/windows/New-MesReleasePackage.ps1`. Package contents, exclusions, hashes, and the server installation boundary are documented in `docs/release-package.md`.
