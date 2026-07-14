@@ -100,6 +100,7 @@ def get_result_attachment_content(
 ):
     _ = user
     result = get_defect_attachment_download(db, attachment_id)
+    db.close()
 
     return FileResponse(
         path=str(result.file_path),

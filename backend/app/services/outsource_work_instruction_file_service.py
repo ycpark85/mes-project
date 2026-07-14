@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from io import BytesIO
 from pathlib import Path
+from typing import BinaryIO
 from uuid import uuid4
 
 from fastapi import HTTPException
@@ -39,16 +41,38 @@ def save_plate_data_file(
     content: bytes,
     uploaded_at: datetime | None = None,
 ) -> PlateDataUploadResult:
-    uploaded_at = uploaded_at or utc_now()
-    size_bytes = len(content)
+    return save_plate_data_stream(
+        file_name=file_name,
+        content_type=content_type,
+        file_stream=BytesIO(content),
+        uploaded_at=uploaded_at,
+    )
 
-    _validate_plate_data_upload(file_name, size_bytes)
+
+def save_plate_data_stream(
+    *,
+    file_name: str,
+    content_type: str | None,
+    file_stream: BinaryIO,
+    uploaded_at: datetime | None = None,
+) -> PlateDataUploadResult:
+    uploaded_at = uploaded_at or utc_now()
+    _validate_plate_data_upload(file_name, 0)
 
     target_path = _build_plate_data_path(file_name, uploaded_at)
+    size_bytes = 0
 
     try:
-        target_path.write_bytes(content)
+        with target_path.open("xb") as target_file:
+            while chunk := file_stream.read(1024 * 1024):
+                size_bytes += len(chunk)
+                _validate_plate_data_upload(file_name, size_bytes)
+                target_file.write(chunk)
+    except HTTPException:
+        target_path.unlink(missing_ok=True)
+        raise
     except OSError:
+        target_path.unlink(missing_ok=True)
         raise HTTPException(status_code=500, detail="Failed to save uploaded file")
 
     return PlateDataUploadResult(

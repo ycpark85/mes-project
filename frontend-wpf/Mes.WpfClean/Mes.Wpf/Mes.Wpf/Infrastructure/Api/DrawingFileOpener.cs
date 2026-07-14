@@ -24,15 +24,6 @@ namespace Mes.Wpf.Infrastructure.Api
         {
             try
             {
-                var bytes = await _apiClient.GetBytesAsync(downloadUrl);
-
-                if (bytes == null || bytes.Length == 0)
-                {
-                    _messageService.ShowError(
-                        "도면 파일을 다운로드할 수 없습니다.\n로그인 권한 또는 도면 파일 정보를 확인하세요.");
-                    return;
-                }
-
                 var safeFileName = BuildSafeFileName(fileName);
 
                 var tempFolder = Path.Combine(
@@ -44,7 +35,15 @@ namespace Mes.Wpf.Infrastructure.Api
 
                 var tempFilePath = Path.Combine(tempFolder, safeFileName);
 
-                await File.WriteAllBytesAsync(tempFilePath, bytes);
+                var download = await _apiClient.DownloadFileAsync(downloadUrl, tempFilePath);
+
+                if (!download.Success)
+                {
+                    _messageService.ShowError(
+                        download.Message
+                        ?? "도면 파일을 다운로드할 수 없습니다.\n로그인 권한 또는 도면 파일 정보를 확인하세요.");
+                    return;
+                }
 
                 Process.Start(new ProcessStartInfo
                 {

@@ -63,11 +63,11 @@ namespace Mes.Wpf.Modules.LotDetails.Views
             string? fileName)
         {
             using var httpClient = new HttpClient();
-            using var response = await httpClient.GetAsync(downloadUrl);
+            using var response = await httpClient.GetAsync(
+                downloadUrl,
+                HttpCompletionOption.ResponseHeadersRead);
 
             response.EnsureSuccessStatusCode();
-
-            var bytes = await response.Content.ReadAsByteArrayAsync();
 
             var safeFileName = MakeSafeFileName(fileName);
 
@@ -93,7 +93,17 @@ namespace Mes.Wpf.Modules.LotDetails.Views
                 tempFolder,
                 $"{DateTime.Now:yyyyMMddHHmmssfff}_{safeFileName}");
 
-            await File.WriteAllBytesAsync(tempFilePath, bytes);
+            await using (var source = await response.Content.ReadAsStreamAsync())
+            await using (var destination = new FileStream(
+                tempFilePath,
+                FileMode.CreateNew,
+                FileAccess.Write,
+                FileShare.None,
+                81920,
+                FileOptions.Asynchronous | FileOptions.SequentialScan))
+            {
+                await source.CopyToAsync(destination);
+            }
 
             Process.Start(new ProcessStartInfo
             {

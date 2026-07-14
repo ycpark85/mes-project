@@ -27,7 +27,7 @@ from app.services.outsource_work_group_service import (
 )
 from app.services.outsource_work_instruction_file_service import (
     get_work_group_plate_data_file,
-    save_plate_data_file,
+    save_plate_data_stream,
 )
 from app.services.outsource_work_instruction_service import (
     create_work_instruction_batch as create_work_instruction_batch_service,
@@ -218,6 +218,7 @@ def download_outsource_purchase_order_excel(
     db: Session = Depends(get_db),
 ):
     result = build_purchase_order_excel_download(db, outsource_purchase_order_id)
+    db.close()
 
     return StreamingResponse(
         BytesIO(result.file_bytes),
@@ -233,14 +234,13 @@ def download_outsource_purchase_order_excel(
     response_model=OutsourceWorkInstructionPlateUploadOut,
     status_code=http_status.HTTP_201_CREATED,
 )
-async def upload_plate_data(
+def upload_plate_data(
     file: UploadFile = File(...),
 ):
-    content = await file.read()
-    result = save_plate_data_file(
+    result = save_plate_data_stream(
         file_name=file.filename or "",
         content_type=file.content_type,
-        content=content,
+        file_stream=file.file,
     )
 
     return OutsourceWorkInstructionPlateUploadOut(
@@ -258,6 +258,7 @@ def download_work_group_plate_data(
     db: Session = Depends(get_db),
 ):
     result = get_work_group_plate_data_file(db, group_id)
+    db.close()
 
     return FileResponse(
         path=result.file_path,

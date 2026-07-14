@@ -256,15 +256,13 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
                 IsLoading = true;
 
                 var route = $"{ApiRoutes.OutsourcePurchaseOrderExcel}/{target.OutsourcePurchaseOrderId}/excel";
-                var fileBytes = await _apiClient.GetBytesAsync(route);
+                var download = await _apiClient.DownloadFileAsync(route, dialog.FileName);
 
-                if (fileBytes == null || fileBytes.Length == 0)
+                if (!download.Success)
                 {
-                    _messageService.ShowWarning("엑셀 다운로드에 실패했습니다.");
+                    _messageService.ShowWarning(download.Message ?? "엑셀 다운로드에 실패했습니다.");
                     return;
                 }
-
-                await File.WriteAllBytesAsync(dialog.FileName, fileBytes);
 
                 _messageService.ShowInfo("다운로드되었습니다.");
             }

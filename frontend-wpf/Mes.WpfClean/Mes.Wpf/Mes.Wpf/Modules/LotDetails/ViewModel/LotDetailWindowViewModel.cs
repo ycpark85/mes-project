@@ -318,14 +318,6 @@ namespace Mes.Wpf.Modules.LotDetails.ViewModels
                     requestUrl = requestUrl.TrimStart('/');
                 }
 
-                var bytes = await _apiClient.GetBytesAsync(requestUrl);
-
-                if (bytes == null || bytes.Length == 0)
-                {
-                    _messageService.ShowError("이미지 다운로드에 실패했습니다.");
-                    return;
-                }
-
                 var extension = GetImageExtension(attachment.FileName, attachment.MimeType);
                 var tempDir = Path.Combine(Path.GetTempPath(), "MesWpf", "DefectImages");
 
@@ -346,7 +338,14 @@ namespace Mes.Wpf.Modules.LotDetails.ViewModels
 
                 var tempPath = Path.Combine(tempDir, fileName);
 
-                await File.WriteAllBytesAsync(tempPath, bytes);
+                var download = await _apiClient.DownloadFileAsync(requestUrl, tempPath);
+
+                if (!download.Success)
+                {
+                    _messageService.ShowError(
+                        download.Message ?? "이미지 다운로드에 실패했습니다.");
+                    return;
+                }
 
                 Process.Start(new ProcessStartInfo
                 {

@@ -569,15 +569,6 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
 
         private async Task DownloadExcelAsync(long outsourcePurchaseOrderId, string purchaseOrderNo)
         {
-            var route = $"{ApiRoutes.OutsourcePurchaseOrderExcel}/{outsourcePurchaseOrderId}/excel";
-            var fileBytes = await _apiClient.GetBytesAsync(route);
-
-            if (fileBytes == null || fileBytes.Length == 0)
-            {
-                _messageService.ShowWarning("엑셀 다운로드에 실패했습니다.");
-                return;
-            }
-
             var dialog = new SaveFileDialog
             {
                 FileName = $"{purchaseOrderNo}.xlsx",
@@ -592,7 +583,13 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
                 return;
             }
 
-            await File.WriteAllBytesAsync(dialog.FileName, fileBytes);
+            var route = $"{ApiRoutes.OutsourcePurchaseOrderExcel}/{outsourcePurchaseOrderId}/excel";
+            var download = await _apiClient.DownloadFileAsync(route, dialog.FileName);
+
+            if (!download.Success)
+            {
+                _messageService.ShowWarning(download.Message ?? "엑셀 다운로드에 실패했습니다.");
+            }
         }
     }
 }

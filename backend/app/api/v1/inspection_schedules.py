@@ -179,6 +179,7 @@ def download_inspection_schedule_plate_data(
     db: Session = Depends(get_db),
 ):
     plate_data = get_inspection_schedule_plate_data_file(db, inspection_schedule_id)
+    db.close()
 
     return FileResponse(
         path=plate_data.file_path,

@@ -147,6 +147,9 @@ Current WPF outsource API cleanup notes:
 - The active WPF outsource work-instruction registration screen uses `POST /api/v1/outsource-work-instructions/batch`.
 - The former single work-instruction create API, `POST /api/v1/outsource-work-instructions`, was removed because the WPF client uses the batch endpoint and the batch flow supersedes the old process-type-specific create flow.
 - The active WPF outsource work-group list uses group list, group detail, group update, group cancel, and work-group plate-data download APIs.
+- MES WPF file downloads stream to a temporary sibling file and replace the destination only after a complete transfer; they must not buffer the full file in a `byte[]`.
+- File and generated-Excel endpoints close their DB session after lookup/generation and before returning `FileResponse` or `StreamingResponse`.
+- Plate-data uploads are copied in 1 MB chunks, enforce `PLATE_DATA_MAX_MB` while copying, and remove partial files on failure.
 - The active WPF Bohyun outsource-management screens use Bohyun group list, inbound, work-done, and ship-batch APIs.
 - The unused purchase-order item status APIs, `vendor-receive`, `work-done`, and `ship`, were removed after confirming that no frontend, vendor app, script, external client, or direct operational workflow calls them.
 - Their item-level transition service functions, request schema, tests, and WPF route constants were removed together.

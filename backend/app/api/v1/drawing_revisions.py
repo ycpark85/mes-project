@@ -600,6 +600,7 @@ def download_revision_file(
 
     media_type = obj.content_type or "application/octet-stream"
     filename = obj.original_filename or abs_path.name
+    db.close()
 
     return FileResponse(
         path=str(abs_path),

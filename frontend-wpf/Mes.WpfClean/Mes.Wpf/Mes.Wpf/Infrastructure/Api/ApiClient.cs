@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -343,22 +344,66 @@ namespace Mes.Wpf.Infrastructure.Api
             }
         }
 
-        public async Task<byte[]?> GetBytesAsync(string relativeUrl)
+        public async Task<ApiResult<bool>> DownloadFileAsync(
+            string relativeUrl,
+            string destinationPath)
         {
+            var tempPath = $"{destinationPath}.{Guid.NewGuid():N}.download";
+
             try
             {
-                var response = await _httpClient.GetAsync(relativeUrl);
+                using var response = await _httpClient.GetAsync(
+                    relativeUrl,
+                    HttpCompletionOption.ResponseHeadersRead);
 
                 if (!response.IsSuccessStatusCode)
                 {
-                    return null;
+                    return new ApiResult<bool>
+                    {
+                        Success = false,
+                        Message = await BuildErrorMessageAsync(response, "파일 다운로드 실패")
+                    };
                 }
 
-                return await response.Content.ReadAsByteArrayAsync();
+                await using (var source = await response.Content.ReadAsStreamAsync())
+                await using (var destination = new FileStream(
+                    tempPath,
+                    FileMode.CreateNew,
+                    FileAccess.Write,
+                    FileShare.None,
+                    81920,
+                    FileOptions.Asynchronous | FileOptions.SequentialScan))
+                {
+                    await source.CopyToAsync(destination);
+                }
+
+                File.Move(tempPath, destinationPath, true);
+                return new ApiResult<bool>
+                {
+                    Success = true,
+                    Data = true
+                };
             }
-            catch
+            catch (Exception ex)
             {
-                return null;
+                return new ApiResult<bool>
+                {
+                    Success = false,
+                    Message = $"파일 다운로드 중 오류가 발생했습니다: {ex.Message}"
+                };
+            }
+            finally
+            {
+                try
+                {
+                    if (File.Exists(tempPath))
+                    {
+                        File.Delete(tempPath);
+                    }
+                }
+                catch
+                {
+                }
             }
         }
 

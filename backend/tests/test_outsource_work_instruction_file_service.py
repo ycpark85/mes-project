@@ -3,6 +3,7 @@ from __future__ import annotations
 import tempfile
 import unittest
 from datetime import date, datetime, timezone
+from io import BytesIO
 from pathlib import Path
 from unittest.mock import patch
 
@@ -28,6 +29,7 @@ from app.services.outsource_work_instruction_file_service import (
     get_inspection_schedule_plate_data_file,
     get_work_group_plate_data_file,
     save_plate_data_file,
+    save_plate_data_stream,
 )
 
 
@@ -104,6 +106,25 @@ class OutsourceWorkInstructionFileServiceTests(unittest.TestCase):
                     )
 
         self.assertEqual(409, ctx.exception.status_code)
+
+    def test_save_plate_data_stream_removes_partial_file_when_size_exceeds_limit(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with (
+                patch.object(file_service.settings, "PLATE_DATA_STORAGE_ROOT", tmpdir),
+                patch.object(file_service.settings, "PLATE_DATA_ALLOWED_EXT", {".pdf"}),
+                patch.object(file_service.settings, "PLATE_DATA_MAX_MB", 1),
+            ):
+                with self.assertRaises(HTTPException) as ctx:
+                    save_plate_data_stream(
+                        file_name="large.pdf",
+                        content_type="application/pdf",
+                        file_stream=BytesIO(b"x" * ((1024 * 1024) + 1)),
+                    )
+
+            stored_files = list((Path(tmpdir) / "plate_data").rglob("*"))
+
+        self.assertEqual(409, ctx.exception.status_code)
+        self.assertFalse(any(path.is_file() for path in stored_files))
 
     def test_get_work_group_plate_data_file_returns_first_instruction_file(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

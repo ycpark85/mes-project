@@ -633,15 +633,6 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
 
             try
             {
-                var bytes = await _apiClient.GetBytesAsync(
-                    $"{ApiRoutes.InspectionSchedules}/{item.InspectionScheduleId}/plate-data");
-
-                if (bytes == null || bytes.Length == 0)
-                {
-                    _messageService.ShowError("판데이터 파일을 다운로드할 수 없습니다.");
-                    return;
-                }
-
                 var tempFolder = Path.Combine(
                     Path.GetTempPath(),
                     "Mes.Wpf",
@@ -652,7 +643,16 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                 var safeFileName = BuildSafePlateDataFileName(item.PlateDataFileName);
                 var tempFilePath = Path.Combine(tempFolder, safeFileName);
 
-                await File.WriteAllBytesAsync(tempFilePath, bytes);
+                var download = await _apiClient.DownloadFileAsync(
+                    $"{ApiRoutes.InspectionSchedules}/{item.InspectionScheduleId}/plate-data",
+                    tempFilePath);
+
+                if (!download.Success)
+                {
+                    _messageService.ShowError(
+                        download.Message ?? "판데이터 파일을 다운로드할 수 없습니다.");
+                    return;
+                }
 
                 Process.Start(new ProcessStartInfo
                 {
