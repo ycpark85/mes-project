@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 import os
+import platform
 import re
 import shutil
 import subprocess
@@ -23,6 +24,7 @@ from scripts.validate_release_sources import (
 
 MANIFEST_NAME = "release-manifest.json"
 README_NAME = "README-DEPLOYMENT.txt"
+WHEELHOUSE_MANIFEST = "backend/wheelhouse/wheelhouse-manifest.json"
 FORMAT_VERSION = 1
 MAX_PACKAGE_BYTES = 1024 * 1024 * 1024
 MAX_PACKAGE_FILES = 10_000
@@ -42,28 +44,37 @@ SOURCE_FILES = {
     "backend/scripts/rebuild_production_progress_snapshots.py",
     "backend/scripts/rewrite_lot_numbers_to_month_code.py",
     "backend/scripts/verify_mes_restore.py",
+    "backend/scripts/verify_python_runtime.py",
+    "deploy/windows/Prepare-MesPythonRuntime.ps1",
     "deploy/windows/Invoke-MesDeployment.ps1",
     "deploy/windows/Invoke-MesScheduledOperation.ps1",
     "deploy/windows/Install-MesRelease.ps1",
     "deploy/windows/MesDeployment.Common.ps1",
     "deploy/windows/MesRelease.Installation.Common.ps1",
+    "deploy/windows/MesPythonRuntime.Common.ps1",
     "deploy/windows/Set-MesOperationsScheduledTasks.ps1",
     "deploy/windows/Test-MesDeployment.ps1",
     "deploy/windows/Test-MesReleaseInstallation.ps1",
+    "deploy/windows/Test-MesRuntimeRehearsal.ps1",
     "deploy/windows/mes-deployment.example.psd1",
 }
 REQUIRED_FILES = {
     "backend/alembic.ini",
     "backend/requirements.txt",
+    WHEELHOUSE_MANIFEST,
     "backend/app/main.py",
     "backend/migrations/env.py",
     "backend/scripts/backup_mes.py",
     "backend/scripts/check_mes_operations.py",
+    "backend/scripts/verify_python_runtime.py",
     "deploy/windows/Invoke-MesDeployment.ps1",
     "deploy/windows/Install-MesRelease.ps1",
     "deploy/windows/MesRelease.Installation.Common.ps1",
+    "deploy/windows/MesPythonRuntime.Common.ps1",
+    "deploy/windows/Prepare-MesPythonRuntime.ps1",
     "deploy/windows/Test-MesDeployment.ps1",
     "deploy/windows/Test-MesReleaseInstallation.ps1",
+    "deploy/windows/Test-MesRuntimeRehearsal.ps1",
     "clients/internal/Mes.Wpf.exe",
     "clients/internal/Mes.Wpf.dll",
     "clients/internal/Mes.Wpf.deps.json",
@@ -287,6 +298,126 @@ def _validate_production_settings(files: Mapping[str, bytes]) -> None:
             )
 
 
+def _parse_pinned_requirements(raw: bytes) -> list[tuple[str, str]]:
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise PackageValidationError("requirements.txt must be UTF-8") from exc
+    requirements: list[tuple[str, str]] = []
+    for line_number, line in enumerate(text.splitlines(), start=1):
+        value = line.strip()
+        if not value or value.startswith("#"):
+            continue
+        match = re.fullmatch(r"([A-Za-z0-9_.-]+)==([^\s;]+)", value)
+        if not match:
+            raise PackageValidationError(
+                f"Requirement line {line_number} is not exactly pinned"
+            )
+        requirements.append((match.group(1), match.group(2)))
+    if not requirements:
+        raise PackageValidationError("requirements.txt contains no packages")
+    return requirements
+
+
+def prepare_wheelhouse_manifest(
+    requirements_path: Path,
+    wheelhouse: Path,
+) -> dict[str, object]:
+    requirements_raw = requirements_path.read_bytes()
+    requirements = _parse_pinned_requirements(requirements_raw)
+    manifest_path = wheelhouse / "wheelhouse-manifest.json"
+    if manifest_path.exists():
+        raise PackageValidationError("Wheelhouse manifest already exists")
+    unexpected = sorted(
+        path.name
+        for path in wheelhouse.iterdir()
+        if not path.is_file() or path.suffix.lower() != ".whl"
+    )
+    if unexpected:
+        raise PackageValidationError(
+            "Wheelhouse contains unexpected entries: " + ", ".join(unexpected)
+        )
+    wheels = sorted(wheelhouse.glob("*.whl"), key=lambda path: path.name.lower())
+    if not wheels:
+        raise PackageValidationError("Wheelhouse contains no wheels")
+    payload: dict[str, object] = {
+        "format_version": 1,
+        "python": {
+            "implementation": platform.python_implementation(),
+            "version": platform.python_version(),
+            "major_minor": f"{sys.version_info.major}.{sys.version_info.minor}",
+            "system": platform.system(),
+            "machine": platform.machine(),
+        },
+        "requirements_sha256": _sha256_bytes(requirements_raw),
+        "requirement_count": len(requirements),
+        "wheel_count": len(wheels),
+        "wheels": [
+            {
+                "filename": path.name,
+                "size": path.stat().st_size,
+                "sha256": _sha256_file(path),
+            }
+            for path in wheels
+        ],
+    }
+    _write_json_atomic(manifest_path, payload)
+    return payload
+
+
+def _validate_wheelhouse_files(files: Mapping[str, bytes]) -> dict[str, object]:
+    try:
+        requirements_raw = files["backend/requirements.txt"]
+        manifest = json.loads(files[WHEELHOUSE_MANIFEST].decode("utf-8"))
+    except (KeyError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise PackageValidationError("Wheelhouse manifest is missing or invalid") from exc
+    requirements = _parse_pinned_requirements(requirements_raw)
+    if (
+        not isinstance(manifest, dict)
+        or manifest.get("format_version") != 1
+        or manifest.get("requirements_sha256") != _sha256_bytes(requirements_raw)
+        or manifest.get("requirement_count") != len(requirements)
+    ):
+        raise PackageValidationError("Wheelhouse metadata does not match requirements")
+    python_metadata = manifest.get("python")
+    if (
+        not isinstance(python_metadata, dict)
+        or python_metadata.get("implementation") != "CPython"
+        or not re.fullmatch(r"\d+\.\d+", str(python_metadata.get("major_minor", "")))
+        or python_metadata.get("system") != "Windows"
+    ):
+        raise PackageValidationError("Wheelhouse Python target is invalid")
+    raw_wheels = manifest.get("wheels")
+    if not isinstance(raw_wheels, list) or manifest.get("wheel_count") != len(raw_wheels):
+        raise PackageValidationError("Wheelhouse file list is invalid")
+    expected: dict[str, dict[str, object]] = {}
+    for entry in raw_wheels:
+        if not isinstance(entry, dict):
+            raise PackageValidationError("Wheelhouse contains an invalid file entry")
+        filename = str(entry.get("filename", ""))
+        if (
+            not filename
+            or PurePosixPath(filename).name != filename
+            or not filename.lower().endswith(".whl")
+            or filename in expected
+        ):
+            raise PackageValidationError("Wheelhouse contains an unsafe wheel name")
+        expected[filename] = entry
+    actual = {
+        relative.removeprefix("backend/wheelhouse/"): raw
+        for relative, raw in files.items()
+        if relative.startswith("backend/wheelhouse/")
+        and relative != WHEELHOUSE_MANIFEST
+    }
+    if set(actual) != set(expected):
+        raise PackageValidationError("Wheelhouse contents do not match its manifest")
+    for filename, raw in actual.items():
+        entry = expected[filename]
+        if entry.get("size") != len(raw) or entry.get("sha256") != _sha256_bytes(raw):
+            raise PackageValidationError(f"Wheelhouse hash mismatch: {filename}")
+    return manifest
+
+
 def _parse_manifest(files: Mapping[str, bytes]) -> dict[str, object]:
     try:
         manifest = json.loads(files[MANIFEST_NAME].decode("utf-8"))
@@ -368,6 +499,7 @@ def validate_package_files(
             "Package contains a high-confidence secret pattern: " + labels
         )
     _validate_production_settings(files)
+    _validate_wheelhouse_files(files)
     return manifest
 
 
@@ -500,8 +632,10 @@ def finalize_package(
         "Extract the package to a new versioned directory.\n"
         "Do not place backend.env or monitor.env inside this directory.\n"
         "The WPF clients require the Microsoft .NET 8 Desktop Runtime (x64).\n"
+        "The backend wheelhouse targets the Python runtime recorded in the manifest.\n"
+        "Prepare backend/.venv with Prepare-MesPythonRuntime.ps1 before activation.\n"
         "Run the documented deployment preflight before changing server state.\n"
-        "Rehearse installation and pointer rollback before production activation.\n"
+        "Rehearse installation, runtime startup, and pointer rollback before activation.\n"
     )
     (staging_root / README_NAME).write_text(readme, encoding="ascii")
 
@@ -522,6 +656,7 @@ def finalize_package(
             "Staging root contains a high-confidence secret pattern"
         )
     _validate_production_settings(staged_files)
+    wheelhouse_manifest = _validate_wheelhouse_files(staged_files)
 
     manifest: dict[str, object] = {
         "format_version": FORMAT_VERSION,
@@ -542,6 +677,7 @@ def finalize_package(
             "target_framework": "net8.0-windows",
             "required_runtime": "Microsoft .NET 8 Desktop Runtime (x64)",
         },
+        "python_runtime": wheelhouse_manifest["python"],
         "entry_points": {
             "backend": "backend/app/main.py",
             "internal_client": "clients/internal/Mes.Wpf.exe",
@@ -600,6 +736,10 @@ def build_parser() -> argparse.ArgumentParser:
     finalize.add_argument("--alembic-head", required=True)
     finalize.add_argument("--validation-report", type=Path, required=True)
 
+    wheelhouse = subparsers.add_parser("prepare-wheelhouse")
+    wheelhouse.add_argument("--requirements", type=Path, required=True)
+    wheelhouse.add_argument("--wheelhouse", type=Path, required=True)
+
     validate = subparsers.add_parser("validate")
     validate.add_argument("--package", type=Path, required=True)
     validate.add_argument("--expected-commit")
@@ -617,6 +757,16 @@ def main() -> int:
         result: Mapping[str, object] = {
             "status": "OK",
             "staged_source_files": len(selected),
+        }
+    elif args.command == "prepare-wheelhouse":
+        manifest = prepare_wheelhouse_manifest(
+            args.requirements.resolve(strict=True),
+            args.wheelhouse.resolve(strict=True),
+        )
+        result = {
+            "status": "OK",
+            "wheel_count": manifest["wheel_count"],
+            "python": manifest["python"],
         }
     elif args.command == "finalize":
         result = finalize_package(

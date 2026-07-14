@@ -201,11 +201,14 @@ function Test-MesInstalledRelease {
     $root = (Resolve-Path -LiteralPath $ReleasePath -ErrorAction Stop).Path
     $files = @{}
     foreach ($item in Get-ChildItem -LiteralPath $root -Recurse -Force) {
+        $relative = $item.FullName.Substring($root.Length).TrimStart('\').Replace('\', '/')
         if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
             throw "Installed release contains a reparse point: $($item.FullName)"
         }
+        if ($relative -eq 'backend/.venv' -or $relative.StartsWith('backend/.venv/')) {
+            continue
+        }
         if (-not $item.PSIsContainer) {
-            $relative = $item.FullName.Substring($root.Length).TrimStart('\').Replace('\', '/')
             Assert-MesReleaseRelativePath -Path $relative
             $files[$relative] = $item
         }

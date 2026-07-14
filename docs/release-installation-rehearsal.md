@@ -34,7 +34,7 @@ powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass `
   -ReleaseRoot C:\MES\v2
 ```
 
-This command does not create the Python virtual environment and does not change `current`.
+This command does not create the Python virtual environment and does not change `current`. Prepare and test the runtime separately as documented in `docs/runtime-rehearsal.md`.
 
 ## Isolated Rehearsal
 

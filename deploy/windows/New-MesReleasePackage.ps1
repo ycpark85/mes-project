@@ -118,6 +118,31 @@ try {
         Get-ChildItem -LiteralPath $clientRoot -Filter '*.pdb' -File | Remove-Item -Force
     }
 
+    $wheelhouse = Join-Path $stagingRoot 'backend\wheelhouse'
+    New-Item -ItemType Directory -Path $wheelhouse | Out-Null
+    $null = Invoke-MesNativeCommand `
+        -Executable $python `
+        -Arguments @(
+            '-m', 'pip', 'download',
+            '--requirement', (Join-Path $stagingRoot 'backend\requirements.txt'),
+            '--dest', $wheelhouse,
+            '--only-binary=:all:',
+            '--disable-pip-version-check'
+        )
+    Push-Location $backendRoot
+    try {
+        $null = Invoke-MesNativeCommand `
+            -Executable $python `
+            -Arguments @(
+                '-m', 'scripts.release_package', 'prepare-wheelhouse',
+                '--requirements', (Join-Path $stagingRoot 'backend\requirements.txt'),
+                '--wheelhouse', $wheelhouse
+            )
+    }
+    finally {
+        Pop-Location
+    }
+
     Push-Location $backendRoot
     try {
         $headOutput = & $python -m alembic heads

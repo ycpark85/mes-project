@@ -4,7 +4,7 @@
 
 `deploy/windows/New-MesReleasePackage.ps1` creates the reviewed Windows release artifact for one clean Git commit. It always runs the complete release quality gate first. It does not copy files to the production server, create a virtual environment, apply a migration, change a service, or install a WPF client.
 
-The package is framework-dependent. Internal and vendor client computers require the Microsoft .NET 8 Desktop Runtime for x64 Windows. The backend requires a separately created Python virtual environment using the packaged, version-pinned `backend/requirements.txt`.
+The package is framework-dependent. Internal and vendor client computers require the Microsoft .NET 8 Desktop Runtime for x64 Windows. The backend package includes version-pinned requirements and a verified Windows wheelhouse so its virtual environment can be prepared without downloading packages on the production server.
 
 ## Create A Package
 
@@ -23,11 +23,11 @@ The command refuses a dirty worktree, a detached branch, an output path inside t
 
 The ZIP contains:
 
-- `backend`: FastAPI source, Alembic revisions, templates, pinned requirements, and approved operational scripts.
+- `backend`: FastAPI source, Alembic revisions, templates, pinned requirements, a hashed Windows wheelhouse, and approved operational scripts.
 - `deploy/windows`: production preflight, deployment, scheduled operation, and shared Windows scripts.
 - `clients/internal`: framework-dependent internal MES WPF publish output.
 - `clients/vendor`: framework-dependent vendor WPF publish output.
-- `release-manifest.json`: exact commit, branch, commit timestamp, Alembic head, normalized quality-evidence hash, runtime requirement, entry points, file sizes, and SHA-256 hashes.
+- `release-manifest.json`: exact commit, branch, commit timestamp, Alembic head, normalized quality-evidence hash, .NET and Python runtime requirements, entry points, file sizes, and SHA-256 hashes.
 - `README-DEPLOYMENT.txt`: short extraction and safety reminder.
 
 The output directory also receives a manifest sidecar, a package SHA-256 sidecar, and the complete quality-gate report directory.
@@ -45,7 +45,7 @@ cd C:\path\to\mes-v1\backend
   --expected-commit 0123456789abcdef0123456789abcdef01234567
 ```
 
-Validation rejects unsafe ZIP paths, duplicate entries, excessive expansion, missing runtime files, unlisted files, hash or size differences, development settings, caches, private-key or credential files, high-confidence secret patterns, insecure WPF Production URLs, and a different commit.
+Validation rejects unsafe ZIP paths, duplicate entries, excessive expansion, missing runtime files, unlisted files, hash or size differences, wheelhouse/requirements mismatches, development settings, caches, private-key or credential files, high-confidence secret patterns, insecure WPF Production URLs, and a different commit.
 
 The quality-evidence hash covers the report commit, overall decision, clean-worktree and restore options, and each check name, status, and summary. Volatile run time, duration, and log paths are deliberately excluded so they cannot change package identity.
 
@@ -53,4 +53,4 @@ ZIP entries are sorted and use the Git commit time. Combined with deterministic 
 
 ## Installation Boundary
 
-Install the approved ZIP with `Install-MesRelease.ps1`; do not manually extract over the running release. Run the isolated file-switch and recovery rehearsal documented in `docs/release-installation-rehearsal.md`. Protected env-file connection, Python virtual-environment preparation, ACL application, service switching, migration approval, smoke testing, and production rollback remain separate deployment steps documented in `docs/operations-monitoring-deployment.md`.
+Install the approved ZIP with `Install-MesRelease.ps1`; do not manually extract over the running release. Run the isolated file-switch and recovery rehearsal documented in `docs/release-installation-rehearsal.md`, then run the offline Python and API-startup rehearsal documented in `docs/runtime-rehearsal.md`. Protected production env-file connection, ACL application, service switching, migration approval, production smoke testing, and rollback remain separate deployment steps documented in `docs/operations-monitoring-deployment.md`.

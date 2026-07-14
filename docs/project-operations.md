@@ -579,11 +579,12 @@ V2 remains local until the feature set is complete. Before the first server depl
 1. Run `Test-MesRelease.ps1 -RequireCleanWorktree` from the exact release revision and retain its successful JSON report. This gate runs the complete backend suite, Alembic head/metadata checks, NuGet restore, both WPF Release builds, source policy, output validation, and validation worktree-integrity check.
 2. Run `New-MesReleasePackage.ps1` and retain the immutable ZIP, sidecar manifest, package SHA-256, and matching validation report. Revalidate the ZIP against the expected full commit before server staging.
 3. Run `Test-MesReleaseInstallation.ps1` in a new isolated root and retain its successful report. This must prove verified staging, activation pointer switching, explicit application rollback, and injected-failure automatic pointer recovery without touching the production database or services.
-4. Create a production backup and complete a restore rehearsal on a separate database.
-5. Verify the target database current/heads and review the planned migrations before running `alembic upgrade head`; run `current --check-heads` and `alembic check` after upgrade.
-6. Confirm the PostgreSQL connection budget using `worker count * (DB_POOL_SIZE + DB_MAX_OVERFLOW)` and start with one API worker.
-7. Confirm production secrets, allowed hosts, storage roots, file permissions, and HTTPS or tunnel routing.
-8. Verify `/api/v1/health`, `/api/v1/ready`, login, one read flow, one reversible write flow, one upload, and one download.
-9. Watch 5xx responses, readiness failures, connection usage, slow requests, and slow queries during the initial operating window. Keep the database and application rollback plan ready until the window closes.
+4. Run `Test-MesRuntimeRehearsal.ps1` with a local non-production PostgreSQL env file and retain its successful report. This must prove offline dependency installation, runtime verification, API health/readiness, startup-failure isolation, and an unchanged active pointer without migration, lifespan startup, or service changes.
+5. Create a production backup and complete a restore rehearsal on a separate database.
+6. Verify the target database current/heads and review the planned migrations before running `alembic upgrade head`; run `current --check-heads` and `alembic check` after upgrade.
+7. Confirm the PostgreSQL connection budget using `worker count * (DB_POOL_SIZE + DB_MAX_OVERFLOW)` and start with one API worker.
+8. Confirm production secrets, allowed hosts, storage roots, file permissions, and HTTPS or tunnel routing.
+9. Verify `/api/v1/health`, `/api/v1/ready`, login, one read flow, one reversible write flow, one upload, and one download.
+10. Watch 5xx responses, readiness failures, connection usage, slow requests, and slow queries during the initial operating window. Keep the database and application rollback plan ready until the window closes.
 
-The local release quality gate is documented in `docs/release-validation.md`, artifact creation in `docs/release-package.md`, isolated installation rollback rehearsal in `docs/release-installation-rehearsal.md`, and server activation in `docs/operations-monitoring-deployment.md`.
+The local release quality gate is documented in `docs/release-validation.md`, artifact creation in `docs/release-package.md`, isolated installation rollback rehearsal in `docs/release-installation-rehearsal.md`, offline runtime/API rehearsal in `docs/runtime-rehearsal.md`, and server activation in `docs/operations-monitoring-deployment.md`.

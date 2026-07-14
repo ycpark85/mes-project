@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import tempfile
 import unittest
@@ -11,6 +12,7 @@ from scripts.release_package import (
     PackageValidationError,
     _sha256_bytes,
     finalize_package,
+    prepare_wheelhouse_manifest,
     select_release_source_files,
     validate_package,
     validate_package_files,
@@ -21,19 +23,50 @@ COMMIT = "a" * 40
 
 
 def _minimum_files() -> dict[str, bytes]:
+    requirements = b"fastapi==1\n"
+    wheel_name = "fastapi-1-py3-none-any.whl"
+    wheel_raw = b"test-wheel"
+    wheelhouse_manifest = json.dumps(
+        {
+            "format_version": 1,
+            "python": {
+                "implementation": "CPython",
+                "version": "3.14.6",
+                "major_minor": "3.14",
+                "system": "Windows",
+                "machine": "AMD64",
+            },
+            "requirements_sha256": hashlib.sha256(requirements).hexdigest(),
+            "requirement_count": 1,
+            "wheel_count": 1,
+            "wheels": [
+                {
+                    "filename": wheel_name,
+                    "size": len(wheel_raw),
+                    "sha256": hashlib.sha256(wheel_raw).hexdigest(),
+                }
+            ],
+        }
+    ).encode()
     files = {
         "backend/alembic.ini": b"[alembic]\n",
-        "backend/requirements.txt": b"fastapi==1\n",
+        "backend/requirements.txt": requirements,
+        f"backend/wheelhouse/{wheel_name}": wheel_raw,
+        "backend/wheelhouse/wheelhouse-manifest.json": wheelhouse_manifest,
         "backend/app/main.py": b"app = object()\n",
         "backend/migrations/env.py": b"# migration env\n",
         "backend/migrations/versions/abc_revision.py": b"revision = 'abc'\n",
         "backend/scripts/backup_mes.py": b"# backup\n",
         "backend/scripts/check_mes_operations.py": b"# monitor\n",
+        "backend/scripts/verify_python_runtime.py": b"# runtime verification\n",
         "deploy/windows/Invoke-MesDeployment.ps1": b"# deployment\n",
         "deploy/windows/Install-MesRelease.ps1": b"# installer\n",
         "deploy/windows/MesRelease.Installation.Common.ps1": b"# install common\n",
+        "deploy/windows/MesPythonRuntime.Common.ps1": b"# runtime common\n",
+        "deploy/windows/Prepare-MesPythonRuntime.ps1": b"# runtime preparation\n",
         "deploy/windows/Test-MesDeployment.ps1": b"# preflight\n",
         "deploy/windows/Test-MesReleaseInstallation.ps1": b"# rehearsal\n",
+        "deploy/windows/Test-MesRuntimeRehearsal.ps1": b"# runtime rehearsal\n",
         "clients/internal/Mes.Wpf.exe": b"internal-exe",
         "clients/internal/Mes.Wpf.dll": b"internal-dll",
         "clients/internal/Mes.Wpf.deps.json": b"{}",
@@ -94,14 +127,18 @@ class ReleaseSourceSelectionTests(unittest.TestCase):
                     "backend/scripts/rebuild_production_progress_snapshots.py",
                     "backend/scripts/rewrite_lot_numbers_to_month_code.py",
                     "backend/scripts/verify_mes_restore.py",
+                    "backend/scripts/verify_python_runtime.py",
                     "deploy/windows/Invoke-MesDeployment.ps1",
                     "deploy/windows/Invoke-MesScheduledOperation.ps1",
                     "deploy/windows/Install-MesRelease.ps1",
                     "deploy/windows/MesDeployment.Common.ps1",
+                    "deploy/windows/MesPythonRuntime.Common.ps1",
                     "deploy/windows/MesRelease.Installation.Common.ps1",
+                    "deploy/windows/Prepare-MesPythonRuntime.ps1",
                     "deploy/windows/Set-MesOperationsScheduledTasks.ps1",
                     "deploy/windows/Test-MesDeployment.ps1",
                     "deploy/windows/Test-MesReleaseInstallation.ps1",
+                    "deploy/windows/Test-MesRuntimeRehearsal.ps1",
                     "deploy/windows/mes-deployment.example.psd1",
                 }
             ),
@@ -125,6 +162,25 @@ class ReleaseSourceSelectionTests(unittest.TestCase):
 
 
 class ReleasePackageValidationTests(unittest.TestCase):
+    def test_wheelhouse_manifest_records_file_hashes_and_python_target(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_directory:
+            root = Path(temp_directory)
+            requirements = root / "requirements.txt"
+            requirements.write_text("example-package==1.2.3\n", encoding="utf-8")
+            wheelhouse = root / "wheelhouse"
+            wheelhouse.mkdir()
+            wheel = wheelhouse / "example_package-1.2.3-py3-none-any.whl"
+            wheel.write_bytes(b"wheel-content")
+
+            manifest = prepare_wheelhouse_manifest(requirements, wheelhouse)
+
+            self.assertEqual(1, manifest["wheel_count"])
+            self.assertEqual("CPython", manifest["python"]["implementation"])
+            self.assertEqual(
+                hashlib.sha256(wheel.read_bytes()).hexdigest(),
+                manifest["wheels"][0]["sha256"],
+            )
+
     def test_valid_package_files_are_accepted(self) -> None:
         manifest = validate_package_files(
             _minimum_files(),
@@ -138,6 +194,20 @@ class ReleasePackageValidationTests(unittest.TestCase):
         files["backend/app/main.py"] = b"tampered\n"
 
         with self.assertRaisesRegex(PackageValidationError, "hash or size"):
+            validate_package_files(files)
+
+    def test_tampered_wheel_is_rejected_even_when_release_manifest_is_updated(self) -> None:
+        files = _minimum_files()
+        relative = "backend/wheelhouse/fastapi-1-py3-none-any.whl"
+        raw = b"different-wheel"
+        files[relative] = raw
+        manifest = json.loads(files[MANIFEST_NAME])
+        entry = next(item for item in manifest["files"] if item["path"] == relative)
+        entry["size"] = len(raw)
+        entry["sha256"] = _sha256_bytes(raw)
+        files[MANIFEST_NAME] = json.dumps(manifest).encode()
+
+        with self.assertRaisesRegex(PackageValidationError, "Wheelhouse hash mismatch"):
             validate_package_files(files)
 
     def test_development_settings_are_rejected(self) -> None:

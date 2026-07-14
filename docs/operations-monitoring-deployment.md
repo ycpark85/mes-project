@@ -6,13 +6,15 @@ These tools prepare a staged MES V2 release for Windows operation. Verified inst
 
 Before server preparation, the exact staged revision must pass `deploy/windows/Test-MesRelease.ps1 -RequireCleanWorktree`, and `deploy/windows/New-MesReleasePackage.ps1` must create the immutable artifact from that same clean commit. The local quality gate is documented in `docs/release-validation.md`; package contents and validation are documented in `docs/release-package.md`.
 
-The approved package must then pass the isolated installation, junction-switch, explicit rollback, and injected-failure recovery rehearsal documented in `docs/release-installation-rehearsal.md`. This rehearsal does not change the production database or services.
+The approved package must then pass the isolated installation, junction-switch, explicit rollback, and injected-failure recovery rehearsal documented in `docs/release-installation-rehearsal.md`. It must also pass the offline Python installation and candidate API startup rehearsal documented in `docs/runtime-rehearsal.md`. These rehearsals do not change the production database or services.
 
 The operational tools are:
 
 - `backend/scripts/check_mes_operations.py`: read-only database, disk, backup, and restore-age checks.
 - `backend/scripts/configure_postgres_monitoring.py`: explicit PostgreSQL monitoring preparation.
 - `deploy/windows/Test-MesDeployment.ps1`: read-only production preflight.
+- `deploy/windows/Prepare-MesPythonRuntime.ps1`: verified offline virtual-environment preparation for a staged release.
+- `deploy/windows/Test-MesRuntimeRehearsal.ps1`: isolated runtime, health, readiness, and startup-failure rehearsal.
 - `deploy/windows/Invoke-MesDeployment.ps1`: maintenance backup, approved PostgreSQL setup, migration, task registration, and smoke-test orchestration.
 - `deploy/windows/Set-MesOperationsScheduledTasks.ps1`: idempotent task registration or removal.
 - `deploy/windows/Invoke-MesScheduledOperation.ps1`: scheduled backup and monitoring runner with file logs.
