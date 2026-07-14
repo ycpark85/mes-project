@@ -29,7 +29,7 @@ try {
 catch {
     throw 'Runtime rehearsal DATABASE_URL is invalid.'
 }
-if ($databaseUri.Scheme -notmatch '^postgres(?:ql)?$' -or $databaseUri.Host -notin @('localhost', '127.0.0.1', '::1')) {
+if ($databaseUri.Scheme -notmatch '^postgres(?:ql)?(?:\+psycopg)?$' -or $databaseUri.Host -notin @('localhost', '127.0.0.1', '::1')) {
     throw 'Runtime rehearsal permits only a local PostgreSQL database.'
 }
 
