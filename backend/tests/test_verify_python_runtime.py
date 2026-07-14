@@ -21,6 +21,18 @@ class PythonRuntimeVerificationTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "not_pinned"):
                 parse_requirements(path)
 
+    def test_utf16_bom_requirements_are_supported(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_directory:
+            path = Path(temp_directory) / "requirements.txt"
+            path.write_text("Example.Package==1.2.3\n", encoding="utf-16")
+
+            requirements = parse_requirements(path)
+
+        self.assertEqual(
+            ("Example.Package", "1.2.3"),
+            requirements["example-package"],
+        )
+
     def test_current_runtime_matches_a_pinned_installed_distribution(self) -> None:
         with tempfile.TemporaryDirectory() as temp_directory:
             path = Path(temp_directory) / "requirements.txt"

@@ -33,7 +33,7 @@ function Get-MesPythonRuntimeMetadata {
         throw 'Wheelhouse requirements hash does not match.'
     }
     $requirementLines = @(
-        Get-Content -LiteralPath $requirements -Encoding UTF8 |
+        Get-Content -LiteralPath $requirements |
             ForEach-Object { $_.Trim() } |
             Where-Object { $_ -and -not $_.StartsWith('#') }
     )

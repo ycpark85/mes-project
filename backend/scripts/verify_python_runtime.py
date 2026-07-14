@@ -26,8 +26,13 @@ def canonical_name(value: str) -> str:
 
 def parse_requirements(path: Path) -> dict[str, tuple[str, str]]:
     expected: dict[str, tuple[str, str]] = {}
+    raw = path.read_bytes()
+    if raw.startswith((b"\xff\xfe", b"\xfe\xff")):
+        text = raw.decode("utf-16")
+    else:
+        text = raw.decode("utf-8-sig")
     for line_number, line in enumerate(
-        path.read_text(encoding="utf-8").splitlines(),
+        text.splitlines(),
         start=1,
     ):
         value = line.strip()

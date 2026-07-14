@@ -166,7 +166,7 @@ class ReleasePackageValidationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_directory:
             root = Path(temp_directory)
             requirements = root / "requirements.txt"
-            requirements.write_text("example-package==1.2.3\n", encoding="utf-8")
+            requirements.write_text("example-package==1.2.3\n", encoding="utf-16")
             wheelhouse = root / "wheelhouse"
             wheelhouse.mkdir()
             wheel = wheelhouse / "example_package-1.2.3-py3-none-any.whl"

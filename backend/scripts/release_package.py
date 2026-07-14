@@ -300,9 +300,14 @@ def _validate_production_settings(files: Mapping[str, bytes]) -> None:
 
 def _parse_pinned_requirements(raw: bytes) -> list[tuple[str, str]]:
     try:
-        text = raw.decode("utf-8")
+        if raw.startswith((b"\xff\xfe", b"\xfe\xff")):
+            text = raw.decode("utf-16")
+        else:
+            text = raw.decode("utf-8-sig")
     except UnicodeDecodeError as exc:
-        raise PackageValidationError("requirements.txt must be UTF-8") from exc
+        raise PackageValidationError(
+            "requirements.txt must be UTF-8 or BOM-marked UTF-16"
+        ) from exc
     requirements: list[tuple[str, str]] = []
     for line_number, line in enumerate(text.splitlines(), start=1):
         value = line.strip()
