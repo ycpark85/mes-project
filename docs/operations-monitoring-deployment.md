@@ -4,6 +4,8 @@
 
 These tools prepare a staged MES V2 release for Windows operation. They do not copy release binaries, publish WPF clients, configure a reverse proxy, or decide the production server paths. Stage and review the release first, then run the deployment gate from that fixed revision.
 
+Before server preparation, the exact staged revision must pass `deploy/windows/Test-MesRelease.ps1 -RequireCleanWorktree`. The full local quality gate and report format are documented in `docs/release-validation.md`.
+
 The operational tools are:
 
 - `backend/scripts/check_mes_operations.py`: read-only database, disk, backup, and restore-age checks.

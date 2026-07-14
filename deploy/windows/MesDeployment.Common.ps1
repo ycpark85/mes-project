@@ -78,13 +78,26 @@ function Invoke-MesNativeCommand {
     param(
         [Parameter(Mandatory = $true)][string]$Executable,
         [Parameter(Mandatory = $true)][string[]]$Arguments,
-        [int[]]$AllowedExitCodes = @(0)
+        [int[]]$AllowedExitCodes = @(0),
+        [string]$OutputLog
     )
 
-    $commandOutput = & $Executable @Arguments 2>&1
-    $exitCode = $LASTEXITCODE
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+        # Windows PowerShell wraps native stderr as ErrorRecord objects. The
+        # process exit code, not the output stream, determines command success.
+        $ErrorActionPreference = 'Continue'
+        $commandOutput = & $Executable @Arguments 2>&1
+        $exitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
     foreach ($line in $commandOutput) {
         Write-Host $line
+    }
+    if (-not [string]::IsNullOrWhiteSpace($OutputLog)) {
+        $commandOutput | Out-File -LiteralPath $OutputLog -Encoding UTF8 -Append
     }
     if ($AllowedExitCodes -notcontains $exitCode) {
         throw "Command failed with exit code ${exitCode}: $([System.IO.Path]::GetFileName($Executable))"

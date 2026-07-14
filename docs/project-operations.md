@@ -576,10 +576,12 @@ Detailed configuration, thresholds, commands, failure handling, and service-acco
 
 V2 remains local until the feature set is complete. Before the first server deployment:
 
-1. Create a production backup and complete a restore rehearsal on a separate database.
-2. Verify the target database with `alembic current`, `alembic check`, and the planned migration review before running `alembic upgrade head`.
-3. Confirm the PostgreSQL connection budget using `worker count * (DB_POOL_SIZE + DB_MAX_OVERFLOW)` and start with one API worker.
-4. Confirm production secrets, allowed hosts, storage roots, file permissions, and HTTPS or tunnel routing.
-5. Run the complete backend test suite and WPF solution build from the release revision.
+1. Run `Test-MesRelease.ps1 -RequireCleanWorktree` from the exact release revision and retain its successful JSON report. This gate runs the complete backend suite, Alembic head/metadata checks, NuGet restore, both WPF Release builds, source policy, output validation, and validation worktree-integrity check.
+2. Create a production backup and complete a restore rehearsal on a separate database.
+3. Verify the target database current/heads and review the planned migrations before running `alembic upgrade head`; run `current --check-heads` and `alembic check` after upgrade.
+4. Confirm the PostgreSQL connection budget using `worker count * (DB_POOL_SIZE + DB_MAX_OVERFLOW)` and start with one API worker.
+5. Confirm production secrets, allowed hosts, storage roots, file permissions, and HTTPS or tunnel routing.
 6. Verify `/api/v1/health`, `/api/v1/ready`, login, one read flow, one reversible write flow, one upload, and one download.
 7. Watch 5xx responses, readiness failures, connection usage, slow requests, and slow queries during the initial operating window. Keep the database and application rollback plan ready until the window closes.
+
+The local release quality gate is documented in `docs/release-validation.md`; server activation remains separately controlled by `docs/operations-monitoring-deployment.md`.

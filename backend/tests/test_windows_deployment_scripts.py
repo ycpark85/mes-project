@@ -74,6 +74,21 @@ class WindowsDeploymentScriptTests(unittest.TestCase):
 
         self.assertEqual(0, result.returncode, result.stderr)
 
+    def test_native_stderr_with_zero_exit_code_is_not_a_failure(self) -> None:
+        common = DEPLOYMENT_ROOT / "MesDeployment.Common.ps1"
+        source = f"""
+        $ErrorActionPreference = 'Stop'
+        . '{common}'
+        $code = Invoke-MesNativeCommand `
+            -Executable $env:ComSpec `
+            -Arguments @('/d', '/c', 'echo informational 1>&2 & exit /b 0') `
+            -AllowedExitCodes @(0)
+        if ($code -ne 0) {{ exit 1 }}
+        """
+        result = self._run_powershell(source)
+
+        self.assertEqual(0, result.returncode, result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()
