@@ -26,6 +26,8 @@ namespace Mes.Wpf.Modules.BohyunOutsourceManagement.ViewModels
         private string _searchKeyword = string.Empty;
         private BohyunOutsourceRowModel? _selectedItem;
         private int _totalCount;
+        private int _currentPage = 1;
+        private int _pageSize = 100;
 
         public BohyunOutsourceManagementViewModel(
             IApiClient apiClient,
@@ -53,6 +55,8 @@ namespace Mes.Wpf.Modules.BohyunOutsourceManagement.ViewModels
 
             SearchCommand = new AsyncRelayCommand(SearchAsync, () => !IsLoading);
             ResetCommand = new AsyncRelayCommand(ResetAsync, () => !IsLoading);
+            PreviousPageCommand = new AsyncRelayCommand(GoPreviousPageAsync, () => !IsLoading && HasPreviousPage);
+            NextPageCommand = new AsyncRelayCommand(GoNextPageAsync, () => !IsLoading && HasNextPage);
             InboundCompleteCommand = new AsyncRelayCommand<BohyunOutsourceRowModel>(InboundCompleteAsync, item => !IsLoading && item != null);
             WorkDoneCommand = new AsyncRelayCommand<BohyunOutsourceRowModel>(OpenWorkDoneWindowAsync, item => !IsLoading && item != null);
             ShipSelectedCommand = new AsyncRelayCommand(ShipSelectedAsync, () => !IsLoading);
@@ -67,6 +71,8 @@ namespace Mes.Wpf.Modules.BohyunOutsourceManagement.ViewModels
         public ICommand SearchCommand { get; }
 
         public ICommand ResetCommand { get; }
+        public ICommand PreviousPageCommand { get; }
+        public ICommand NextPageCommand { get; }
 
         public ICommand InboundCompleteCommand { get; }
 
@@ -125,8 +131,43 @@ namespace Mes.Wpf.Modules.BohyunOutsourceManagement.ViewModels
         public int TotalCount
         {
             get => _totalCount;
-            set => SetProperty(ref _totalCount, value);
+            set
+            {
+                if (SetProperty(ref _totalCount, value))
+                {
+                    RaisePagePropertiesChanged();
+                }
+            }
         }
+
+        public int CurrentPage
+        {
+            get => _currentPage;
+            private set
+            {
+                if (SetProperty(ref _currentPage, value))
+                {
+                    RaisePagePropertiesChanged();
+                }
+            }
+        }
+
+        public int PageSize
+        {
+            get => _pageSize;
+            private set
+            {
+                if (SetProperty(ref _pageSize, value))
+                {
+                    RaisePagePropertiesChanged();
+                }
+            }
+        }
+
+        public int TotalPages => Math.Max(1, (int)Math.Ceiling(TotalCount / (double)Math.Max(PageSize, 1)));
+        public bool HasPreviousPage => CurrentPage > 1;
+        public bool HasNextPage => CurrentPage < TotalPages;
+        public string PageDisplayText => $"{CurrentPage} / {TotalPages} (총 {TotalCount:N0}건)";
 
         public async Task InitializeAsync()
         {
@@ -137,6 +178,12 @@ namespace Mes.Wpf.Modules.BohyunOutsourceManagement.ViewModels
         }
 
         public async Task SearchAsync()
+        {
+            CurrentPage = 1;
+            await LoadAsync();
+        }
+
+        private async Task LoadAsync()
         {
             try
             {
@@ -163,11 +210,35 @@ namespace Mes.Wpf.Modules.BohyunOutsourceManagement.ViewModels
 
                 SelectedItem = null;
                 TotalCount = result.Data.TotalCount;
+                CurrentPage = result.Data.Page;
+                PageSize = result.Data.Size;
             }
             finally
             {
                 IsLoading = false;
             }
+        }
+
+        private async Task GoPreviousPageAsync()
+        {
+            if (!HasPreviousPage)
+            {
+                return;
+            }
+
+            CurrentPage--;
+            await LoadAsync();
+        }
+
+        private async Task GoNextPageAsync()
+        {
+            if (!HasNextPage)
+            {
+                return;
+            }
+
+            CurrentPage++;
+            await LoadAsync();
         }
 
         private async Task ResetAsync()
@@ -349,6 +420,9 @@ namespace Mes.Wpf.Modules.BohyunOutsourceManagement.ViewModels
                 queryParts.Add($"q={Uri.EscapeDataString(SearchKeyword)}");
             }
 
+            queryParts.Add($"page={CurrentPage}");
+            queryParts.Add($"size={PageSize}");
+
             if (queryParts.Count == 0)
             {
                 return ApiRoutes.BohyunOutsourceGroups;
@@ -390,6 +464,25 @@ namespace Mes.Wpf.Modules.BohyunOutsourceManagement.ViewModels
             {
                 shipCommand.RaiseCanExecuteChanged();
             }
+
+            if (PreviousPageCommand is AsyncRelayCommand previousPageCommand)
+            {
+                previousPageCommand.RaiseCanExecuteChanged();
+            }
+
+            if (NextPageCommand is AsyncRelayCommand nextPageCommand)
+            {
+                nextPageCommand.RaiseCanExecuteChanged();
+            }
+        }
+
+        private void RaisePagePropertiesChanged()
+        {
+            OnPropertyChanged(nameof(TotalPages));
+            OnPropertyChanged(nameof(HasPreviousPage));
+            OnPropertyChanged(nameof(HasNextPage));
+            OnPropertyChanged(nameof(PageDisplayText));
+            RaiseCommandCanExecuteChanged();
         }
     }
 

@@ -147,6 +147,43 @@ class OutsourceProcessingCostQueryTests(unittest.TestCase):
         self.assertEqual(2, len(result.items))
         self.assertLessEqual(statement_count, 3)
 
+    def test_list_outsource_processing_cost_targets_paginates(self) -> None:
+        self._seed_target()
+        self.db.add_all(
+            [
+                OutsourceWorkGroup(
+                    outsource_work_group_id=2,
+                    outsource_work_instruction_id=1,
+                    group_seq="G-002",
+                    process_type="CUT",
+                    is_bundle=False,
+                    sheet_qty=2,
+                    sheet_cut_count=1,
+                    representative_lot_id=1,
+                ),
+                OutsourceWorkGroupItem(
+                    outsource_work_group_item_id=2,
+                    outsource_work_group_id=2,
+                    lot_id=1,
+                    cuts_per_sheet=1,
+                    expected_output_qty=2,
+                ),
+            ]
+        )
+        self.db.commit()
+
+        result = list_outsource_processing_cost_targets(
+            self.db,
+            process_type="CUT",
+            page=2,
+            size=1,
+        )
+
+        self.assertEqual(2, result.total_count)
+        self.assertEqual(2, result.page)
+        self.assertEqual(1, result.size)
+        self.assertEqual([2], [item.outsource_work_group_id for item in result.items])
+
     def test_normalize_process_type_rejects_invalid_value(self) -> None:
         with self.assertRaises(HTTPException) as ctx:
             normalize_process_type("BAD")

@@ -221,7 +221,23 @@
                 Margin="0,8,0,0"
                 Padding="0,4"
                 Background="Transparent">
-            <StackPanel Orientation="Horizontal">
+            <DockPanel LastChildFill="True">
+                <StackPanel DockPanel.Dock="Right"
+                            Orientation="Horizontal"
+                            Margin="16,0,0,0">
+                    <Button Style="{StaticResource SecondaryActionButtonStyle}"
+                            MinWidth="60"
+                            Command="{Binding PreviousPageCommand}"
+                            Content="이전"/>
+                    <TextBlock Margin="12,0"
+                               VerticalAlignment="Center"
+                               Text="{Binding PageDisplayText}"/>
+                    <Button Style="{StaticResource SecondaryActionButtonStyle}"
+                            MinWidth="60"
+                            Command="{Binding NextPageCommand}"
+                            Content="다음"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal">
                 <TextBlock Margin="0,0,22,0"
                            Text="{Binding TotalCount, StringFormat=조회건수: {0:N0}}"/>
                 <TextBlock Margin="0,0,22,0"
@@ -239,7 +255,8 @@
                 <TextBlock Margin="0,0,22,0"
                            Text="{Binding TotalStockInQty, StringFormat=재고편입 합계: {0:N0}}"/>
                 <TextBlock Text="{Binding TotalDefectQty, StringFormat=불량 합계: {0:N0}}"/>
-            </StackPanel>
+                </StackPanel>
+            </DockPanel>
         </Border>
     </Grid>
 </UserControl>

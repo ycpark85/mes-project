@@ -51,6 +51,8 @@ def get_outsource_processing_cost_targets(
     date_to: date | None = Query(default=None),
     status: str | None = Query(default=None),
     q: str | None = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    size: int = Query(default=100, ge=1, le=200),
     db: Session = Depends(get_db),
 ):
     return list_outsource_processing_cost_targets_service(
@@ -60,6 +62,8 @@ def get_outsource_processing_cost_targets(
         date_to=date_to,
         status=status,
         q=q,
+        page=page,
+        size=size,
     )
 
 

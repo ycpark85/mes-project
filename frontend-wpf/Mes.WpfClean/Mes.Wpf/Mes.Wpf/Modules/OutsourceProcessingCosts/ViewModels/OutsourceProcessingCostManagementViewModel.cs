@@ -19,6 +19,7 @@ namespace Mes.Wpf.Modules.OutsourceProcessingCosts.ViewModels
 
         private readonly IApiClient _apiClient;
         private readonly IMessageService _messageService;
+        private readonly Dictionary<string, OutsourceProcessingCostTargetRowModel> _checkedTargets = new();
 
         private bool _isLoading;
         private DateTime? _settlementMonth;
@@ -42,6 +43,9 @@ namespace Mes.Wpf.Modules.OutsourceProcessingCosts.ViewModels
         private decimal _differenceTotal;
         private int _unclosedCount;
         private int _checkedTargetCount;
+        private int _targetPage = 1;
+        private int _targetPageSize = 100;
+        private int _targetTotalCount;
 
         public OutsourceProcessingCostManagementViewModel(
             IApiClient apiClient,
@@ -58,6 +62,8 @@ namespace Mes.Wpf.Modules.OutsourceProcessingCosts.ViewModels
 
             SearchCommand = new AsyncRelayCommand(SearchAsync, () => !IsLoading);
             ResetCommand = new AsyncRelayCommand(ResetAsync, () => !IsLoading);
+            PreviousTargetPageCommand = new AsyncRelayCommand(GoPreviousTargetPageAsync, () => !IsLoading && HasPreviousTargetPage);
+            NextTargetPageCommand = new AsyncRelayCommand(GoNextTargetPageAsync, () => !IsLoading && HasNextTargetPage);
             CreateGroupCommand = new AsyncRelayCommand(CreateGroupAsync, () => !IsLoading && CanCreateBundle);
             SaveCostCommand = new AsyncRelayCommand(SaveCostAsync, () => !IsLoading && SelectedTarget != null);
             CloseCommand = new AsyncRelayCommand(CloseAsync, () => !IsLoading && SelectedCostGroup != null);
@@ -73,6 +79,8 @@ namespace Mes.Wpf.Modules.OutsourceProcessingCosts.ViewModels
 
         public AsyncRelayCommand SearchCommand { get; }
         public AsyncRelayCommand ResetCommand { get; }
+        public AsyncRelayCommand PreviousTargetPageCommand { get; }
+        public AsyncRelayCommand NextTargetPageCommand { get; }
         public AsyncRelayCommand CreateGroupCommand { get; }
         public AsyncRelayCommand SaveCostCommand { get; }
         public AsyncRelayCommand CloseCommand { get; }
@@ -122,6 +130,8 @@ namespace Mes.Wpf.Modules.OutsourceProcessingCosts.ViewModels
             {
                 if (SetProperty(ref _selectedProcessType, value))
                 {
+                    ClearCheckedTargets();
+                    TargetPage = 1;
                     SelectedTarget = null;
                     Targets.Clear();
                 }
@@ -247,6 +257,47 @@ namespace Mes.Wpf.Modules.OutsourceProcessingCosts.ViewModels
 
         public bool CanCreateBundle => CheckedTargetCount >= MinimumBundleTargetCount;
 
+        public int TargetPage
+        {
+            get => _targetPage;
+            private set
+            {
+                if (SetProperty(ref _targetPage, value))
+                {
+                    RaiseTargetPagePropertiesChanged();
+                }
+            }
+        }
+
+        public int TargetPageSize
+        {
+            get => _targetPageSize;
+            private set
+            {
+                if (SetProperty(ref _targetPageSize, value))
+                {
+                    RaiseTargetPagePropertiesChanged();
+                }
+            }
+        }
+
+        public int TargetTotalCount
+        {
+            get => _targetTotalCount;
+            private set
+            {
+                if (SetProperty(ref _targetTotalCount, value))
+                {
+                    RaiseTargetPagePropertiesChanged();
+                }
+            }
+        }
+
+        public int TargetTotalPages => Math.Max(1, (int)Math.Ceiling(TargetTotalCount / (double)Math.Max(TargetPageSize, 1)));
+        public bool HasPreviousTargetPage => TargetPage > 1;
+        public bool HasNextTargetPage => TargetPage < TargetTotalPages;
+        public string TargetPageDisplayText => $"{TargetPage} / {TargetTotalPages} (총 {TargetTotalCount:N0}건)";
+
         public async Task InitializeAsync()
         {
             ResetDefaultDateRange();
@@ -256,7 +307,33 @@ namespace Mes.Wpf.Modules.OutsourceProcessingCosts.ViewModels
 
         private async Task SearchAsync()
         {
+            ClearCheckedTargets();
+            TargetPage = 1;
             await RunWithLoadingAsync(LoadSearchDataAsync);
+        }
+
+        private async Task GoPreviousTargetPageAsync()
+        {
+            if (!HasPreviousTargetPage)
+            {
+                return;
+            }
+
+            CaptureCheckedTargets();
+            TargetPage--;
+            await RunWithLoadingAsync(LoadTargetsAsync);
+        }
+
+        private async Task GoNextTargetPageAsync()
+        {
+            if (!HasNextTargetPage)
+            {
+                return;
+            }
+
+            CaptureCheckedTargets();
+            TargetPage++;
+            await RunWithLoadingAsync(LoadTargetsAsync);
         }
 
         private async Task LoadSearchDataAsync()
@@ -300,10 +377,14 @@ namespace Mes.Wpf.Modules.OutsourceProcessingCosts.ViewModels
 
             if (!result.Success || result.Data == null)
             {
+                TargetTotalCount = 0;
                 _messageService.ShowError(result.Message ?? "외주가공비 등록 대상 조회에 실패했습니다.");
                 return;
             }
 
+            TargetPage = result.Data.Page;
+            TargetPageSize = result.Data.Size;
+            TargetTotalCount = result.Data.TotalCount;
             ReplaceTargets(result.Data.Items.Select(OutsourceProcessingCostTargetRowModel.FromDto));
         }
 
@@ -339,6 +420,11 @@ namespace Mes.Wpf.Modules.OutsourceProcessingCosts.ViewModels
             {
                 foreach (var target in targets)
                 {
+                    if (_checkedTargets.ContainsKey(target.TargetKey))
+                    {
+                        target.IsChecked = true;
+                        _checkedTargets[target.TargetKey] = target;
+                    }
                     target.PropertyChanged += Target_PropertyChanged;
                     Targets.Add(target);
                 }
@@ -382,7 +468,8 @@ namespace Mes.Wpf.Modules.OutsourceProcessingCosts.ViewModels
 
         private async Task CreateGroupAsync()
         {
-            var selectedTargets = Targets.Where(x => x.IsChecked).ToList();
+            CaptureCheckedTargets();
+            var selectedTargets = _checkedTargets.Values.ToList();
 
             if (selectedTargets.Count < MinimumBundleTargetCount)
             {
@@ -580,6 +667,7 @@ namespace Mes.Wpf.Modules.OutsourceProcessingCosts.ViewModels
                     return;
                 }
 
+                ClearCheckedTargets();
                 _messageService.ShowInfo(successMessage);
                 await LoadSearchDataAsync();
             });
@@ -663,7 +751,9 @@ namespace Mes.Wpf.Modules.OutsourceProcessingCosts.ViewModels
                 DateFrom,
                 DateTo,
                 SelectedStatusCode,
-                SearchKeyword);
+                SearchKeyword,
+                TargetPage,
+                TargetPageSize);
         }
 
         private string BuildCostGroupUrl()
@@ -753,13 +843,56 @@ namespace Mes.Wpf.Modules.OutsourceProcessingCosts.ViewModels
         {
             if (e.PropertyName == nameof(OutsourceProcessingCostTargetRowModel.IsChecked))
             {
+                if (sender is OutsourceProcessingCostTargetRowModel target)
+                {
+                    if (target.IsChecked)
+                    {
+                        _checkedTargets[target.TargetKey] = target;
+                    }
+                    else
+                    {
+                        _checkedTargets.Remove(target.TargetKey);
+                    }
+                }
                 UpdateCheckedTargetCount();
             }
         }
 
         private void UpdateCheckedTargetCount()
         {
-            CheckedTargetCount = Targets.Count(x => x.IsChecked);
+            CheckedTargetCount = _checkedTargets.Count;
+        }
+
+        private void CaptureCheckedTargets()
+        {
+            foreach (var target in Targets)
+            {
+                if (target.IsChecked)
+                {
+                    _checkedTargets[target.TargetKey] = target;
+                }
+                else
+                {
+                    _checkedTargets.Remove(target.TargetKey);
+                }
+            }
+
+            UpdateCheckedTargetCount();
+        }
+
+        private void ClearCheckedTargets()
+        {
+            _checkedTargets.Clear();
+            UpdateCheckedTargetCount();
+        }
+
+        private void RaiseTargetPagePropertiesChanged()
+        {
+            OnPropertyChanged(nameof(TargetTotalPages));
+            OnPropertyChanged(nameof(HasPreviousTargetPage));
+            OnPropertyChanged(nameof(HasNextTargetPage));
+            OnPropertyChanged(nameof(TargetPageDisplayText));
+            RaiseCommandCanExecuteChanged();
         }
 
         private void NormalizeSearchConditions()
@@ -789,6 +922,8 @@ namespace Mes.Wpf.Modules.OutsourceProcessingCosts.ViewModels
             {
                 SearchCommand,
                 ResetCommand,
+                PreviousTargetPageCommand,
+                NextTargetPageCommand,
                 CreateGroupCommand,
                 SaveCostCommand,
                 CloseCommand,

@@ -24,6 +24,8 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
         private DateTime? _dateTo = DateTime.Today;
         private string _searchKeyword = string.Empty;
         private InspectionResultManagementItemDto? _selectedItem;
+        private int _currentPage = 1;
+        private int _pageSize = 100;
         private int _totalCount;
         private int _totalGoodQty;
         private int _totalUninspectedQty;
@@ -44,8 +46,10 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
 
             Items = new ObservableCollection<InspectionResultManagementItemDto>();
 
-            RefreshCommand = new AsyncRelayCommand(LoadAsync, () => !IsLoading);
+            RefreshCommand = new AsyncRelayCommand(SearchAsync, () => !IsLoading);
             ResetCommand = new AsyncRelayCommand(ResetAsync, () => !IsLoading);
+            PreviousPageCommand = new AsyncRelayCommand(GoPreviousPageAsync, () => !IsLoading && HasPreviousPage);
+            NextPageCommand = new AsyncRelayCommand(GoNextPageAsync, () => !IsLoading && HasNextPage);
             OpenDetailCommand = new AsyncRelayCommand(OpenDetailAsync, () => !IsLoading && SelectedItem != null);
         }
 
@@ -53,6 +57,8 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
 
         public ICommand RefreshCommand { get; }
         public ICommand ResetCommand { get; }
+        public ICommand PreviousPageCommand { get; }
+        public ICommand NextPageCommand { get; }
         public ICommand OpenDetailCommand { get; }
 
         public bool IsLoading
@@ -103,6 +109,35 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
             set => SetProperty(ref _totalCount, value);
         }
 
+        public int CurrentPage
+        {
+            get => _currentPage;
+            set
+            {
+                if (SetProperty(ref _currentPage, value))
+                {
+                    RaisePagePropertiesChanged();
+                }
+            }
+        }
+
+        public int PageSize
+        {
+            get => _pageSize;
+            set
+            {
+                if (SetProperty(ref _pageSize, value))
+                {
+                    RaisePagePropertiesChanged();
+                }
+            }
+        }
+
+        public int TotalPages => Math.Max(1, (int)Math.Ceiling(TotalCount / (double)Math.Max(PageSize, 1)));
+        public bool HasPreviousPage => CurrentPage > 1;
+        public bool HasNextPage => CurrentPage < TotalPages;
+        public string PageDisplayText => $"{CurrentPage} / {TotalPages}";
+
         public int TotalGoodQty
         {
             get => _totalGoodQty;
@@ -147,6 +182,12 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
 
         public async Task InitializeAsync()
         {
+            await SearchAsync();
+        }
+
+        private async Task SearchAsync()
+        {
+            CurrentPage = 1;
             await LoadAsync();
         }
 
@@ -156,12 +197,12 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
             {
                 IsLoading = true;
 
-                var result = await _apiClient.GetAsync<List<InspectionResultManagementItemDto>>(BuildListUrl());
+                var result = await _apiClient.GetAsync<InspectionResultManagementListDto>(BuildListUrl());
                 if (!result.Success || result.Data == null)
                 {
                     Items.Clear();
                     SelectedItem = null;
-                    UpdateTotals();
+                    UpdateTotals(null);
                     _messageService.ShowError(result.Message ?? "검수실적 목록 조회에 실패했습니다.");
                     return;
                 }
@@ -169,8 +210,10 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                 var selectedId = SelectedItem?.InspectionResultId;
 
                 Items.Clear();
-                var rowNo = 1;
-                foreach (var item in result.Data)
+                CurrentPage = result.Data.Page;
+                PageSize = result.Data.Size;
+                var rowNo = ((CurrentPage - 1) * PageSize) + 1;
+                foreach (var item in result.Data.Items)
                 {
                     item.RowNo = rowNo++;
                     Items.Add(item);
@@ -180,7 +223,7 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                     ? Items.FirstOrDefault(x => x.InspectionResultId == selectedId.Value)
                     : null;
 
-                UpdateTotals();
+                UpdateTotals(result.Data);
             }
             finally
             {
@@ -194,8 +237,31 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
             DateTo = DateTime.Today;
             SearchKeyword = string.Empty;
             SelectedItem = null;
+            CurrentPage = 1;
 
             return LoadAsync();
+        }
+
+        private async Task GoPreviousPageAsync()
+        {
+            if (!HasPreviousPage)
+            {
+                return;
+            }
+
+            CurrentPage--;
+            await LoadAsync();
+        }
+
+        private async Task GoNextPageAsync()
+        {
+            if (!HasNextPage)
+            {
+                return;
+            }
+
+            CurrentPage++;
+            await LoadAsync();
         }
 
         public async Task OpenDetailAsync()
@@ -252,21 +318,34 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
                 queryParts.Add($"q={Uri.EscapeDataString(SearchKeyword.Trim())}");
             }
 
+            queryParts.Add($"page={CurrentPage}");
+            queryParts.Add($"size={PageSize}");
+
             return queryParts.Count == 0
                 ? ApiRoutes.InspectionResults
                 : $"{ApiRoutes.InspectionResults}?{string.Join("&", queryParts)}";
         }
 
-        private void UpdateTotals()
+        private void UpdateTotals(InspectionResultManagementListDto? result)
         {
-            TotalCount = Items.Count;
-            TotalGoodQty = Items.Sum(x => x.GoodQty);
-            TotalUninspectedQty = Items.Sum(x => x.UninspectedQty);
-            TotalReceivedQty = Items.Sum(x => x.ReceivedQty);
-            TotalResultShipQty = Items.Sum(x => x.ResultShipQty);
-            TotalDiscardQty = Items.Sum(x => x.TotalDisposalQty);
-            TotalStockInQty = Items.Sum(x => x.StockInQty);
-            TotalDefectQty = Items.Sum(x => x.DefectQty);
+            TotalCount = result?.TotalCount ?? 0;
+            TotalGoodQty = result?.TotalGoodQty ?? 0;
+            TotalUninspectedQty = result?.TotalUninspectedQty ?? 0;
+            TotalReceivedQty = result?.TotalReceivedQty ?? 0;
+            TotalResultShipQty = result?.TotalResultShipQty ?? 0;
+            TotalDiscardQty = (result?.TotalDiscardQty ?? 0) + TotalUninspectedQty;
+            TotalStockInQty = result?.TotalStockInQty ?? 0;
+            TotalDefectQty = result?.TotalDefectQty ?? 0;
+            RaisePagePropertiesChanged();
+        }
+
+        private void RaisePagePropertiesChanged()
+        {
+            OnPropertyChanged(nameof(TotalPages));
+            OnPropertyChanged(nameof(HasPreviousPage));
+            OnPropertyChanged(nameof(HasNextPage));
+            OnPropertyChanged(nameof(PageDisplayText));
+            RaiseCommandCanExecuteChanged();
         }
 
         private void RaiseCommandCanExecuteChanged()
@@ -284,6 +363,16 @@ namespace Mes.Wpf.Modules.InspectionSchedules.ViewModels
             if (OpenDetailCommand is AsyncRelayCommand openDetailCommand)
             {
                 openDetailCommand.RaiseCanExecuteChanged();
+            }
+
+            if (PreviousPageCommand is AsyncRelayCommand previousPageCommand)
+            {
+                previousPageCommand.RaiseCanExecuteChanged();
+            }
+
+            if (NextPageCommand is AsyncRelayCommand nextPageCommand)
+            {
+                nextPageCommand.RaiseCanExecuteChanged();
             }
         }
     }

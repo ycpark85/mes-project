@@ -13,6 +13,15 @@ namespace Mes.Wpf.Modules.BohyunOutsourceManagement.Dtos
 
         [JsonPropertyName("total_count")]
         public int TotalCount { get; set; }
+
+        [JsonPropertyName("page")]
+        public int Page { get; set; }
+
+        [JsonPropertyName("size")]
+        public int Size { get; set; }
+
+        [JsonPropertyName("processing_fee_total")]
+        public decimal ProcessingFeeTotal { get; set; }
     }
 
     public class BohyunOutsourceListItemDto

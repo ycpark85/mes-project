@@ -44,19 +44,27 @@ def list_outsource_processing_cost_targets(
     date_to: date | None = None,
     status: str | None = None,
     q: str | None = None,
+    page: int = 1,
+    size: int = 100,
 ) -> OutsourceProcessingCostTargetListOut:
     normalized_process_type = normalize_process_type(process_type)
     normalized_status = normalize_target_status(status) if status else None
 
+    items, total_count = _get_work_group_targets(
+        db,
+        normalized_process_type,
+        date_from,
+        date_to,
+        normalized_status,
+        q,
+        page,
+        size,
+    )
     return OutsourceProcessingCostTargetListOut(
-        items=_get_work_group_targets(
-            db,
-            normalized_process_type,
-            date_from,
-            date_to,
-            normalized_status,
-            q,
-        )
+        items=items,
+        total_count=total_count,
+        page=page,
+        size=size,
     )
 
 
@@ -67,7 +75,9 @@ def _get_work_group_targets(
     date_to: date | None,
     status: str | None,
     q: str | None,
-) -> list[OutsourceProcessingCostTargetOut]:
+    page: int,
+    size: int,
+) -> tuple[list[OutsourceProcessingCostTargetOut], int]:
     stmt = (
         select(OutsourceWorkGroup, OutsourceWorkInstruction, Partner)
         .join(
@@ -120,19 +130,39 @@ def _get_work_group_targets(
         work_group.outsource_work_group_id
         for work_group, _, _ in rows
     ]
-    item_rows_by_group_id = _get_work_group_item_rows_by_group_ids(
-        db,
-        work_group_ids,
-    )
     cost_groups_by_work_group_id = _get_target_cost_groups_by_work_group_ids(
         db,
         process_type,
         work_group_ids,
         include_canceled=status == "CANCELED",
     )
+    rows = [
+        row
+        for row in rows
+        if _matches_target_status(
+            cost_groups_by_work_group_id.get(row[0].outsource_work_group_id),
+            status,
+        )
+    ]
+    total_count = len(rows)
+    start = (page - 1) * size
+    rows = rows[start : start + size]
+    work_group_ids = [
+        work_group.outsource_work_group_id
+        for work_group, _, _ in rows
+    ]
+    item_rows_by_group_id = _get_work_group_item_rows_by_group_ids(
+        db,
+        work_group_ids,
+    )
+    page_cost_groups_by_work_group_id = {
+        work_group_id: cost_groups_by_work_group_id[work_group_id]
+        for work_group_id in work_group_ids
+        if work_group_id in cost_groups_by_work_group_id
+    }
     allocation_amounts_by_target = _get_allocation_amounts_by_target(
         db,
-        cost_groups_by_work_group_id,
+        page_cost_groups_by_work_group_id,
     )
     targets: list[OutsourceProcessingCostTargetOut] = []
 
@@ -181,9 +211,6 @@ def _get_work_group_targets(
 
         cost_group = cost_groups_by_work_group_id.get(work_group_id)
 
-        if not _matches_target_status(cost_group, status):
-            continue
-
         targets.append(
             OutsourceProcessingCostTargetOut(
                 target_key=f"WG:{work_group.outsource_work_group_id}",
@@ -220,7 +247,7 @@ def _get_work_group_targets(
             )
         )
 
-    return targets
+    return targets, total_count
 
 
 def _get_work_group_item_rows_by_group_ids(

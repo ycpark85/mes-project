@@ -235,6 +235,7 @@ Internal official received quantity is calculated from inspection results:
 Inspection result management refactor notes:
 
 - Inspection-result list and detail read logic is separated into `inspection_result_query.py`.
+- The completed inspection-result list is paged with `page` and `size`. Its response summary fields are totals for the full filtered result, not only the current page.
 - `inspection_result_query.py` owns the completed-result list query, prior partial/done accumulated summary, and inventory/shipment summary shown in the inspection-result dialog.
 - Defect photo upload/download file validation and storage-path resolution are separated into `inspection_result_attachment_service.py`.
 - The inspection-result router delegates list/detail read models to the query service and file handling to the attachment service.
@@ -481,6 +482,8 @@ All allocation inputs are saved as snapshots when a cost group is created:
 Current WPF outsource processing cost API usage:
 
 - `OutsourceProcessingCostManagementView` uses cost target lookup, cost group list lookup, cost group create, cost group update, close, reopen, and cancel APIs.
+- Processing-cost targets are paged with `page` and `size`; checked target keys are retained across target pages until the search condition changes or the group is created.
+- Internal and vendor Bohyun group lists are paged. The vendor shipment print flow fetches every filtered page before building the print document, and `processing_fee_total` represents the full filtered result.
 - The `Outsource Processing Cost Management` screen currently shows an `Excel download` button placeholder, but the button is disabled and no API is connected for processing-cost Excel download.
 - Processing-cost Excel download should be treated as a future feature, not as an active regression-test item.
 

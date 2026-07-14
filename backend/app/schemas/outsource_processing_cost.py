@@ -40,6 +40,9 @@ class OutsourceProcessingCostTargetOut(BaseModel):
 
 class OutsourceProcessingCostTargetListOut(BaseModel):
     items: List[OutsourceProcessingCostTargetOut] = Field(default_factory=list)
+    total_count: int = 0
+    page: int = 1
+    size: int = 100
 
 
 class OutsourceProcessingCostAllocationOut(BaseModel):

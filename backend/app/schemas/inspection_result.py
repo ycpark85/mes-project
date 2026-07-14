@@ -158,3 +158,17 @@ class InspectionResultListItemOut(BaseModel):
     created_at: datetime
     updated_at: datetime
     memo: Optional[str] = None
+
+
+class InspectionResultListOut(BaseModel):
+    items: List[InspectionResultListItemOut] = Field(default_factory=list)
+    total_count: int = 0
+    page: int = 1
+    size: int = 100
+    total_good_qty: int = 0
+    total_uninspected_qty: int = 0
+    total_received_qty: int = 0
+    total_result_ship_qty: int = 0
+    total_discard_qty: int = 0
+    total_stock_in_qty: int = 0
+    total_defect_qty: int = 0

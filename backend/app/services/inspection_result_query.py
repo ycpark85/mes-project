@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 
 from fastapi import HTTPException, status
-from sqlalchemy import func, or_, select
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.models.inspection_result import InspectionResult
@@ -20,6 +20,7 @@ from app.schemas.inspection_result import (
     InspectionInventorySummaryOut,
     InspectionResultGetOut,
     InspectionResultListItemOut,
+    InspectionResultListOut,
 )
 from app.services.inventory_fifo_service import get_available_inventory_lots_fifo
 from app.services.order_line_plan_service import (
@@ -236,7 +237,9 @@ def list_inspection_results_for_grid(
     partner_q: str | None = None,
     product_q: str | None = None,
     lot_q: str | None = None,
-) -> list[InspectionResultListItemOut]:
+    page: int = 1,
+    size: int = 100,
+) -> InspectionResultListOut:
     result_ship_sq = (
         select(
             ShipmentLine.inspection_result_id.label("inspection_result_id"),
@@ -338,40 +341,70 @@ def list_inspection_results_for_grid(
     if lot_q and lot_q.strip():
         stmt = stmt.where(Lot.lot_no.ilike(f"%{lot_q.strip()}%"))
 
+    filtered_results = stmt.subquery()
+    nonnegative_stock_in_qty = case(
+        (filtered_results.c.stock_in_qty < 0, 0),
+        else_=filtered_results.c.stock_in_qty,
+    )
+    summary = db.execute(
+        select(
+            func.count(),
+            func.coalesce(func.sum(filtered_results.c.good_qty), 0),
+            func.coalesce(func.sum(filtered_results.c.uninspected_qty), 0),
+            func.coalesce(func.sum(filtered_results.c.received_qty), 0),
+            func.coalesce(func.sum(filtered_results.c.result_ship_qty), 0),
+            func.coalesce(func.sum(filtered_results.c.discard_qty), 0),
+            func.coalesce(func.sum(nonnegative_stock_in_qty), 0),
+            func.coalesce(func.sum(filtered_results.c.defect_qty), 0),
+        ).select_from(filtered_results)
+    ).one()
+
     stmt = stmt.order_by(
         InspectionSchedule.inspection_date.desc(),
         InspectionResult.updated_at.desc(),
         InspectionResult.inspection_result_id.desc(),
-    )
+    ).offset((page - 1) * size).limit(size)
 
     rows = db.execute(stmt).mappings().all()
-    return [
-        InspectionResultListItemOut(
-            inspection_result_id=int(row["inspection_result_id"]),
-            inspection_schedule_id=int(row["inspection_schedule_id"]),
-            lot_id=int(row["lot_id"]),
-            lot_no=str(row["lot_no"] or ""),
-            inspection_date=row["inspection_date"],
-            due_date=row["due_date"],
-            partner_name=str(row["partner_name"] or ""),
-            product_code=str(row["product_code"] or ""),
-            product_name=str(row["product_name"] or ""),
-            lot_qty=int(row["lot_qty"] or 0),
-            order_qty=int(row["order_qty"] or 0),
-            good_qty=int(row["good_qty"] or 0),
-            uninspected_qty=int(row["uninspected_qty"] or 0),
-            received_qty=int(row["received_qty"] or 0),
-            result_ship_qty=int(row["result_ship_qty"] or 0),
-            discard_qty=int(row["discard_qty"] or 0),
-            stock_in_qty=max(int(row["stock_in_qty"] or 0), 0),
-            defect_qty=int(row["defect_qty"] or 0),
-            created_by=row["created_by"],
-            created_at=row["created_at"],
-            updated_at=row["updated_at"],
-            memo=row["memo"],
-        )
-        for row in rows
-    ]
+    return InspectionResultListOut(
+        items=[
+            InspectionResultListItemOut(
+                inspection_result_id=int(row["inspection_result_id"]),
+                inspection_schedule_id=int(row["inspection_schedule_id"]),
+                lot_id=int(row["lot_id"]),
+                lot_no=str(row["lot_no"] or ""),
+                inspection_date=row["inspection_date"],
+                due_date=row["due_date"],
+                partner_name=str(row["partner_name"] or ""),
+                product_code=str(row["product_code"] or ""),
+                product_name=str(row["product_name"] or ""),
+                lot_qty=int(row["lot_qty"] or 0),
+                order_qty=int(row["order_qty"] or 0),
+                good_qty=int(row["good_qty"] or 0),
+                uninspected_qty=int(row["uninspected_qty"] or 0),
+                received_qty=int(row["received_qty"] or 0),
+                result_ship_qty=int(row["result_ship_qty"] or 0),
+                discard_qty=int(row["discard_qty"] or 0),
+                stock_in_qty=max(int(row["stock_in_qty"] or 0), 0),
+                defect_qty=int(row["defect_qty"] or 0),
+                created_by=row["created_by"],
+                created_at=row["created_at"],
+                updated_at=row["updated_at"],
+                memo=row["memo"],
+            )
+            for row in rows
+        ],
+        total_count=int(summary[0] or 0),
+        page=page,
+        size=size,
+        total_good_qty=int(summary[1] or 0),
+        total_uninspected_qty=int(summary[2] or 0),
+        total_received_qty=int(summary[3] or 0),
+        total_result_ship_qty=int(summary[4] or 0),
+        total_discard_qty=int(summary[5] or 0),
+        total_stock_in_qty=int(summary[6] or 0),
+        total_defect_qty=int(summary[7] or 0),
+    )
 
 
 def get_inspection_result_detail(

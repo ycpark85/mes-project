@@ -68,8 +68,9 @@ class InspectionResultQueryTests(unittest.TestCase):
     def test_list_inspection_results_returns_done_rows_with_stock_summary(self) -> None:
         result = list_inspection_results_for_grid(self.db, q="prd-a")
 
-        self.assertEqual(1, len(result))
-        item = result[0]
+        self.assertEqual(1, len(result.items))
+        self.assertEqual(1, result.total_count)
+        item = result.items[0]
         self.assertEqual(2, item.inspection_result_id)
         self.assertEqual("LOT-A", item.lot_no)
         self.assertEqual(55, item.received_qty)
@@ -87,7 +88,11 @@ class InspectionResultQueryTests(unittest.TestCase):
             lot_q="LOT-A",
         )
 
-        self.assertEqual([2], [item.inspection_result_id for item in result])
+        self.assertEqual([2], [item.inspection_result_id for item in result.items])
+        self.assertEqual(1, result.total_count)
+        self.assertEqual(40, result.total_good_qty)
+        self.assertEqual(55, result.total_received_qty)
+        self.assertEqual(40, result.total_stock_in_qty)
 
     def test_get_inspection_result_detail_returns_accumulated_and_inventory_summary(self) -> None:
         detail = get_inspection_result_detail(self.db, 2)

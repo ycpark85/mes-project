@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from fastapi import APIRouter, Depends, File, UploadFile, status
+from fastapi import APIRouter, Depends, File, Query, UploadFile, status
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
@@ -11,7 +11,7 @@ from app.db.session import get_db
 from app.schemas.inspection_result import (
     DefectAttachmentUploadOut,
     InspectionResultGetOut,
-    InspectionResultListItemOut,
+    InspectionResultListOut,
     InspectionResultUpsertIn,
     InspectionResultUpsertOut,
 )
@@ -28,7 +28,7 @@ from app.services.inspection_result_service import upsert_inspection_result
 router = APIRouter(prefix="/inspection-schedules", tags=["InspectionResult"])
 
 
-@router.get("/results/list", response_model=list[InspectionResultListItemOut])
+@router.get("/results/list", response_model=InspectionResultListOut)
 def list_inspection_results(
     date_from: date | None = None,
     date_to: date | None = None,
@@ -36,6 +36,8 @@ def list_inspection_results(
     partner_q: str | None = None,
     product_q: str | None = None,
     lot_q: str | None = None,
+    page: int = Query(default=1, ge=1),
+    size: int = Query(default=100, ge=1, le=200),
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
@@ -48,6 +50,8 @@ def list_inspection_results(
         partner_q=partner_q,
         product_q=product_q,
         lot_q=lot_q,
+        page=page,
+        size=size,
     )
 
 

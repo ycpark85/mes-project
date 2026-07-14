@@ -76,6 +76,8 @@ def get_vendor_bohyun_outsource_groups(
     process_type: str | None = Query(default=None),
     status: str | None = Query(default=None),
     q: str | None = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    size: int = Query(default=100, ge=1, le=200),
     context: VendorPortalContext = Depends(require_bohyun_vendor_access),
     db: Session = Depends(get_db),
 ):
@@ -86,6 +88,8 @@ def get_vendor_bohyun_outsource_groups(
         process_type=process_type,
         status=status,
         q=q,
+        page=page,
+        size=size,
         include_processing_fee=True,
     )
     _write_vendor_audit_log(

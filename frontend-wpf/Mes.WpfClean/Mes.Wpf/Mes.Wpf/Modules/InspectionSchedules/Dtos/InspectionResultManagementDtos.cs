@@ -1,8 +1,45 @@
 using System;
+using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
 namespace Mes.Wpf.Modules.InspectionSchedules.Dtos
 {
+    public class InspectionResultManagementListDto
+    {
+        [JsonPropertyName("items")]
+        public List<InspectionResultManagementItemDto> Items { get; set; } = new();
+
+        [JsonPropertyName("total_count")]
+        public int TotalCount { get; set; }
+
+        [JsonPropertyName("page")]
+        public int Page { get; set; }
+
+        [JsonPropertyName("size")]
+        public int Size { get; set; }
+
+        [JsonPropertyName("total_good_qty")]
+        public int TotalGoodQty { get; set; }
+
+        [JsonPropertyName("total_uninspected_qty")]
+        public int TotalUninspectedQty { get; set; }
+
+        [JsonPropertyName("total_received_qty")]
+        public int TotalReceivedQty { get; set; }
+
+        [JsonPropertyName("total_result_ship_qty")]
+        public int TotalResultShipQty { get; set; }
+
+        [JsonPropertyName("total_discard_qty")]
+        public int TotalDiscardQty { get; set; }
+
+        [JsonPropertyName("total_stock_in_qty")]
+        public int TotalStockInQty { get; set; }
+
+        [JsonPropertyName("total_defect_qty")]
+        public int TotalDefectQty { get; set; }
+    }
+
     public class InspectionResultManagementItemDto
     {
         public int RowNo { get; set; }

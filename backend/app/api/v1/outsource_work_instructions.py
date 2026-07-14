@@ -161,6 +161,8 @@ def get_bohyun_outsource_groups(
     process_type: str | None = Query(default=None),
     status: str | None = Query(default=None),
     q: str | None = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    size: int = Query(default=100, ge=1, le=200),
     db: Session = Depends(get_db),
 ):
     return bohyun_outsource_service.list_bohyun_outsource_groups(
@@ -170,6 +172,8 @@ def get_bohyun_outsource_groups(
         process_type=process_type,
         status=status,
         q=q,
+        page=page,
+        size=size,
         include_processing_fee=True,
     )
 

@@ -30,6 +30,8 @@ public sealed class MainViewModel : BindableBase
     private bool _isLoading;
     private BohyunOutsourceRow? _selectedItem;
     private int _totalCount;
+    private int _currentPage = 1;
+    private int _pageSize = 100;
     private decimal _totalOutsourceProcessingFee;
     private VendorMenuMode _activeMenu = VendorMenuMode.OutsourceManagement;
 
@@ -61,10 +63,12 @@ public sealed class MainViewModel : BindableBase
 
         SearchCommand = new AsyncRelayCommand(SearchAsync, () => !IsLoading);
         ResetCommand = new AsyncRelayCommand(ResetAsync, () => !IsLoading);
+        PreviousPageCommand = new AsyncRelayCommand(GoPreviousPageAsync, () => !IsLoading && HasPreviousPage);
+        NextPageCommand = new AsyncRelayCommand(GoNextPageAsync, () => !IsLoading && HasNextPage);
         InboundCommand = new AsyncRelayCommand(InboundAsync, CanInbound);
         WorkDoneCommand = new AsyncRelayCommand(WorkDoneAsync, CanWorkDone);
         ShipSelectedCommand = new AsyncRelayCommand(ShipSelectedAsync, CanShipSelected);
-        PrintCommand = new RelayCommand(_ => PrintShipmentList(), _ => ActiveMenu == VendorMenuMode.ShipmentManagement && Items.Count > 0);
+        PrintCommand = new AsyncRelayCommand(PrintShipmentListAsync, () => !IsLoading && ActiveMenu == VendorMenuMode.ShipmentManagement && TotalCount > 0);
         OpenOutsourceManagementCommand = new AsyncRelayCommand(() => ChangeMenuAsync(VendorMenuMode.OutsourceManagement), () => !IsLoading);
         OpenShipmentManagementCommand = new AsyncRelayCommand(() => ChangeMenuAsync(VendorMenuMode.ShipmentManagement), () => !IsLoading);
         LogoutCommand = new RelayCommand(_ => RequestLogout?.Invoke(this, EventArgs.Empty));
@@ -78,6 +82,8 @@ public sealed class MainViewModel : BindableBase
 
     public ICommand SearchCommand { get; }
     public ICommand ResetCommand { get; }
+    public ICommand PreviousPageCommand { get; }
+    public ICommand NextPageCommand { get; }
     public ICommand InboundCommand { get; }
     public ICommand WorkDoneCommand { get; }
     public ICommand ShipSelectedCommand { get; }
@@ -196,9 +202,39 @@ public sealed class MainViewModel : BindableBase
             if (SetProperty(ref _totalCount, value))
             {
                 OnPropertyChanged(nameof(ListHeaderText));
+                RaisePagePropertiesChanged();
             }
         }
     }
+
+    public int CurrentPage
+    {
+        get => _currentPage;
+        private set
+        {
+            if (SetProperty(ref _currentPage, value))
+            {
+                RaisePagePropertiesChanged();
+            }
+        }
+    }
+
+    public int PageSize
+    {
+        get => _pageSize;
+        private set
+        {
+            if (SetProperty(ref _pageSize, value))
+            {
+                RaisePagePropertiesChanged();
+            }
+        }
+    }
+
+    public int TotalPages => Math.Max(1, (int)Math.Ceiling(TotalCount / (double)Math.Max(PageSize, 1)));
+    public bool HasPreviousPage => CurrentPage > 1;
+    public bool HasNextPage => CurrentPage < TotalPages;
+    public string PageDisplayText => $"{CurrentPage} / {TotalPages} (총 {TotalCount:N0}건)";
 
     public decimal TotalOutsourceProcessingFee
     {
@@ -239,6 +275,12 @@ public sealed class MainViewModel : BindableBase
 
     private async Task SearchAsync()
     {
+        CurrentPage = 1;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
         if (DateFrom.HasValue && DateTo.HasValue && DateFrom.Value.Date > DateTo.Value.Date)
         {
             _messages.ShowWarning("조회 시작일은 종료일보다 늦을 수 없습니다.");
@@ -272,9 +314,9 @@ public sealed class MainViewModel : BindableBase
             }
 
             TotalCount = result.Data.TotalCount;
-            TotalOutsourceProcessingFee = Items
-                .Where(item => item.OutsourceProcessingFee.HasValue)
-                .Sum(item => item.OutsourceProcessingFee!.Value);
+            CurrentPage = result.Data.Page;
+            PageSize = result.Data.Size;
+            TotalOutsourceProcessingFee = result.Data.ProcessingFeeTotal;
             SelectedItem = Items.FirstOrDefault();
             RaiseCommandStatesChanged();
             StatusMessage = TotalCount == 0
@@ -285,6 +327,28 @@ public sealed class MainViewModel : BindableBase
         {
             IsLoading = false;
         }
+    }
+
+    private async Task GoPreviousPageAsync()
+    {
+        if (!HasPreviousPage)
+        {
+            return;
+        }
+
+        CurrentPage--;
+        await LoadAsync();
+    }
+
+    private async Task GoNextPageAsync()
+    {
+        if (!HasNextPage)
+        {
+            return;
+        }
+
+        CurrentPage++;
+        await LoadAsync();
     }
 
     private async Task InboundAsync(object? parameter)
@@ -431,15 +495,51 @@ public sealed class MainViewModel : BindableBase
             && (SelectedItem?.CanShip == true || Items.Any(item => item.IsChecked && item.CanShip));
     }
 
-    private void PrintShipmentList()
+    private async Task PrintShipmentListAsync()
     {
-        if (Items.Count == 0)
+        if (TotalCount == 0)
         {
             _messages.ShowWarning("미리보기할 출고 내역이 없습니다.");
             return;
         }
 
-        var document = BuildShipmentPrintDocument();
+        IsLoading = true;
+        try
+        {
+            const int printPageSize = 200;
+            var printItems = new List<BohyunOutsourceRow>();
+            var page = 1;
+            var totalPages = 1;
+
+            do
+            {
+                var result = await _apiClient.GetAsync<BohyunOutsourceListDto>(
+                    BuildListUrl(page, printPageSize));
+                if (!result.Success || result.Data is null)
+                {
+                    _messages.ShowError(result.Message ?? "출고리스트 전체 조회에 실패했습니다.");
+                    return;
+                }
+
+                printItems.AddRange(result.Data.Items.Select(BohyunOutsourceRow.FromDto));
+                totalPages = Math.Max(
+                    1,
+                    (int)Math.Ceiling(result.Data.TotalCount / (double)printPageSize));
+                page++;
+            }
+            while (page <= totalPages);
+
+            ShowShipmentPrintPreview(printItems);
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private void ShowShipmentPrintPreview(IReadOnlyCollection<BohyunOutsourceRow> items)
+    {
+        var document = BuildShipmentPrintDocument(items);
         document.PageWidth = 1122;
         document.PageHeight = 793;
         document.PagePadding = new Thickness(24);
@@ -453,7 +553,7 @@ public sealed class MainViewModel : BindableBase
         previewWindow.ShowDialog();
     }
 
-    private FlowDocument BuildShipmentPrintDocument()
+    private FlowDocument BuildShipmentPrintDocument(IReadOnlyCollection<BohyunOutsourceRow> items)
     {
         var document = new FlowDocument
         {
@@ -509,7 +609,7 @@ public sealed class MainViewModel : BindableBase
         AddPrintCell(header, "외주가공비", true);
         AddPrintCell(header, "출고일시", true);
 
-        foreach (var item in Items)
+        foreach (var item in items)
         {
             var row = new TableRow();
             rowGroup.Rows.Add(row);
@@ -543,7 +643,7 @@ public sealed class MainViewModel : BindableBase
         });
     }
 
-    private string BuildListUrl()
+    private string BuildListUrl(int? page = null, int? size = null)
     {
         var query = new List<string>();
 
@@ -576,6 +676,9 @@ public sealed class MainViewModel : BindableBase
             query.Add($"q={Uri.EscapeDataString(SearchText.Trim())}");
         }
 
+        query.Add($"page={page ?? CurrentPage}");
+        query.Add($"size={size ?? PageSize}");
+
         return query.Count == 0
             ? VendorBohyunGroupsRoute
             : $"{VendorBohyunGroupsRoute}?{string.Join("&", query)}";
@@ -592,9 +695,12 @@ public sealed class MainViewModel : BindableBase
                  {
                      SearchCommand,
                      ResetCommand,
+                     PreviousPageCommand,
+                     NextPageCommand,
                      InboundCommand,
                      WorkDoneCommand,
                      ShipSelectedCommand,
+                     PrintCommand,
                      OpenOutsourceManagementCommand,
                      OpenShipmentManagementCommand
                  })
@@ -605,10 +711,15 @@ public sealed class MainViewModel : BindableBase
             }
         }
 
-        if (PrintCommand is RelayCommand printCommand)
-        {
-            printCommand.RaiseCanExecuteChanged();
-        }
+    }
+
+    private void RaisePagePropertiesChanged()
+    {
+        OnPropertyChanged(nameof(TotalPages));
+        OnPropertyChanged(nameof(HasPreviousPage));
+        OnPropertyChanged(nameof(HasNextPage));
+        OnPropertyChanged(nameof(PageDisplayText));
+        RaiseCommandStatesChanged();
     }
 }
 

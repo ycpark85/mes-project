@@ -6,7 +6,7 @@ from decimal import Decimal
 from typing import Iterable, Mapping
 
 from fastapi import HTTPException
-from sqlalchemy import exists, or_, select
+from sqlalchemy import and_, exists, func, not_, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.time import utc_now
@@ -74,6 +74,8 @@ def list_bohyun_outsource_groups(
     process_type: str | None = None,
     status: str | None = None,
     q: str | None = None,
+    page: int = 1,
+    size: int = 100,
     include_processing_fee: bool = True,
 ) -> BohyunOutsourceGroupListOut:
     if process_type and process_type not in BOHYUN_VALID_PROCESS_TYPES:
@@ -157,7 +159,47 @@ def list_bohyun_outsource_groups(
             | exists(exists_item_stmt)
         )
 
-    rows = db.execute(stmt).all()
+    template_name = func.coalesce(RoutingTemplate.template_name, "")
+    is_print_product = template_name.contains("인쇄")
+    target_item_exists = (
+        select(OutsourceWorkGroupItem.outsource_work_group_item_id)
+        .join(Lot, Lot.lot_id == OutsourceWorkGroupItem.lot_id)
+        .join(Product, Product.product_id == Lot.product_id)
+        .join(
+            RoutingTemplate,
+            RoutingTemplate.routing_template_id == Product.routing_template_id,
+        )
+        .where(
+            OutsourceWorkGroupItem.outsource_work_group_id
+            == OutsourceWorkGroup.outsource_work_group_id,
+            or_(
+                and_(
+                    OutsourceWorkGroup.process_type == "CUT",
+                    not_(is_print_product),
+                ),
+                and_(
+                    OutsourceWorkGroup.process_type == "PRINT",
+                    is_print_product,
+                ),
+                OutsourceWorkGroup.process_type == "DIECUT",
+            ),
+        )
+        .limit(1)
+    )
+    stmt = stmt.where(exists(target_item_exists))
+    summary_stmt = stmt.with_only_columns(
+        OutsourceWorkGroup.outsource_processing_fee,
+        maintain_column_froms=True,
+    ).order_by(None).subquery()
+    total_count, processing_fee_total = db.execute(
+        select(
+            func.count(),
+            func.coalesce(func.sum(summary_stmt.c.outsource_processing_fee), 0),
+        ).select_from(summary_stmt)
+    ).one()
+    rows = db.execute(
+        stmt.offset((page - 1) * size).limit(size)
+    ).all()
     item_rows_by_group_id = _get_bohyun_target_group_item_rows_by_group_ids(
         db,
         {
@@ -258,7 +300,14 @@ def list_bohyun_outsource_groups(
 
     return BohyunOutsourceGroupListOut(
         items=result_items,
-        total_count=len(result_items),
+        total_count=int(total_count or 0),
+        page=page,
+        size=size,
+        processing_fee_total=(
+            processing_fee_total
+            if include_processing_fee
+            else Decimal("0")
+        ),
     )
 
 

@@ -158,7 +158,7 @@ class BohyunOutsourceServiceTests(unittest.TestCase):
         self.assertEqual([1, 2], [item.outsource_work_group_id for item in result.items])
         self.assertEqual(2, result.total_count)
 
-    def test_list_uses_two_queries_for_multiple_groups(self) -> None:
+    def test_list_uses_bounded_queries_for_multiple_groups(self) -> None:
         self._add_work_group(group_id=1, status=None)
         self._add_work_group(group_id=2, status=service.BOHYUN_DB_STATUS_WORK_DONE)
         statement_count = 0
@@ -174,7 +174,38 @@ class BohyunOutsourceServiceTests(unittest.TestCase):
             event.remove(self.engine, "before_cursor_execute", count_statement)
 
         self.assertEqual(2, len(result.items))
-        self.assertEqual(2, statement_count)
+        self.assertEqual(3, statement_count)
+
+    def test_list_paginates_after_target_filtering(self) -> None:
+        self._add_work_group(group_id=1, status=None, processing_fee=Decimal("1000"))
+        self._add_work_group(
+            group_id=2,
+            status=service.BOHYUN_DB_STATUS_WORK_DONE,
+            processing_fee=Decimal("2000"),
+        )
+
+        result = service.list_bohyun_outsource_groups(
+            self.db,
+            page=2,
+            size=1,
+        )
+
+        self.assertEqual(2, result.total_count)
+        self.assertEqual(2, result.page)
+        self.assertEqual(1, result.size)
+        self.assertEqual([2], [item.outsource_work_group_id for item in result.items])
+        self.assertEqual(Decimal("3000"), result.processing_fee_total)
+
+    def test_list_routes_print_products_to_print_group(self) -> None:
+        routing_template = self.db.get(RoutingTemplate, 1)
+        routing_template.template_name = "인쇄"
+        self.db.commit()
+        self._add_work_group(group_id=1, status=None, process_type="CUT")
+        self._add_work_group(group_id=2, status=None, process_type="PRINT")
+
+        result = service.list_bohyun_outsource_groups(self.db)
+
+        self.assertEqual([2], [item.outsource_work_group_id for item in result.items])
 
     def _seed_base_data(self) -> None:
         self.db.add_all(
@@ -250,17 +281,20 @@ class BohyunOutsourceServiceTests(unittest.TestCase):
         group_id: int,
         status: str | None,
         cuts_per_sheet: int = 1,
+        processing_fee: Decimal | None = None,
+        process_type: str = "CUT",
     ) -> None:
         self.db.add(
             OutsourceWorkGroup(
                 outsource_work_group_id=group_id,
                 outsource_work_instruction_id=1,
                 group_seq=f"G-{group_id:03d}",
-                process_type="CUT",
+                process_type=process_type,
                 is_bundle=False,
                 sheet_qty=100,
                 sheet_cut_count=1,
                 status=status,
+                outsource_processing_fee=processing_fee,
                 representative_lot_id=1,
             )
         )

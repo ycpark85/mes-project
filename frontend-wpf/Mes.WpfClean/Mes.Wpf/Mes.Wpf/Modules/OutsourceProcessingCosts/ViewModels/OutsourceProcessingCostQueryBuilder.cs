@@ -16,7 +16,9 @@ namespace Mes.Wpf.Modules.OutsourceProcessingCosts.ViewModels
             DateTime? dateFrom,
             DateTime? dateTo,
             string selectedStatusCode,
-            string searchKeyword)
+            string searchKeyword,
+            int page,
+            int size)
         {
             var query = new List<string>
             {
@@ -42,6 +44,9 @@ namespace Mes.Wpf.Modules.OutsourceProcessingCosts.ViewModels
             {
                 query.Add($"q={Uri.EscapeDataString(searchKeyword)}");
             }
+
+            query.Add($"page={page}");
+            query.Add($"size={size}");
 
             return $"{ApiRoutes.OutsourceProcessingCostTargets}?{string.Join("&", query)}";
         }

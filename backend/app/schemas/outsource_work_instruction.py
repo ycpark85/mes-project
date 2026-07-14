@@ -457,6 +457,9 @@ class BohyunOutsourceGroupListItemOut(BaseModel):
 class BohyunOutsourceGroupListOut(BaseModel):
     items: List[BohyunOutsourceGroupListItemOut] = Field(default_factory=list)
     total_count: int = 0
+    page: int = 1
+    size: int = 100
+    processing_fee_total: Decimal = Decimal("0")
     
 
 

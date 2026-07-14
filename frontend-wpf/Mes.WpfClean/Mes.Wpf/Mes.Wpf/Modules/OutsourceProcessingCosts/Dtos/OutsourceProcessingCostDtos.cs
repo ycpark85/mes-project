@@ -8,6 +8,15 @@ namespace Mes.Wpf.Modules.OutsourceProcessingCosts.Dtos
     {
         [JsonPropertyName("items")]
         public List<OutsourceProcessingCostTargetDto> Items { get; set; } = new();
+
+        [JsonPropertyName("total_count")]
+        public int TotalCount { get; set; }
+
+        [JsonPropertyName("page")]
+        public int Page { get; set; }
+
+        [JsonPropertyName("size")]
+        public int Size { get; set; }
     }
 
     public class OutsourceProcessingCostTargetDto
