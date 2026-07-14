@@ -2,9 +2,11 @@
 
 ## Scope
 
-These tools prepare a staged MES V2 release for Windows operation. They do not copy release binaries, publish WPF clients, configure a reverse proxy, or decide the production server paths. Stage and review the release first, then run the deployment gate from that fixed revision.
+These tools prepare a staged MES V2 release for Windows operation. Verified installation copies an immutable package into a versioned release directory but does not activate it. The tools do not configure a reverse proxy or decide site-specific storage paths. Stage and review the release first, then run the deployment gate from that fixed revision.
 
 Before server preparation, the exact staged revision must pass `deploy/windows/Test-MesRelease.ps1 -RequireCleanWorktree`, and `deploy/windows/New-MesReleasePackage.ps1` must create the immutable artifact from that same clean commit. The local quality gate is documented in `docs/release-validation.md`; package contents and validation are documented in `docs/release-package.md`.
+
+The approved package must then pass the isolated installation, junction-switch, explicit rollback, and injected-failure recovery rehearsal documented in `docs/release-installation-rehearsal.md`. This rehearsal does not change the production database or services.
 
 The operational tools are:
 
@@ -41,7 +43,7 @@ Use a protected PostgreSQL password file where possible. Remove the process vari
 ## Read-Only Operations Check
 
 ```powershell
-cd C:\MES\v2\backend
+cd C:\MES\v2\current\backend
 .\.venv\Scripts\python.exe -m scripts.check_mes_operations `
   --env-file C:\MES\config\backend.env `
   --monitor-env-file C:\MES\config\monitor.env `
@@ -94,7 +96,7 @@ First run the read-only gate:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass `
-  -File C:\MES\v2\deploy\windows\Invoke-MesDeployment.ps1 `
+  -File C:\MES\v2\current\deploy\windows\Invoke-MesDeployment.ps1 `
   -ConfigFile C:\MES\config\mes-deployment.psd1
 ```
 
@@ -106,7 +108,7 @@ After staging and reviewing the release, an elevated maintenance-window activati
 $env:MES_BACKUP_ADMIN_DATABASE_URL = 'postgresql://deployment_admin@127.0.0.1:5432/postgres'
 
 powershell.exe -NoProfile -ExecutionPolicy Bypass `
-  -File C:\MES\v2\deploy\windows\Invoke-MesDeployment.ps1 `
+  -File C:\MES\v2\current\deploy\windows\Invoke-MesDeployment.ps1 `
   -ConfigFile C:\MES\config\mes-deployment.psd1 `
   -ApplyPostgresMonitoring `
   -ApprovePostgresRestart `
@@ -147,7 +149,7 @@ Task registration is idempotent. Remove both tasks without touching backup data 
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass `
-  -File C:\MES\v2\deploy\windows\Set-MesOperationsScheduledTasks.ps1 `
+  -File C:\MES\v2\current\deploy\windows\Set-MesOperationsScheduledTasks.ps1 `
   -ConfigFile C:\MES\config\mes-deployment.psd1 `
   -Mode Unregister
 ```

@@ -1,8 +1,8 @@
 @{
     # This file contains paths and service names only. Never put passwords,
     # database URLs, API keys, or tokens in a deployment config.
-    BackendRoot = 'C:\MES\v2\backend'
-    PythonPath = 'C:\MES\v2\backend\.venv\Scripts\python.exe'
+    BackendRoot = 'C:\MES\v2\current\backend'
+    PythonPath = 'C:\MES\v2\current\backend\.venv\Scripts\python.exe'
     EnvFile = 'C:\MES\config\backend.env'
     MonitorEnvFile = 'C:\MES\config\monitor.env'
     BackupRoot = 'E:\MES\backups'

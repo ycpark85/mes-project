@@ -32,7 +32,7 @@ The ZIP contains:
 
 The output directory also receives a manifest sidecar, a package SHA-256 sidecar, and the complete quality-gate report directory.
 
-The package excludes tests, Python caches, development settings, fallback `appsettings.json`, PDB files, local environments, certificates, keys, and release-building tools. Production env files are never packaged and must remain in the protected external configuration directory.
+The Windows deployment directory also includes verified release staging and isolated installation-rehearsal tools. The package excludes tests, Python caches, development settings, fallback `appsettings.json`, PDB files, local environments, certificates, keys, and release-building tools. Production env files are never packaged and must remain in the protected external configuration directory.
 
 ## Validation
 
@@ -53,4 +53,4 @@ ZIP entries are sorted and use the Git commit time. Combined with deterministic 
 
 ## Installation Boundary
 
-Extract the approved ZIP to a new versioned staging directory. Do not extract over the running release. Server installation, protected env-file connection, Python virtual-environment preparation, ACL application, service switching, migration approval, smoke testing, and rollback remain separate deployment steps documented in `docs/operations-monitoring-deployment.md`.
+Install the approved ZIP with `Install-MesRelease.ps1`; do not manually extract over the running release. Run the isolated file-switch and recovery rehearsal documented in `docs/release-installation-rehearsal.md`. Protected env-file connection, Python virtual-environment preparation, ACL application, service switching, migration approval, smoke testing, and production rollback remain separate deployment steps documented in `docs/operations-monitoring-deployment.md`.

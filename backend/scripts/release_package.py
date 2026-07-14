@@ -44,9 +44,12 @@ SOURCE_FILES = {
     "backend/scripts/verify_mes_restore.py",
     "deploy/windows/Invoke-MesDeployment.ps1",
     "deploy/windows/Invoke-MesScheduledOperation.ps1",
+    "deploy/windows/Install-MesRelease.ps1",
     "deploy/windows/MesDeployment.Common.ps1",
+    "deploy/windows/MesRelease.Installation.Common.ps1",
     "deploy/windows/Set-MesOperationsScheduledTasks.ps1",
     "deploy/windows/Test-MesDeployment.ps1",
+    "deploy/windows/Test-MesReleaseInstallation.ps1",
     "deploy/windows/mes-deployment.example.psd1",
 }
 REQUIRED_FILES = {
@@ -57,7 +60,10 @@ REQUIRED_FILES = {
     "backend/scripts/backup_mes.py",
     "backend/scripts/check_mes_operations.py",
     "deploy/windows/Invoke-MesDeployment.ps1",
+    "deploy/windows/Install-MesRelease.ps1",
+    "deploy/windows/MesRelease.Installation.Common.ps1",
     "deploy/windows/Test-MesDeployment.ps1",
+    "deploy/windows/Test-MesReleaseInstallation.ps1",
     "clients/internal/Mes.Wpf.exe",
     "clients/internal/Mes.Wpf.dll",
     "clients/internal/Mes.Wpf.deps.json",
@@ -495,6 +501,7 @@ def finalize_package(
         "Do not place backend.env or monitor.env inside this directory.\n"
         "The WPF clients require the Microsoft .NET 8 Desktop Runtime (x64).\n"
         "Run the documented deployment preflight before changing server state.\n"
+        "Rehearse installation and pointer rollback before production activation.\n"
     )
     (staging_root / README_NAME).write_text(readme, encoding="ascii")
 
