@@ -1,7 +1,33 @@
+import logging
+
 from fastapi import APIRouter
+from fastapi.responses import JSONResponse
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
+
+from app.core.db import engine
 
 router = APIRouter()
+logger = logging.getLogger("mes.health")
 
 @router.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@router.get("/ready")
+def readiness():
+    try:
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+    except SQLAlchemyError as exc:
+        logger.warning(
+            "readiness_failed error_type=%s",
+            type(exc).__name__,
+        )
+        return JSONResponse(
+            status_code=503,
+            content={"status": "unavailable"},
+        )
+
+    return {"status": "ready"}

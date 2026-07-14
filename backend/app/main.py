@@ -4,6 +4,10 @@ from fastapi import FastAPI
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from app.api.v1.router import router as v1_router
 from app.core.db import SessionLocal, engine
+from app.core.observability import (
+    configure_database_exception_handlers,
+    configure_request_observability,
+)
 from app.services.auth_seed import ensure_auth_seed_data
 from app.core.config import is_production_env, settings, validate_runtime_settings
 
@@ -39,6 +43,8 @@ app = FastAPI(
     redoc_url="/redoc" if openapi_enabled else None,
     openapi_url="/openapi.json" if openapi_enabled else None,
 )
+configure_request_observability(app, settings.SLOW_REQUEST_THRESHOLD_MS)
+configure_database_exception_handlers(app)
 if settings.BACKEND_ALLOWED_HOSTS:
     app.add_middleware(
         TrustedHostMiddleware,

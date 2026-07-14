@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     DB_LOCK_TIMEOUT_SECONDS: int = Field(default=5, ge=1, le=120)
     DB_IDLE_TRANSACTION_TIMEOUT_SECONDS: int = Field(default=60, ge=1, le=600)
     DB_APPLICATION_NAME: str = Field(default="mes-api", min_length=1, max_length=63)
+    SLOW_QUERY_THRESHOLD_MS: int = Field(default=1000, ge=100, le=60000)
+    SLOW_REQUEST_THRESHOLD_MS: int = Field(default=2000, ge=100, le=300000)
 
     AUTH_SECRET_KEY: str = Field(default="mes-dev-auth-secret-key-change-me")
     AUTH_ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=720, ge=1, le=1440)

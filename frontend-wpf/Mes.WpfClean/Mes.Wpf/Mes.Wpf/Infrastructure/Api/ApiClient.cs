@@ -333,7 +333,7 @@ namespace Mes.Wpf.Infrastructure.Api
                             var detail = detailElement.GetString();
                             if (!string.IsNullOrWhiteSpace(detail))
                             {
-                                return detail;
+                                return AppendRequestId(response, detail);
                             }
                         }
 
@@ -342,7 +342,7 @@ namespace Mes.Wpf.Infrastructure.Api
                             var message = messageElement.GetString();
                             if (!string.IsNullOrWhiteSpace(message))
                             {
-                                return message;
+                                return AppendRequestId(response, message);
                             }
                         }
                     }
@@ -356,7 +356,25 @@ namespace Mes.Wpf.Infrastructure.Api
             {
             }
 
-            return $"{defaultPrefix}: {(int)response.StatusCode}";
+            return AppendRequestId(
+                response,
+                $"{defaultPrefix}: {(int)response.StatusCode}");
+        }
+
+        private static string AppendRequestId(
+            HttpResponseMessage response,
+            string message)
+        {
+            if (response.Headers.TryGetValues("X-Request-ID", out var values))
+            {
+                var requestId = values.FirstOrDefault();
+                if (!string.IsNullOrWhiteSpace(requestId))
+                {
+                    return $"{message}\n요청 ID: {requestId}";
+                }
+            }
+
+            return message;
         }
 
         private static ApiResult<T> Failure<T>(string message)

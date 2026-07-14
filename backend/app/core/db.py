@@ -3,6 +3,7 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import Settings, settings
+from app.core.observability import register_slow_query_logging
 from app.db.base import Base
 
 
@@ -42,6 +43,7 @@ engine = create_engine(
     settings.database_url,
     **build_engine_kwargs(settings.database_url, settings),
 )
+register_slow_query_logging(engine, settings.SLOW_QUERY_THRESHOLD_MS)
 
 SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 
@@ -65,5 +67,9 @@ def get_db():
     db = SessionLocal()
     try:
         yield db
+    except Exception:
+        if db.in_transaction():
+            db.rollback()
+        raise
     finally:
         db.close()
