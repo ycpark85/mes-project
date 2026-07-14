@@ -501,3 +501,66 @@ Current WPF outsource processing cost API usage:
 - New connections use a 5-second connect timeout. Normal statements use 30 seconds, lock waits use 5 seconds, and idle transactions use 60 seconds by default.
 - Bulk validation/import endpoints use `DB_BULK_STATEMENT_TIMEOUT_SECONDS=120` only for their current transaction and return to the normal timeout after commit or rollback.
 - These values are environment settings. Increase them only from measured evidence; do not remove the limits to work around a slow query.
+
+Pool and timeout failures:
+
+- A pool checkout timeout returns HTTP 503. This means all connections available to that API process were busy for the configured wait period.
+- PostgreSQL query cancellation with SQLSTATE `57014` returns HTTP 504. Other database operational failures return HTTP 503.
+- The request database dependency explicitly rolls back an active transaction before closing the session when an exception escapes.
+- A client timeout does not prove that a write failed. The database may have committed immediately before the network response was lost. Check the target list or detail before retrying any bulk or status-changing request.
+
+## Desktop API Request Limits
+
+The internal MES WPF client uses request-specific limits instead of one global timeout:
+
+- Normal lookup and save requests: 45 seconds.
+- Bulk validation and registration requests: 150 seconds.
+- Multipart uploads and streamed downloads: 300 seconds.
+
+These values are configured under `Api` in each WPF `appsettings*.json` file as `NormalTimeoutSeconds`, `BulkTimeoutSeconds`, and `FileTransferTimeoutSeconds`. The vendor WPF currently has normal requests only and uses `NormalTimeoutSeconds=45`.
+
+- `HttpClient.Timeout` remains infinite; every request receives its own cancellation token with the operation-specific limit.
+- File downloads stream to a sibling temporary file and replace the destination only after a complete transfer. A timeout or failure removes the partial file.
+- Timeout messages and network-connection messages are distinct.
+- Server error messages include the response `X-Request-ID` when available so support can find the matching server log.
+- Adding a new bulk endpoint requires using `PostBulkAsync`; adding a new file transfer requires the multipart or download API so it receives the file-transfer limit.
+
+## Runtime Health and Request Tracing
+
+Health endpoints have different purposes:
+
+- `GET /api/v1/health` is a liveness check. It confirms that the API process can respond and does not query PostgreSQL.
+- `GET /api/v1/ready` is a readiness check. It runs `SELECT 1`; it returns 200 with `{"status":"ready"}` when the database is available and 503 with `{"status":"unavailable"}` otherwise.
+- A process manager or internal load balancer should stop sending new business traffic to an instance whose readiness check fails. External vendor monitoring may use liveness, but database readiness should remain on the internal monitoring path.
+
+Every HTTP request receives an `X-Request-ID` response header. A caller-provided ID is accepted only when it is 1 to 64 characters using letters, digits, `.`, `_`, or `-`; otherwise the server creates a new ID.
+
+Request logs contain only request ID, method, route template, status, elapsed milliseconds, and unexpected error type. They do not record query strings, request bodies, SQL text, SQL parameters, tokens, or passwords.
+
+- Requests at or above `SLOW_REQUEST_THRESHOLD_MS=2000` are warning logs.
+- SQL statements at or above `SLOW_QUERY_THRESHOLD_MS=1000` are warning logs linked to the current request ID.
+- Slow-query logs contain only the statement type, elapsed time, and failure flag. SQL text and parameters are intentionally excluded.
+- When a user reports an API error, record the displayed request ID and search `mes.request` and `mes.database` logs for that same ID.
+
+## Long-Term Database Monitoring
+
+The application now bounds connections and records slow operations, but ten-year operation also requires recurring database administration outside the application process.
+
+- Before V2 production rollout, enable PostgreSQL `pg_stat_statements` in the server maintenance window if the installed PostgreSQL package supports it. This is a server configuration change and restart, not an Alembic migration.
+- Review the highest total-time and highest mean-time normalized queries monthly at first. Use `EXPLAIN (ANALYZE, BUFFERS)` only on a safe copy or during a controlled window for expensive write queries.
+- Add or change indexes only from measured query plans. Re-run `alembic check` and metadata-alignment tests after every index change.
+- Monitor database size, largest tables and indexes, dead tuples, autovacuum activity, connection usage, lock waits, and backup age.
+- Keep automated backups and perform a restore rehearsal at least quarterly. A backup that has never been restored is not considered verified.
+- As data grows, archive or partition only after retention rules and actual table growth justify it. Do not delete audit, inventory movement, allocation, or status history merely to improve screen speed.
+
+## V2 Pre-Deployment Gate
+
+V2 remains local until the feature set is complete. Before the first server deployment:
+
+1. Create a production backup and complete a restore rehearsal on a separate database.
+2. Verify the target database with `alembic current`, `alembic check`, and the planned migration review before running `alembic upgrade head`.
+3. Confirm the PostgreSQL connection budget using `worker count * (DB_POOL_SIZE + DB_MAX_OVERFLOW)` and start with one API worker.
+4. Confirm production secrets, allowed hosts, storage roots, file permissions, and HTTPS or tunnel routing.
+5. Run the complete backend test suite and WPF solution build from the release revision.
+6. Verify `/api/v1/health`, `/api/v1/ready`, login, one read flow, one reversible write flow, one upload, and one download.
+7. Watch 5xx responses, readiness failures, connection usage, slow requests, and slow queries during the initial operating window. Keep the database and application rollback plan ready until the window closes.
