@@ -307,29 +307,16 @@ def create_order_line_with_policy(db: Session, payload: OrderLineCreate) -> Orde
             db,
             order_line=obj,
             ship_qty=stock_ship_qty,
-            memo="발주 등록 자동 처리: 재고 출하대기 생성",
-        )
-
-        create_plan_history(
-            db,
-            order_line=obj,
-            plan_type=OrderLinePlanType.AUTO_STOCK_SHIP,
-            ship_target_qty=ship_target_qty,
-            available_inventory_qty=available_inventory_qty,
-            stock_ship_qty=stock_ship_qty,
-            production_qty=0,
-            is_short_close=False,
-            memo="발주 등록 자동 처리: 재고 충분, LOT 없이 출하대기 생성",
-            actor=actor,
+            memo="발주 등록 자동 처리: 재고 출하 확인대기 예약",
         )
 
         obj.fulfillment_mode = OrderLineFulfillmentMode.INVENTORY_FIRST.value
         obj.production_policy = OrderLineProductionPolicy.INVENTORY_ONLY_CLOSE.value
         obj.extra_production_qty = 0
-        obj.decision_made = True
-        obj.decision_made_at = utc_now()
-        obj.decision_made_by = actor
-        obj.status = OrderLineStatus.DONE.value
+        obj.decision_made = False
+        obj.decision_made_at = None
+        obj.decision_made_by = None
+        obj.status = OrderLineStatus.OPEN.value
 
         db.flush()
         return obj

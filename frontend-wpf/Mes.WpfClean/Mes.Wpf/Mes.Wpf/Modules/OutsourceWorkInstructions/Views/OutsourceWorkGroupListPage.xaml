@@ -116,6 +116,7 @@
                         </DataGridTemplateColumn>
                         <DataGridTextColumn Header="거래처" Binding="{Binding PartnerName}" Width="120" IsReadOnly="True" />
                         <DataGridTextColumn Header="구분" Binding="{Binding BundleText}" Width="60" IsReadOnly="True" />
+                        <DataGridTextColumn Header="투입원" Binding="{Binding InputSourceDisplay}" Width="105" IsReadOnly="True" />
                         <DataGridTextColumn Header="LOT" Binding="{Binding LotNosText}" Width="180" IsReadOnly="True" />
                         <DataGridTextColumn Header="대표품목" Binding="{Binding RepresentativeProductName}" Width="160" IsReadOnly="True" />
                         <DataGridTextColumn Header="사용M" Binding="{Binding LengthM, StringFormat={}{0:N2}}" Width="80" IsReadOnly="True" />
@@ -139,7 +140,7 @@
                         <RowDefinition Height="8" />
                         <RowDefinition Height="*" />
                         <RowDefinition Height="8" />
-                        <RowDefinition Height="160" />
+                        <RowDefinition Height="220" />
                         <RowDefinition Height="8" />
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
@@ -217,7 +218,11 @@
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="6" />
-                            <RowDefinition Height="*" />
+                            <RowDefinition Height="70" />
+                            <RowDefinition Height="6" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="6" />
+                            <RowDefinition Height="70" />
                         </Grid.RowDefinitions>
                         <TextBlock Text="원자재 배정" FontWeight="SemiBold" />
                         <DataGrid Grid.Row="2"
@@ -234,6 +239,21 @@
                                 <DataGridTextColumn Header="LOT" Binding="{Binding LotNo}" Width="120" IsReadOnly="True" />
                                 <DataGridTextColumn Header="수량" Binding="{Binding Qty, StringFormat={}{0:N2}}" Width="70" IsReadOnly="True" />
                                 <DataGridTextColumn Header="상태" Binding="{Binding Status}" Width="75" IsReadOnly="True" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                        <TextBlock Grid.Row="4" Text="자가사용 시트지 / 원자재 LOT 스냅샷" FontWeight="SemiBold" />
+                        <DataGrid Grid.Row="6"
+                                  ItemsSource="{Binding SelectedDetail.SelfUseSheetAllocations}"
+                                  AutoGenerateColumns="False"
+                                  CanUserAddRows="False"
+                                  CanUserDeleteRows="False"
+                                  RowHeaderWidth="0">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="시트지 LOT" Binding="{Binding SheetLotNo}" Width="125" IsReadOnly="True" />
+                                <DataGridTextColumn Header="위치" Binding="{Binding SourceLocationName}" Width="100" IsReadOnly="True" />
+                                <DataGridTextColumn Header="규격" Binding="{Binding CutSpec}" Width="85" IsReadOnly="True" />
+                                <DataGridTextColumn Header="매수" Binding="{Binding Qty, StringFormat={}{0:N0}}" Width="55" IsReadOnly="True" />
+                                <DataGridTextColumn Header="원자재 LOT(실투입)" Binding="{Binding SourceLotSummary}" Width="*" IsReadOnly="True" />
                             </DataGrid.Columns>
                         </DataGrid>
                     </Grid>

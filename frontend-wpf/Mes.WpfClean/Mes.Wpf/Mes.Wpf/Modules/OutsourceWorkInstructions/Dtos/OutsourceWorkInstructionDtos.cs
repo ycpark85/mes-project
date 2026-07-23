@@ -265,6 +265,32 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
         public string? Memo { get; set; }
     }
 
+    public sealed class OutsourceWorkInstructionSelfUseSheetAllocationCreateRequest
+    {
+        [JsonPropertyName("self_use_sheet_inventory_lot_id")]
+        public long SelfUseSheetInventoryLotId { get; set; }
+        [JsonPropertyName("source_location_id")]
+        public long SourceLocationId { get; set; }
+        [JsonPropertyName("qty")]
+        public int Qty { get; set; }
+        [JsonPropertyName("memo")]
+        public string? Memo { get; set; }
+    }
+
+    public sealed class OutsourceSelfUseSheetOptionModel
+    {
+        public long SelfUseSheetInventoryLotId { get; set; }
+        public long SourceLocationId { get; set; }
+        public string SheetLotNo { get; set; } = string.Empty;
+        public string MaterialName { get; set; } = string.Empty;
+        public string LocationName { get; set; } = string.Empty;
+        public decimal CutWidthMm { get; set; }
+        public decimal CutLengthMm { get; set; }
+        public long CurrentQty { get; set; }
+        public string SourceLotSummary { get; set; } = string.Empty;
+        public string DisplayText => $"{SheetLotNo} / {CutWidthMm:N0}×{CutLengthMm:N0} / {LocationName} / {CurrentQty:N0}매";
+    }
+
     public sealed class OutsourceWorkInstructionRawMaterialAllocationEditModel : ViewModelBase
     {
         private decimal _qty;
@@ -338,6 +364,12 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
 
         [JsonPropertyName("raw_material_allocations")]
         public List<OutsourceWorkInstructionRawMaterialAllocationCreateRequest> RawMaterialAllocations { get; set; } = new();
+
+        [JsonPropertyName("input_source_type")]
+        public string InputSourceType { get; set; } = "RAW_MATERIAL";
+
+        [JsonPropertyName("self_use_sheet_allocations")]
+        public List<OutsourceWorkInstructionSelfUseSheetAllocationCreateRequest> SelfUseSheetAllocations { get; set; } = new();
     }
 
     public class OutsourceWorkInstructionItemDto
@@ -412,6 +444,9 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
         private string? _fabricLotNo;
         private long? _representativeLotId;
         private OutsourceWorkInstructionCandidateLotRowModel? _selectedLot;
+        private string _inputSourceType = "RAW_MATERIAL";
+        private OutsourceSelfUseSheetOptionModel? _selectedSelfUseSheet;
+        private int _selfUseSheetQty;
 
         public Guid DraftId { get; set; } = Guid.NewGuid();
 
@@ -436,7 +471,13 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
         public string Memo
         {
             get => _memo;
-            set => SetProperty(ref _memo, value);
+            set
+            {
+                if (SetProperty(ref _memo, value))
+                {
+                    RefreshValidationValues();
+                }
+            }
         }
 
         public decimal? LengthM
@@ -447,6 +488,7 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
                 if (SetProperty(ref _lengthM, value))
                 {
                     RecalculateSheetQty();
+                    RefreshValidationValues();
                 }
             }
         }
@@ -459,6 +501,7 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
                 if (SetProperty(ref _sheetQty, value))
                 {
                     OnPropertyChanged(nameof(ExpectedOutputQty));
+                    RefreshValidationValues();
                 }
             }
 
@@ -477,6 +520,7 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
                 if (SetProperty(ref _sheetCutCount, value))
                 {
                     OnPropertyChanged(nameof(ExpectedOutputQty));
+                    RefreshValidationValues();
                 }
             }
         }
@@ -501,6 +545,81 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
         public List<OutsourceWorkInstructionCandidateLotRowModel> Lots { get; } = new();
         public List<OutsourceWorkInstructionFileCreateRequest> Files { get; } = new();
         public ObservableCollection<OutsourceWorkInstructionRawMaterialAllocationEditModel> RawMaterialAllocations { get; } = new();
+        public ObservableCollection<OutsourceSelfUseSheetOptionModel> AvailableSelfUseSheets { get; } = new();
+
+        public string InputSourceType
+        {
+            get => _inputSourceType;
+            set
+            {
+                if (!SetProperty(ref _inputSourceType, value)) return;
+                OnPropertyChanged(nameof(IsRawMaterialSource));
+                OnPropertyChanged(nameof(IsSelfUseSheetSource));
+                OnPropertyChanged(nameof(InputSourceDisplay));
+                OnPropertyChanged(nameof(InputSourceGuide));
+                if (IsSelfUseSheetSource)
+                {
+                    LengthM = null;
+                    FabricLotNo = null;
+                    RawMaterialAllocations.Clear();
+                    RefreshRawMaterialAllocationValues();
+                }
+                else
+                {
+                    SelectedSelfUseSheet = null;
+                    SelfUseSheetQty = 0;
+                }
+
+                RefreshValidationValues();
+            }
+        }
+        public bool IsRawMaterialSource => InputSourceType == "RAW_MATERIAL";
+        public bool IsSelfUseSheetSource => InputSourceType == "SELF_USE_SHEET";
+        public string InputSourceDisplay => IsSelfUseSheetSource ? "자가사용 시트지" : "롤 원단";
+        public string InputSourceGuide => IsSelfUseSheetSource
+            ? "재단공정을 생략하고 선택 위치의 시트지 재고를 사용합니다."
+            : "사용 M수를 입력한 후 원자재 LOT를 배정합니다.";
+        public OutsourceSelfUseSheetOptionModel? SelectedSelfUseSheet
+        {
+            get => _selectedSelfUseSheet;
+            set
+            {
+                if (SetProperty(ref _selectedSelfUseSheet, value))
+                {
+                    FabricLotNo = value?.SourceLotSummary;
+                    OnPropertyChanged(nameof(SelfUseSheetSummary));
+                    RefreshValidationValues();
+                }
+            }
+        }
+        public int SelfUseSheetQty
+        {
+            get => _selfUseSheetQty;
+            set
+            {
+                if (SetProperty(ref _selfUseSheetQty, value))
+                {
+                    SheetQty = value;
+                    OnPropertyChanged(nameof(SelfUseSheetSummary));
+                    RefreshValidationValues();
+                }
+            }
+        }
+        public string SelfUseSheetSummary => SelectedSelfUseSheet == null
+            ? "자가사용 시트지 미선택"
+            : $"{SelectedSelfUseSheet.SheetLotNo} / {SelfUseSheetQty:N0}매 / 원자재 LOT {SelectedSelfUseSheet.SourceLotSummary}";
+        public string SelfUseSheetAvailabilityGuide => AvailableSelfUseSheets.Count == 0
+            ? "선택한 LOT 판 사이즈에 맞는 자가사용 시트지 원단이 없습니다."
+            : $"사용가능한 위치별 시트지 재고 {AvailableSelfUseSheets.Count:N0}건";
+        public bool HasAvailableSelfUseSheets => AvailableSelfUseSheets.Count > 0;
+        public bool IsSelfUseSheetUnavailable => !HasAvailableSelfUseSheets;
+
+        public void RefreshSelfUseSheetAvailability()
+        {
+            OnPropertyChanged(nameof(SelfUseSheetAvailabilityGuide));
+            OnPropertyChanged(nameof(HasAvailableSelfUseSheets));
+            OnPropertyChanged(nameof(IsSelfUseSheetUnavailable));
+        }
 
         public bool IsBundle => Lots.Count > 1;
         public string BundleText => IsBundle ? "묶음" : "개별";
@@ -521,6 +640,7 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
                 {
                     OnPropertyChanged(nameof(RepresentativeLot));
                     OnPropertyChanged(nameof(RepresentativeLotText));
+                    RefreshValidationValues();
                 }
             }
         }
@@ -539,10 +659,57 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
         public string RepresentativeLotText => RepresentativeLot == null
             ? "대표품목 미지정"
             : $"{RepresentativeLot.LotNo} / {RepresentativeLot.ProductName}";
+        public int TotalLotQty => Lots.Sum(x => x.LotQty);
         public decimal AllocatedRawMaterialQty => RawMaterialAllocations.Sum(x => x.Qty);
         public string RawMaterialAllocationSummary => RawMaterialAllocations.Count == 0
             ? "원자재 미배정"
             : $"{RawMaterialAllocations.Count:N0}개 LOT / {AllocatedRawMaterialQty:N2}M";
+        public bool IsConfigurationComplete => !IsBundle || RepresentativeLotId.HasValue;
+        public string ConfigurationStatusText => IsConfigurationComplete ? "구성완료" : "구성필요";
+        public bool IsDetailComplete
+        {
+            get
+            {
+                if (!IsConfigurationComplete
+                    || SheetQty <= 0
+                    || !Lots.All(HasResolvedCutsPerSheet))
+                {
+                    return false;
+                }
+
+                if (IsBundle
+                    && (Files.Count != 1
+                        || !SheetCutCount.HasValue
+                        || SheetCutCount.Value <= 0
+                        || Lots.Sum(ResolveCutsPerSheetForStatus) != SheetCutCount.Value))
+                {
+                    return false;
+                }
+
+                if (IsRawMaterialSource)
+                {
+                    return LengthM.GetValueOrDefault() > 0
+                        && RawMaterialAllocations.Count > 0
+                        && AllocatedRawMaterialQty == LengthM.GetValueOrDefault();
+                }
+
+                return SelectedSelfUseSheet != null
+                    && SelfUseSheetQty > 0
+                    && SelfUseSheetQty <= SelectedSelfUseSheet.CurrentQty;
+            }
+        }
+        public bool HasAnyDetailInput =>
+            LengthM.GetValueOrDefault() > 0
+            || RawMaterialAllocations.Count > 0
+            || IsSelfUseSheetSource
+            || SelectedSelfUseSheet != null
+            || SelfUseSheetQty > 0
+            || Files.Count > 0
+            || !string.IsNullOrWhiteSpace(Memo)
+            || (IsBundle && SheetCutCount.GetValueOrDefault() > 0);
+        public string DetailStatusText => IsDetailComplete
+            ? "입력완료"
+            : HasAnyDetailInput ? "입력 중" : "미입력";
 
         public void ReplaceRawMaterialAllocations(IEnumerable<OutsourceWorkInstructionRawMaterialAllocationEditModel> allocations)
         {
@@ -560,6 +727,7 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
         {
             OnPropertyChanged(nameof(AllocatedRawMaterialQty));
             OnPropertyChanged(nameof(RawMaterialAllocationSummary));
+            RefreshValidationValues();
         }
 
         public void SetRepresentativeLot(OutsourceWorkInstructionCandidateLotRowModel lot)
@@ -606,6 +774,7 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
             OnPropertyChanged(nameof(PlateSize));
             OnPropertyChanged(nameof(Spec));
             OnPropertyChanged(nameof(CutCountText));
+            OnPropertyChanged(nameof(TotalLotQty));
             OnPropertyChanged(nameof(ExpectedOutputQty));
             RefreshRawMaterialAllocationValues();
         }
@@ -613,6 +782,28 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
         public void RefreshFileValues()
         {
             OnPropertyChanged(nameof(PlateDataPath));
+            RefreshValidationValues();
+        }
+
+        public void RefreshValidationValues()
+        {
+            OnPropertyChanged(nameof(IsConfigurationComplete));
+            OnPropertyChanged(nameof(ConfigurationStatusText));
+            OnPropertyChanged(nameof(IsDetailComplete));
+            OnPropertyChanged(nameof(HasAnyDetailInput));
+            OnPropertyChanged(nameof(DetailStatusText));
+        }
+
+        public void RecalculateBundleCutTotal()
+        {
+            if (!IsBundle)
+            {
+                return;
+            }
+
+            SheetCutCount = Lots.All(HasResolvedCutsPerSheet)
+                ? Lots.Sum(ResolveCutsPerSheetForStatus)
+                : null;
         }
 
         public void Clear()
@@ -626,6 +817,9 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
             SheetQty = 0;
             SheetCutCount = null;
             FabricLotNo = null;
+            InputSourceType = "RAW_MATERIAL";
+            SelectedSelfUseSheet = null;
+            SelfUseSheetQty = 0;
             ClearRepresentativeLot();
             SelectedLot = null;
             Lots.Clear();
@@ -650,6 +844,19 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
                 LengthM.Value,
                 panelLengthMm.Value,
                 panelWidthMm);
+        }
+
+        private static bool HasResolvedCutsPerSheet(OutsourceWorkInstructionCandidateLotRowModel lot)
+        {
+            return lot.ManualCutsPerSheet.GetValueOrDefault() > 0
+                || lot.CutQtyPerPanel.GetValueOrDefault() > 0;
+        }
+
+        private static int ResolveCutsPerSheetForStatus(OutsourceWorkInstructionCandidateLotRowModel lot)
+        {
+            return lot.ManualCutsPerSheet.GetValueOrDefault() > 0
+                ? lot.ManualCutsPerSheet!.Value
+                : lot.CutQtyPerPanel.GetValueOrDefault();
         }
     }
 

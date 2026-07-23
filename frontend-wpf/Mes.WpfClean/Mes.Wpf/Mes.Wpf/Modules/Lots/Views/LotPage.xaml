@@ -381,6 +381,11 @@
                                             Binding="{Binding LotTypeDisplay}"
                                             Width="120"
                                             ElementStyle="{StaticResource GridTextStyle}" />
+
+                        <DataGridTextColumn Header="재작업 원인"
+                                            Binding="{Binding ReworkReasonDisplay}"
+                                            Width="220"
+                                            ElementStyle="{StaticResource GridLeftTextStyle}" />
                     </DataGrid.Columns>
                 </DataGrid>
 

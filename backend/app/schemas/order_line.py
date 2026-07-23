@@ -98,6 +98,7 @@ class OrderLineOut(OrderLineBase):
     decision_made_by: Optional[str] = None
 
     available_inventory_qty: int = 0
+    reserved_stock_qty: int = 0
     recommended_fulfillment_mode: Optional[OrderLineFulfillmentMode] = None
     recommended_production_qty: int = 0
     planned_production_qty: int = 0

@@ -140,6 +140,11 @@ class RawMaterialMovementOut(BaseModel):
     source_id: Optional[int] = None
     transfer_key: Optional[str] = None
     memo: Optional[str] = None
+    usage_product_display: str = "-"
+    usage_lot_display: str = "-"
+    usage_partner_display: str = "-"
+    work_instruction_no: str = "-"
+    work_group_seq: str = "-"
     created_at: datetime
 
 class RawMaterialMovementListOut(BaseModel):

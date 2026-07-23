@@ -168,6 +168,12 @@ namespace Mes.Wpf.Modules.Lots.ViewModels
                 return false;
             }
 
+            if (string.IsNullOrWhiteSpace(EditModel.Memo))
+            {
+                _messageService.ShowWarning("재작업 원인을 입력해주세요.");
+                return false;
+            }
+
             if (!EditModel.PlanQty.HasValue || EditModel.PlanQty.Value <= 0)
             {
                 _messageService.ShowWarning("계획수량은 1 이상이어야 합니다.");
@@ -243,7 +249,7 @@ namespace Mes.Wpf.Modules.Lots.ViewModels
                 ParentLotId = EditModel.ParentLotId,
                 LotQty = EditModel.PlanQty ?? 0,
                 CreatedDate = DateTime.Today,
-                Memo = string.IsNullOrWhiteSpace(EditModel.Memo) ? null : EditModel.Memo,
+                Memo = EditModel.Memo,
             };
 
             IsLoading = true;

@@ -2,8 +2,8 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="원자재 배정"
-        Width="900"
-        Height="620"
+        Width="1040"
+        Height="760"
         WindowStartupLocation="CenterOwner"
         ResizeMode="CanResize">
     <Grid Margin="16">
@@ -13,6 +13,8 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="10" />
             <RowDefinition Height="*" />
+            <RowDefinition Height="10" />
+            <RowDefinition Height="0.65*" />
             <RowDefinition Height="12" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
@@ -85,11 +87,11 @@
 
             <Button Grid.Column="16"
                     Height="30"
-                    Content="배정"
+                    Content="추가/수정"
                     Command="{Binding AssignSelectedLotCommand}" />
             <Button Grid.Column="18"
                     Height="30"
-                    Content="취소"
+                    Content="배정삭제"
                     Command="{Binding ClearSelectedLotCommand}" />
         </Grid>
 
@@ -153,17 +155,43 @@
             </DataGrid.Columns>
         </DataGrid>
 
-        <StackPanel Grid.Row="6"
+        <GroupBox Grid.Row="6" Header="현재 배정 내역 (조회 조건을 변경해도 유지)">
+            <DockPanel Margin="8">
+                <Button DockPanel.Dock="Bottom"
+                        Width="120"
+                        Height="30"
+                        Margin="0,8,0,0"
+                        HorizontalAlignment="Right"
+                        Content="선택 배정 삭제"
+                        Command="{Binding RemoveBasketAllocationCommand}" />
+                <DataGrid ItemsSource="{Binding AllocationBasket}"
+                          SelectedItem="{Binding SelectedBasketAllocation, Mode=TwoWay}"
+                          AutoGenerateColumns="False"
+                          CanUserAddRows="False"
+                          CanUserDeleteRows="False"
+                          IsReadOnly="True">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="원자재코드" Binding="{Binding MaterialCode}" Width="110" />
+                        <DataGridTextColumn Header="원자재명" Binding="{Binding MaterialName}" Width="*" />
+                        <DataGridTextColumn Header="위치" Binding="{Binding LocationName}" Width="160" />
+                        <DataGridTextColumn Header="LOT번호" Binding="{Binding LotNo}" Width="170" />
+                        <DataGridTextColumn Header="배정(M)" Binding="{Binding Qty, StringFormat={}{0:N2}}" Width="110" />
+                    </DataGrid.Columns>
+                </DataGrid>
+            </DockPanel>
+        </GroupBox>
+
+        <StackPanel Grid.Row="8"
                     Orientation="Horizontal"
                     HorizontalAlignment="Right">
             <Button Width="90"
                     Height="32"
                     Margin="0,0,8,0"
-                    Content="적용"
+                    Content="전체 적용"
                     Command="{Binding ApplyCommand}" />
             <Button Width="90"
                     Height="32"
-                    Content="취소"
+                    Content="닫기"
                     Command="{Binding CancelCommand}" />
         </StackPanel>
     </Grid>

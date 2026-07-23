@@ -97,10 +97,41 @@ Stage 1 scope:
 Stage 2 scope:
 
 - Outsource work instruction raw material allocation.
-- The WPF outsource work instruction detail panel keeps the existing layout and adds a raw-material allocation button and allocation summary/list.
+- The WPF outsource work-instruction registration screen uses a two-step workflow. Step 1 manages candidate LOT selection, individual/bundle composition, and representative-product selection. Step 2 shows each draft's total order quantity and panel size (`panel_width_mm × panel_length_mm`), keeps the selected LOT rows visible, accepts LOT-level bundle cut counts, and manages the input source, material allocation, production calculation, plate data, and memo.
+- For a bundle draft, the total cut count is recalculated from the LOT-level manual cut count when present, otherwise from the product's default cut count. Final save still rejects a missing cut count or a total that does not match the LOT-level sum.
+- Moving between steps or between added work-instruction drafts does not recreate the draft. All unsaved input remains in the existing client-side draft until final batch save or reset.
+- The added-work-instruction lists show configuration and detail-input progress for navigation. These progress labels are advisory; the existing final-save validation and server transaction remain authoritative.
+- The WPF outsource work instruction detail step includes a raw-material allocation button and allocation summary/list.
+- The raw-material allocation window keeps a persistent allocation basket keyed by raw-material inventory LOT. Changing material or warehouse search criteria replaces only the query grid; allocations already added from other locations remain visible in the basket and are applied together.
 - Before saving, allocation rows are held only in the screen state and are used as temporary reservations so another draft in the same batch cannot reuse the same available quantity.
 - On final outsource work instruction save, raw material LOT stock and material-location stock are reduced in the same database transaction.
 - Final save creates `CONSUME_OUT` rows in `raw_material_inventory_movement` and stores allocation snapshots in `outsource_work_group_raw_material_allocation`.
+
+Self-use sheet workflow:
+
+- The operational term is `자가사용 시트지` (self-use sheet). A self-use sheet is not a newly purchased raw material and is not a product LOT. It is processed stock created from one or more existing raw material inventory LOTs of the same raw material.
+- `SelfUseSheetManagementPage` handles draft registration, raw material issue or outsource dispatch, cutting completion, processing fee entry, cancellation, and creation of the self-use sheet LOT.
+- `SelfUseSheetInventoryPage` handles self-use sheet current stock, cost inquiry, use for printing setup, sample production, test/R&D, or another documented purpose, and use reversal.
+- A completed sheet LOT is received into the source raw-material location of the first job allocation. Current stock is held both as a LOT total and as location balances. Location transfer creates paired `TRANSFER_OUT`/`TRANSFER_IN` ledger rows and does not change the LOT total.
+- Job status flows from `DRAFT` to `IN_PROGRESS` to `COMPLETED`. `CANCELED` is terminal.
+- A draft does not change stock. Starting an internal cutting job creates `CONSUME_OUT` raw material movements immediately so the allocated stock cannot be reused by another operation. Starting an outsource cutting job moves the allocated raw material to the selected vendor's active `OUTSOURCE_VENDOR` location with paired transfer movements.
+- If the selected active vendor has no `OUTSOURCE_VENDOR` raw-material location when an outsource self-use sheet job starts, the service creates one automatically in the same transaction. An existing inactive vendor location is reactivated and reused because deactivation is allowed only when its inventory is zero.
+- Completion requires `actual_consumed_qty + returned_qty = planned_qty` for every raw material allocation. Internal unused quantity is restored with `CONSUME_REVERSE`; outsource unused quantity is transferred back to the original location.
+- Completion creates one `self_use_sheet_inventory_lot` in `EA`/sheet-count terms. Its material amount is based on raw material LOT unit-cost snapshots; processing fee is stored separately; total and per-sheet cost are calculated at completion.
+- Self-use sheet use creates an append-only `USE_OUT` movement. A correction creates `USE_REVERSE`; existing movement rows are never overwritten or deleted.
+- An in-progress cancellation restores all issued or dispatched raw material. A completed job can be canceled only while the generated self-use sheet LOT is completely unused. Cancellation creates opposite raw-material movements and a `CANCEL_OUT` self-use sheet movement.
+- All write transitions use optimistic `version` checks. A stale screen receives HTTP 409 and must reload before retrying.
+- `OTHER` purpose requires a memo at both job registration and sheet use.
+- Planned sheet output is calculated from the selected raw-material input length and cutting dimensions using the existing outsource-cutting rule: 98% usable input length, division by cut length, rounding to the nearest 5 sheets, and a width multiplier of 2 for 250 mm or 300 mm cutting width. Only raw materials with UOM `M` can use this workflow. The server recalculates and rejects a mismatched client value.
+- These screens reuse `RAW_MATERIAL_INVENTORIES.VIEW` and `RAW_MATERIAL_INVENTORIES.WRITE` because the workflow is part of controlled raw material inventory operations.
+- Normal order/product LOT production remains in the existing outsource work-instruction flow. Self-use sheet jobs must not be used to bypass production LOT traceability.
+- Outsource work-instruction registration now records `RAW_MATERIAL` or `SELF_USE_SHEET` per work group. A self-use sheet allocation is mutually exclusive with raw-roll allocation. Before stock is consumed, every product panel in the work group must fit within the selected sheet dimensions; 90-degree rotation is allowed, while a sheet smaller than any panel is rejected.
+- A self-use sheet is already cut, so cutting is skipped without changing the product routing template. Blank products start at `DIECUT`; printed products start at `PRINT`. The work group stores `cut_skipped_reason=SELF_USE_SHEET` as the execution snapshot.
+- CUT purchase-order targets exclude every work group with a non-null `cut_skipped_reason`. The purchase-order write service repeats the same rule and rejects a stale or direct CUT request with HTTP 409. This preserves normal roll-material print routing (`CUT -> PRINT`) while self-use-sheet print routing starts at `PRINT`.
+- Saving a self-use-sheet work instruction reduces the selected sheet LOT/location balance and creates `WORK_USE_OUT`. Cancel restores the exact source location with `WORK_USE_REVERSE`. Allocation changes are handled by cancel-and-recreate so the immutable stock and provenance audit trail is preserved.
+- Every work-instruction self-use-sheet allocation copies the source raw-material LOT number, material, source location, consumed quantity, unit cost, and amount from the cutting job into immutable source snapshot rows. Later master-data or inventory changes therefore do not alter the work instruction's provenance.
+- The self-use-sheet movement tab is a global, latest-first ledger rather than a selected-LOT-only view. It supports sheet/material keyword, movement type, date, and server-side page filters. Manual `USE_OUT` reversal remains available there, while `WORK_USE_OUT` can be reversed only through the related outsource work-group cancellation flow.
+- Raw-material and self-use-sheet movement rows resolve outsource consumption through their allocation source to the work group items. The grids show the used product, product LOT, and ordering customer; a bundle is summarized as the first value plus `외 N건` or `외 N곳`. Movements without a product-production destination display `-` and no duplicate destination history is stored.
 
 Raw material management refactor closure:
 
@@ -108,6 +139,9 @@ Raw material management refactor closure:
 - `raw_material_query.py` owns raw material list, location list, LOT inventory list, and movement-history list queries.
 - `raw_material_inventory_service.py` owns inbound, location transfer, and adjustment rules, including material-location stock, LOT stock, paired transfer movements, and movement amount snapshots.
 - `raw_material_master_service.py` owns raw material item and location create/update/deactivate rules, including code normalization, location-type validation, partner validation, and blocking deactivation when stock remains.
+- `self_use_sheet_service.py` owns self-use-sheet write transitions and stock mutations. `self_use_sheet_query.py` owns job, inventory, and movement read models; the write module re-exports the query functions only for compatibility with existing internal imports.
+- Outsource work-instruction WPF save flow keeps validation, request construction, and API submission in separate methods. This is an internal separation only; bundle/individual, plate-file, raw-roll, self-use-sheet, representative LOT, and cut-count rules are unchanged.
+- Repository text conventions are declared in `.gitattributes`: backend and documentation text uses LF, while Visual Studio/WPF source uses CRLF. Python bytecode is ignored and must not be tracked.
 - Manual WPF screen checks were completed for raw material master and inventory flows after the refactor.
 - No database schema change was made for this refactor, so the raw material DB architecture remains unchanged.
 
@@ -238,11 +272,16 @@ Internal official received quantity is calculated from inspection results:
 Inspection result management refactor notes:
 
 - Inspection-result list and detail read logic is separated into `inspection_result_query.py`.
-- The completed inspection-result list is paged with `page` and `size`. Its response summary fields are totals for the full filtered result, not only the current page.
-- `inspection_result_query.py` owns the completed-result list query, prior partial/done accumulated summary, and inventory/shipment summary shown in the inspection-result dialog.
+- The inspection-result list includes both `PARTIAL_DONE` and `DONE` result rows and is paged with `page` and `size`. Its response summary fields are totals for the full filtered result, not only the current page.
+- Each list/detail result exposes its LOT inspection round, total round count, split/final classification, next inspection date, and partial reason. The detail response also contains the chronological round summary for the LOT.
+- A split result requires both the next inspection date and a non-blank partial reason in the backend service; final-result saves clear split-only fields.
+- `inspection_result_query.py` owns the result list query, prior partial/done accumulated summary, round history, and inventory/shipment summary shown in the inspection-result dialog.
 - Defect photo upload/download file validation and storage-path resolution are separated into `inspection_result_attachment_service.py`.
 - The inspection-result router delegates list/detail read models to the query service and file handling to the attachment service.
 - Inspection-result save and settlement rules remain in `inspection_result_service.py`; this refactor step did not change inventory settlement, shipment waiting, defect-line saving, or attachment persistence behavior.
+- Inspection-result management opens completed results in a read-only detail window. Users with `INSPECTIONS.WRITE` can open a separate edit window; a successful save closes the edit window and reloads the detail and management list.
+- Result detail responses preserve result memo, defect quantity, defect disposition, and attachment identifiers. Stored defect images can be opened from both read-only and edit windows.
+- Completed-result updates send the previously loaded `updated_at` value. The backend rejects stale writes with HTTP 409 so one user cannot silently overwrite another user's change.
 - Inspection result management refactoring is considered closed when the router remains limited to request parsing, service delegation, transaction commit/rollback, and `FileResponse` construction.
 - Current WPF usage covers inspection-result list lookup, result detail lookup, photo upload, result save, stock-lot lookup, and LOT-detail attachment image opening.
 - Keep the attachment content API because LOT detail history can use stored inspection-defect attachment ids to open defect images.
@@ -259,7 +298,11 @@ Order planning separates physical inventory from available inventory.
 
 Stock usage rules:
 
-- Stock-only shipment and close: when the processing plan is confirmed, stock shipment lines are created and immediately confirmed. Inventory is deducted at that point because no production LOT or inspection result follows.
+- When a newly registered order has enough available inventory for the full shipment target, stock shipment lines are created in `WAITING` as a reservation. The order remains `OPEN` with `decision_made = false` so the registrant can review the automatic recommendation.
+- Full-stock confirmation: `AUTO_STOCK_SHIP` confirms the existing reservation, deducts product and inventory-LOT quantities, records `SHIP_OUT`, and completes the order without a production LOT.
+- Full-stock production change: `AUTO_PRODUCTION` cancels the existing stock reservation and confirms a production-first plan. The order remains `OPEN` until the user creates the base LOT with the existing action.
+- While a full-stock reservation is waiting for confirmation, partner, product, and order quantity changes are rejected so the reserved quantity cannot diverge from the shipment target. Due date and memo edits remain available.
+- Stock-only shipment and close for partial inventory: when the user confirms that option, stock shipment lines are created and immediately confirmed. Inventory is deducted at that point because no production LOT or inspection result follows.
 - Partial stock plus production: when the processing plan is confirmed, stock shipment lines remain in `WAITING` status as reserved inventory. The reserved quantity is excluded from availability for later orders.
 - When inspection result is saved for partial stock plus production, the reserved stock shipment lines are consumed first and changed to `DONE`; only any remaining requested stock shipment quantity is allocated from FIFO available inventory.
 - Unused stock reservations for the order line are canceled when final inspection settlement no longer uses them.
@@ -273,6 +316,7 @@ Order-line management refactor notes:
 - Order-line update rules are handled by `order_line_update_service`.
 - Order-line fulfillment-plan save rules are handled by `order_line_plan_service`.
 - Order-line list lookup is handled directly by `order_line_list_query`.
+- Order-line lists are ordered by newest registration first; lines within the same order remain in ascending line-number order.
 - OrderLine response assembly for partner/product display fields and optional plan summary is handled by `order_line_response_builder`.
 - Order-line detail DTO assembly is handled by `order_line_detail_query` so detail lookup, detail update responses, and cancel responses share the same display flag and timeline rules.
 - Order-line detail edit rules are handled by `order_line_detail_update_service`.
@@ -381,16 +425,26 @@ Product history monitoring is a product-to-LOT trace view.
 - LOT management list status treats a LOT as `IN_PROGRESS` when it belongs to an active, non-canceled outsource work group, even if the stored `lot.status` is still `WAITING`.
 - Stored LOT status is limited to `WAITING`, `RECEIVED`, `IN_PROGRESS`, `PARTIAL_DONE`, `DONE`, and `CANCELED`; `CREATED` and `INSPECTION_DONE` are list display states only.
 - Historical `PARTIAL_DONE` inspection schedules do not block LOT completion; when the follow-up inspection is `DONE`, the stored LOT status becomes `DONE`.
+- Inspection schedule and inspection result flows share the same LOT status synchronization service. The split-to-final sequence is covered by an integration test that verifies `PARTIAL_DONE + DONE` completes both the LOT and, when all non-canceled LOTs are done, the order line.
 - The legacy `POST /api/v1/lot-steps/{id}/start` and `POST /api/v1/lot-steps/{id}/complete` manual process-control APIs were removed after confirming they are not used externally.
 - Current outsource process control must use outsource work instruction groups, Bohyun inbound/work-done/shipment status, inspection schedule receive/start, and inspection result registration instead of manual LOT-step start/complete.
 - Keep `lot_step` rows as routing/process snapshots for LOT creation, detail display, and not-started checks, but do not use the legacy LOT-step APIs as the operational progress source.
 - `lot_step` rows remain part of the routing snapshot and history model even though the manual transition API no longer exists.
 
 - LOT trace detail assembly is handled by `lot_trace_query.py`, including LOT basics, latest order planning snapshot, current product stock, outsource work history, inspection totals, defects, and defect attachment image URLs.
+- LOT trace detail also exposes chronological `timeline` events and `inspection_rounds`. Timeline events are assembled on the server from LOT creation/terminal status, outsource instruction/receipt/completion/shipment timestamps, and every inspection schedule/result so the client does not infer business history from display flags.
+- The WPF LOT detail window uses a timeline-first layout: fixed KPI summary, chronological event list, compact core information, outsource summary, all inspection rounds, and defect-image actions. Rework LOT creation events include the parent LOT and stored rework reason.
+- LOT-detail defect rows preserve their originating inspection result and expose inspection round, inspection date, and split/final classification. The WPF defect table orders rows by inspection round so defects from split and final inspections are not mixed into an unlabeled LOT-wide list.
+- The WPF LOT detail window shows the memo entered during inspection-result registration in a dedicated section below the defect table. Each completed inspection-result round remains visible even when its memo is blank, while pending schedules are excluded. Split reasons remain in the inspection-round table's final column and are not mixed into the result-memo section.
 - The LOT router should keep the trace-detail endpoint limited to request handling and service delegation.
 - Manual rework LOT creation through `POST /api/v1/lots` is handled by `lot_rework_service.py`.
 - Rework LOT creation requires a selected primary parent LOT in `DONE` or `CANCELED` status, creates routing steps from the product routing template, and changes a `DONE` order line back to `CLOSED` so rework can proceed.
+- Rework LOT creation also requires a non-blank reason in `lot.memo`. The WPF form validates it before submission, the service validates it again, and `ck_lot__rework_memo_required` protects the invariant in PostgreSQL.
+- LOT management and LOT detail display the stored rework reason for child LOTs.
+- The sales order detail timeline appends `재작업 원인: {lot.memo}` to rework LOT creation events; normal LOT creation events do not expose a rework-reason line.
 - Manual confirmation should open LOT detail from LOT management and product history monitoring, then verify order/product fields, outsource work rows, inspection totals, defect rows, and defect image opening.
+- The dated split-inspection completion checklist for 2026-07-15 is maintained in `docs/v2-split-inspection-manual-test-2026-07-15.md`; use it to record the test LOT, inputs, expected results, and failure evidence without deleting test data before diagnosis.
+- Deferred production-flow improvements for order-line flow selection, direct inspection, recycled-material die-cut work, and cost policy are tracked in `docs/v2-production-flow-improvement-backlog.md`. These items are not part of the current implementation and must be handled incrementally after their business rules are confirmed.
 - Manual rework confirmation should create a rework LOT from an eligible parent LOT and verify the new child LOT appears with generated LOT number, copied routing steps, and parent LOT linkage.
 
 ## Time Policy

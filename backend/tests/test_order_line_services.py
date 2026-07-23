@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import unittest
-from datetime import date
+from datetime import date, datetime
 from unittest.mock import patch
 
 from fastapi import HTTPException
@@ -35,6 +35,7 @@ from app.schemas.order_line import (
     OrderLineBulkImportRowIn,
     OrderLineCreate,
     OrderLineFulfillmentPlanUpdate,
+    OrderLinePlanConfirmRequest,
     OrderLineShortCloseRequest,
     OrderLineUpdate,
 )
@@ -47,7 +48,10 @@ from app.services.order_line_detail_query import get_order_line_detail_dto
 from app.services.order_line_detail_update_service import update_order_line_detail_fields
 from app.services.order_line_lot_context_query import get_lot_create_context_dto
 from app.services.order_line_list_query import list_order_lines_for_grid
-from app.services.order_line_plan_service import update_order_line_fulfillment_plan_config
+from app.services.order_line_plan_service import (
+    confirm_order_line_plan_decision,
+    update_order_line_fulfillment_plan_config,
+)
 from app.services.order_line_response_builder import build_order_line_out, get_order_line_out_by_id
 from app.services.order_line_short_close_service import short_close_order_line_status
 from app.services.order_line_update_service import update_order_line_fields
@@ -138,6 +142,31 @@ class OrderLineServicesTests(unittest.TestCase):
         self.assertEqual([200], [item["order_line_id"] for item in exact_po_items])
         self.assertEqual([200], [item["order_line_id"] for item in partial_product_items])
 
+    def test_order_line_list_orders_latest_registration_first(self) -> None:
+        older = self._seed_open_order_line_without_lots()
+        older.order_no = "SO-000-OLDEST"
+        older.created_at = datetime(2026, 1, 1, 9, 0, 0)
+        newer = OrderLine(
+            order_line_id=201,
+            order_no="SO-NEWEST",
+            line_no=1,
+            partner_id=1,
+            product_id=1,
+            order_date=date(2026, 1, 2),
+            due_date=date(2026, 1, 31),
+            order_qty=100,
+            uom="EA",
+            status="OPEN",
+            is_active=True,
+            created_at=datetime(2026, 1, 2, 9, 0, 0),
+        )
+        self.db.add(newer)
+        self.db.flush()
+
+        items, _ = list_order_lines_for_grid(self.db, page=1, size=20)
+
+        self.assertEqual([201, 200], [item["order_line_id"] for item in items])
+
     def test_create_order_line_without_inventory_creates_primary_lot(self) -> None:
         with patch("app.services.order_line_creation_service.refresh_order_line_snapshot") as refresh:
             order_line = create_order_line_with_policy(self.db, self._payload("SO-AUTO-LOT", 100))
@@ -159,7 +188,7 @@ class OrderLineServicesTests(unittest.TestCase):
         self.assertEqual([], shipment_lines)
         refresh.assert_called_once_with(self.db, order_line.order_line_id)
 
-    def test_create_order_line_with_enough_inventory_creates_stock_waiting_line(self) -> None:
+    def test_create_order_line_with_enough_inventory_reserves_stock_for_confirmation(self) -> None:
         self._seed_inventory(product_id=1, qty=300)
 
         order_line = create_order_line_with_policy(self.db, self._payload("SO-STOCK", 100))
@@ -171,15 +200,150 @@ class OrderLineServicesTests(unittest.TestCase):
         shipment_lines = self.db.execute(
             select(ShipmentLine).where(ShipmentLine.order_line_id == order_line.order_line_id)
         ).scalars().all()
+        inventory = self.db.execute(
+            select(ProductInventory).where(ProductInventory.product_id == order_line.product_id)
+        ).scalar_one()
+        inventory_lot = self.db.execute(
+            select(ProductInventoryLot).where(ProductInventoryLot.product_id == order_line.product_id)
+        ).scalar_one()
+        movements = self.db.execute(
+            select(ProductInventoryMovement).where(
+                ProductInventoryMovement.order_line_id == order_line.order_line_id,
+                ProductInventoryMovement.movement_type == "SHIP_OUT",
+            )
+        ).scalars().all()
 
-        self.assertEqual("DONE", order_line.status)
-        self.assertTrue(order_line.decision_made)
-        self.assertEqual("AUTO_STOCK_SHIP", histories[0].plan_type)
-        self.assertEqual(102, histories[0].stock_ship_qty)
+        self.assertEqual("OPEN", order_line.status)
+        self.assertFalse(order_line.decision_made)
+        self.assertEqual([], histories)
         self.assertEqual([], lots)
         self.assertEqual(1, len(shipment_lines))
         self.assertEqual("WAITING", shipment_lines[0].status)
         self.assertEqual(102, shipment_lines[0].ship_qty)
+        self.assertEqual(0, shipment_lines[0].shipped_qty)
+        self.assertEqual(300, inventory.current_qty)
+        self.assertEqual(300, inventory_lot.current_qty)
+        self.assertEqual([], movements)
+
+        items, _ = list_order_lines_for_grid(self.db, page=1, size=20)
+        item = next(row for row in items if row["order_line_id"] == order_line.order_line_id)
+        self.assertEqual(198, item["available_inventory_qty"])
+        self.assertEqual(102, item["reserved_stock_qty"])
+        self.assertEqual("INVENTORY_FIRST", item["recommended_fulfillment_mode"])
+        self.assertEqual(0, item["planned_production_qty"])
+        self.assertEqual(102, item["expected_ship_qty"])
+
+    def test_confirm_reserved_stock_shipment_deducts_inventory_and_completes_order(self) -> None:
+        self._seed_inventory(product_id=1, qty=300)
+        order_line = create_order_line_with_policy(self.db, self._payload("SO-STOCK-CONFIRM", 100))
+
+        with (
+            patch("app.services.shipment_confirm_service.refresh_order_line_snapshot"),
+            patch("app.services.shipment_confirm_service.refresh_order_line_snapshots_for_product"),
+            patch("app.services.order_line_plan_service.refresh_order_line_snapshot"),
+            patch("app.services.order_line_plan_service.refresh_order_line_snapshots_for_product"),
+        ):
+            updated, history, _, _ = confirm_order_line_plan_decision(
+                self.db,
+                order_line_id=order_line.order_line_id,
+                payload=OrderLinePlanConfirmRequest(plan_type="AUTO_STOCK_SHIP"),
+            )
+
+        shipment_lines = self.db.execute(
+            select(ShipmentLine).where(ShipmentLine.order_line_id == order_line.order_line_id)
+        ).scalars().all()
+        inventory = self.db.execute(
+            select(ProductInventory).where(ProductInventory.product_id == order_line.product_id)
+        ).scalar_one()
+        inventory_lot = self.db.execute(
+            select(ProductInventoryLot).where(ProductInventoryLot.product_id == order_line.product_id)
+        ).scalar_one()
+        movements = self.db.execute(
+            select(ProductInventoryMovement).where(
+                ProductInventoryMovement.order_line_id == order_line.order_line_id,
+                ProductInventoryMovement.movement_type == "SHIP_OUT",
+            )
+        ).scalars().all()
+
+        self.assertEqual("DONE", updated.status)
+        self.assertTrue(updated.decision_made)
+        self.assertEqual("AUTO_STOCK_SHIP", history.plan_type)
+        self.assertEqual(102, history.stock_ship_qty)
+        self.assertEqual(1, len(shipment_lines))
+        self.assertEqual("DONE", shipment_lines[0].status)
+        self.assertEqual(102, shipment_lines[0].shipped_qty)
+        self.assertEqual(198, inventory.current_qty)
+        self.assertEqual(198, inventory_lot.current_qty)
+        self.assertEqual(1, len(movements))
+        self.assertEqual(-102, movements[0].qty)
+
+    def test_waiting_stock_reservation_blocks_order_qty_changes(self) -> None:
+        self._seed_inventory(product_id=1, qty=300)
+        order_line = create_order_line_with_policy(self.db, self._payload("SO-STOCK-EDIT", 100))
+
+        with self.assertRaises(HTTPException) as update_ctx:
+            update_order_line_fields(
+                self.db,
+                order_line.order_line_id,
+                OrderLineUpdate(order_qty=120),
+            )
+
+        with self.assertRaises(HTTPException) as detail_ctx:
+            update_order_line_detail_fields(
+                self.db,
+                order_line.order_line_id,
+                OrderLineDetailUpdate(
+                    due_date=order_line.due_date,
+                    order_qty=120,
+                    memo=order_line.memo,
+                ),
+            )
+
+        self.assertEqual(409, update_ctx.exception.status_code)
+        self.assertEqual(409, detail_ctx.exception.status_code)
+        self.assertEqual(100, order_line.order_qty)
+
+    def test_change_reserved_stock_order_to_production_releases_reservation(self) -> None:
+        self._seed_inventory(product_id=1, qty=300)
+        order_line = create_order_line_with_policy(self.db, self._payload("SO-STOCK-PRODUCTION", 100))
+
+        with (
+            patch("app.services.order_line_plan_service.refresh_order_line_snapshot"),
+            patch("app.services.order_line_plan_service.refresh_order_line_snapshots_for_product"),
+        ):
+            updated, history, _, _ = confirm_order_line_plan_decision(
+                self.db,
+                order_line_id=order_line.order_line_id,
+                payload=OrderLinePlanConfirmRequest(plan_type="AUTO_PRODUCTION"),
+            )
+
+        shipment_lines = self.db.execute(
+            select(ShipmentLine).where(ShipmentLine.order_line_id == order_line.order_line_id)
+        ).scalars().all()
+        inventory = self.db.execute(
+            select(ProductInventory).where(ProductInventory.product_id == order_line.product_id)
+        ).scalar_one()
+        movements = self.db.execute(
+            select(ProductInventoryMovement).where(
+                ProductInventoryMovement.order_line_id == order_line.order_line_id,
+            )
+        ).scalars().all()
+
+        self.assertEqual("OPEN", updated.status)
+        self.assertTrue(updated.decision_made)
+        self.assertEqual("PRODUCTION_FIRST", updated.fulfillment_mode)
+        self.assertEqual("ORDER_ONLY", updated.production_policy)
+        self.assertEqual("AUTO_PRODUCTION", history.plan_type)
+        self.assertEqual(102, history.production_qty)
+        self.assertEqual(1, len(shipment_lines))
+        self.assertEqual("CANCELED", shipment_lines[0].status)
+        self.assertEqual(300, inventory.current_qty)
+        self.assertEqual([], movements)
+
+        items, _ = list_order_lines_for_grid(self.db, page=1, size=20)
+        item = next(row for row in items if row["order_line_id"] == order_line.order_line_id)
+        self.assertEqual(0, item["reserved_stock_qty"])
+        self.assertEqual(102, item["planned_production_qty"])
 
     def test_create_order_line_with_partial_inventory_waits_for_decision(self) -> None:
         self._seed_inventory(product_id=1, qty=50)
@@ -257,6 +421,34 @@ class OrderLineServicesTests(unittest.TestCase):
         self.assertEqual("재단", lot_map["LOT-STARTED"].current_process_name)
         self.assertTrue(lot_map["LOT-STARTED"].is_editable)
         self.assertTrue(any(item.event_type == "PLAN_CONFIRMED" for item in detail.timeline))
+
+    def test_order_line_detail_timeline_includes_rework_reason(self) -> None:
+        order_line = self._seed_closed_order_line_with_lots()
+        self.db.add(
+            Lot(
+                lot_id=103,
+                lot_no="LOT-REWORK",
+                order_line_id=order_line.order_line_id,
+                product_id=1,
+                parent_lot_id=101,
+                lot_qty=10,
+                uom="EA",
+                created_date=date(2026, 1, 3),
+                due_date=date(2026, 1, 31),
+                status="WAITING",
+                memo="표면 주름 불량 재작업",
+            )
+        )
+        self.db.flush()
+
+        detail = get_order_line_detail_dto(self.db, order_line.order_line_id)
+        rework_created = next(
+            item
+            for item in detail.timeline
+            if item.event_type == "LOT_CREATED" and item.ref_id == 103
+        )
+
+        self.assertIn("재작업 원인: 표면 주름 불량 재작업", rework_created.message)
 
     def test_order_line_detail_can_exclude_plan_history_for_post_action_response(self) -> None:
         order_line = self._seed_closed_order_line_with_lots()

@@ -24,6 +24,13 @@ class OutsourceWorkInstructionRawMaterialAllocationCreate(BaseModel):
     memo: Optional[str] = None
 
 
+class OutsourceWorkInstructionSelfUseSheetAllocationCreate(BaseModel):
+    self_use_sheet_inventory_lot_id: int = Field(..., ge=1)
+    source_location_id: int = Field(..., ge=1)
+    qty: int = Field(..., gt=0)
+    memo: Optional[str] = None
+
+
 class OutsourceWorkInstructionGroupCreate(BaseModel):
     group_seq: Optional[str] = None
     is_bundle: bool = False
@@ -35,6 +42,8 @@ class OutsourceWorkInstructionGroupCreate(BaseModel):
     remark: Optional[str] = None
     items: List[OutsourceWorkInstructionGroupItemCreate] = Field(..., min_length=1)
     raw_material_allocations: List[OutsourceWorkInstructionRawMaterialAllocationCreate] = Field(default_factory=list)
+    input_source_type: str = Field(default="RAW_MATERIAL", pattern="^(RAW_MATERIAL|SELF_USE_SHEET)$")
+    self_use_sheet_allocations: List[OutsourceWorkInstructionSelfUseSheetAllocationCreate] = Field(default_factory=list)
 
 class OutsourceWorkInstructionBatchGroupCreate(BaseModel):
     customer_partner_id: int
@@ -191,12 +200,41 @@ class OutsourceWorkGroupRawMaterialAllocationOut(BaseModel):
     created_at: datetime
 
 
+class OutsourceWorkGroupSelfUseSheetSourceOut(BaseModel):
+    raw_material_inventory_lot_id: Optional[int] = None
+    material_code: str
+    material_name: str
+    raw_material_lot_no: str
+    source_location_name: str
+    actual_consumed_qty: Decimal
+    unit_cost_snapshot: Decimal
+    amount_snapshot: Decimal
+
+
+class OutsourceWorkGroupSelfUseSheetAllocationOut(BaseModel):
+    outsource_work_group_self_use_sheet_allocation_id: int
+    self_use_sheet_inventory_lot_id: int
+    source_location_id: int
+    source_location_name: str
+    sheet_lot_no: str
+    cut_width_mm: Decimal
+    cut_length_mm: Decimal
+    qty: int
+    unit_cost_snapshot: Decimal
+    amount_snapshot: Decimal
+    status: str
+    source_lots: List[OutsourceWorkGroupSelfUseSheetSourceOut] = Field(default_factory=list)
+    created_at: datetime
+
+
 class OutsourceWorkGroupListItemOut(BaseModel):
     outsource_work_group_id: int
     outsource_work_instruction_id: int
     instruction_no: str
     instruction_date: date
     process_type: str
+    input_source_type: str = "RAW_MATERIAL"
+    cut_skipped_reason: Optional[str] = None
     partner_id: int
     partner_name: Optional[str] = None
     group_seq: str
@@ -230,6 +268,7 @@ class OutsourceWorkGroupListOut(BaseModel):
 class OutsourceWorkGroupDetailOut(OutsourceWorkGroupListItemOut):
     lots: List[OutsourceWorkGroupLotOut] = Field(default_factory=list)
     raw_material_allocations: List[OutsourceWorkGroupRawMaterialAllocationOut] = Field(default_factory=list)
+    self_use_sheet_allocations: List[OutsourceWorkGroupSelfUseSheetAllocationOut] = Field(default_factory=list)
     files: List[OutsourceWorkInstructionFileOut] = Field(default_factory=list)
 
 

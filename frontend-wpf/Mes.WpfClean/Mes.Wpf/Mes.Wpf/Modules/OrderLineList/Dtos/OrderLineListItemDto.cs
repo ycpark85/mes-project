@@ -83,6 +83,9 @@ namespace Mes.Wpf.Modules.OrderLineList.Dtos
         [JsonPropertyName("available_inventory_qty")]
         public int AvailableInventoryQty { get; set; }
 
+        [JsonPropertyName("reserved_stock_qty")]
+        public int ReservedStockQty { get; set; }
+
         [JsonPropertyName("recommended_fulfillment_mode")]
         public string? RecommendedFulfillmentMode { get; set; }
 
@@ -125,6 +128,22 @@ namespace Mes.Wpf.Modules.OrderLineList.Dtos
         [JsonPropertyName("plan_type_display")]
         public string? PlanTypeDisplay { get; set; }
 
+        public int AvailableInventoryForPlanQty => AvailableInventoryQty + ReservedStockQty;
+
+        public bool IsFullStockConfirmationPending =>
+            !DecisionMade
+            && Status == "OPEN"
+            && !HasLot
+            && RemainingShipQty > 0
+            && ReservedStockQty == RemainingShipQty;
+
+        public string PlanTypeDisplayForGrid => IsFullStockConfirmationPending
+            ? "재고출고 확인대기"
+            : (PlanTypeDisplay ?? "-");
+
+        public string DecisionStatusDisplay => IsFullStockConfirmationPending
+            ? "확인대기"
+            : (DecisionMade ? "결정완료" : "결정필요");
 
 
 

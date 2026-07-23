@@ -14,7 +14,7 @@ class OutsourceWorkInstruction(Base):
     __tablename__ = "outsource_work_instruction"
     __table_args__ = (
         CheckConstraint(
-            "process_type IN ('CUT','PRINT')",
+            "process_type IN ('CUT','PRINT','DIECUT')",
             name="ck_outsource_work_instruction__process_type",
         ),
         Index("ix_outsource_work_instruction__instruction_date", "instruction_date"),

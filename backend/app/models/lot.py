@@ -38,6 +38,10 @@ class Lot(Base):
             name="ck_lot__status_enum",
         ),
         CheckConstraint(
+            "parent_lot_id IS NULL OR NULLIF(TRIM(memo), '') IS NOT NULL",
+            name="ck_lot__rework_memo_required",
+        ),
+        CheckConstraint(
             "material_used_qty IS NULL OR material_used_qty > 0",
             name="ck_lot__material_used_qty_gt_0",
         ),

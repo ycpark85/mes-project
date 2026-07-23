@@ -795,6 +795,36 @@ namespace Mes.Wpf.Views.Shell
             await viewModel.InitializeAsync();
         }
 
+        private async void SelfUseSheetManagement_Click(object sender, RoutedEventArgs e)
+        {
+            var page = new SelfUseSheetManagementPage();
+            var viewModel = new SelfUseSheetManagementPageViewModel(_apiClient, _messageService);
+
+            page.DataContext = viewModel;
+            MainContent.Content = page;
+            MainContent.Visibility = Visibility.Visible;
+
+            HeaderTitle.Text = "자가사용 시트지 관리";
+            HeaderSubtitle.Text = "기존 원자재 LOT 투입 / 가공출고 / 재단완료 / 시트지 LOT 생성";
+
+            await viewModel.InitializeAsync();
+        }
+
+        private async void SelfUseSheetInventory_Click(object sender, RoutedEventArgs e)
+        {
+            var page = new SelfUseSheetInventoryPage();
+            var viewModel = new SelfUseSheetInventoryPageViewModel(_apiClient, _messageService);
+
+            page.DataContext = viewModel;
+            MainContent.Content = page;
+            MainContent.Visibility = Visibility.Visible;
+
+            HeaderTitle.Text = "자가사용 시트지 재고";
+            HeaderSubtitle.Text = "재단 시트지 LOT별 현재고 / 인쇄 셋팅·샘플 사용 / 원가·사용이력";
+
+            await viewModel.InitializeAsync();
+        }
+
         private async void Shipment_Click(object sender, RoutedEventArgs e)
         {
             var page = new ShipmentPage();
@@ -989,6 +1019,8 @@ namespace Mes.Wpf.Views.Shell
             SetMenuVisibility(OutsourceProcessingCostMenuButton, PermissionCodes.OutsourceProcessingCostsView);
             SetMenuVisibility(InventoryMenuButton, PermissionCodes.InventoriesView);
             SetMenuVisibility(RawMaterialInventoryMenuButton, PermissionCodes.RawMaterialInventoriesView);
+            SetMenuVisibility(SelfUseSheetManagementMenuButton, PermissionCodes.RawMaterialInventoriesView);
+            SetMenuVisibility(SelfUseSheetInventoryMenuButton, PermissionCodes.RawMaterialInventoriesView);
             ShipmentMenuButton.Visibility = Visibility.Collapsed;
 
             SetMenuVisibility(UserManagementMenuButton, PermissionCodes.UsersView);

@@ -128,6 +128,14 @@ public class LotListItemDto
 
         [JsonPropertyName("lot_type_display")]
         public string LotTypeDisplay { get; set; } = string.Empty;
+
+        [JsonPropertyName("memo")]
+        public string? Memo { get; set; }
+
+        [JsonIgnore]
+        public string ReworkReasonDisplay => LotType == "REWORK" && !string.IsNullOrWhiteSpace(Memo)
+            ? Memo
+            : "-";
     }
 
     public class LotDetailDto

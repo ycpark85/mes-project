@@ -2,10 +2,12 @@
 using Mes.Wpf.Core.Constants;
 using Mes.Wpf.Core.Interfaces;
 using Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos;
+using Mes.Wpf.Modules.RawMaterials.Dtos;
 using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
@@ -19,7 +21,9 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
         private readonly IMessageService _messageService;
 
         private bool _isLoading;
+        private bool _isCompositionStep = true;
         private OutsourceWorkInstructionDraftEditModel? _selectedDraft;
+        private readonly List<OutsourceSelfUseSheetOptionModel> _selfUseSheetOptions = new();
 
         public OutsourceWorkInstructionPageViewModel(
             IApiClient apiClient,
@@ -35,9 +39,16 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
             RemoveDraftCommand = new RelayCommand(RemoveDraft);
             SetRepresentativeLotCommand = new RelayCommand(SetRepresentativeLot);
             OpenRawMaterialAllocationCommand = new RelayCommand(OpenRawMaterialAllocation);
+            ChangeInputSourceCommand = new RelayCommand(
+                ChangeInputSource,
+                _ => SelectedDraft != null);
             UploadFileCommand = new AsyncRelayCommand(UploadFileAsync);
             SaveCommand = new AsyncRelayCommand(SaveAsync);
             ResetCommand = new AsyncRelayCommand(ResetAsync);
+            ShowCompositionStepCommand = new RelayCommand(ShowCompositionStep);
+            ShowDetailStepCommand = new RelayCommand(ShowDetailStep, () => Drafts.Count > 0);
+            SelectPreviousDraftCommand = new RelayCommand(SelectPreviousDraft, CanSelectPreviousDraft);
+            SelectNextDraftCommand = new RelayCommand(SelectNextDraft, CanSelectNextDraft);
         }
 
         public ObservableCollection<OutsourceWorkInstructionCandidateLotRowModel> CandidateLots { get; }
@@ -52,11 +63,54 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
 
         public RelayCommand OpenRawMaterialAllocationCommand { get; }
 
+        public RelayCommand ChangeInputSourceCommand { get; }
+
         public AsyncRelayCommand UploadFileCommand { get; }
 
         public AsyncRelayCommand SaveCommand { get; }
 
         public AsyncRelayCommand ResetCommand { get; }
+
+        public RelayCommand ShowCompositionStepCommand { get; }
+
+        public RelayCommand ShowDetailStepCommand { get; }
+
+        public RelayCommand SelectPreviousDraftCommand { get; }
+
+        public RelayCommand SelectNextDraftCommand { get; }
+
+        public bool IsCompositionStep
+        {
+            get => _isCompositionStep;
+            private set
+            {
+                if (SetProperty(ref _isCompositionStep, value))
+                {
+                    OnPropertyChanged(nameof(IsDetailStep));
+                }
+            }
+        }
+
+        public bool IsDetailStep => !IsCompositionStep;
+
+        public string SelectedDraftPositionText
+        {
+            get
+            {
+                if (SelectedDraft == null || Drafts.Count == 0)
+                {
+                    return "0 / 0";
+                }
+
+                return $"{Drafts.IndexOf(SelectedDraft) + 1} / {Drafts.Count}";
+            }
+        }
+
+        public string CompositionStatusSummary =>
+            $"작업지시 {Drafts.Count:N0}건  |  구성완료 {Drafts.Count(x => x.IsConfigurationComplete):N0}건  |  구성필요 {Drafts.Count(x => !x.IsConfigurationComplete):N0}건";
+
+        public string DetailStatusSummary =>
+            $"입력완료 {Drafts.Count(x => x.IsDetailComplete):N0}건  |  입력 중 {Drafts.Count(x => !x.IsDetailComplete && x.HasAnyDetailInput):N0}건  |  미입력 {Drafts.Count(x => !x.HasAnyDetailInput):N0}건";
 
         public bool IsLoading
         {
@@ -67,12 +121,153 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
         public OutsourceWorkInstructionDraftEditModel? SelectedDraft
         {
             get => _selectedDraft;
-            set => SetProperty(ref _selectedDraft, value);
+            set
+            {
+                if (SetProperty(ref _selectedDraft, value))
+                {
+                    ChangeInputSourceCommand.RaiseCanExecuteChanged();
+                    RefreshWorkflowValues();
+                }
+            }
         }
 
         public async Task InitializeAsync()
         {
-            await LoadCandidatesAsync();
+            await Task.WhenAll(LoadCandidatesAsync(), LoadSelfUseSheetsAsync());
+        }
+
+        private void ShowCompositionStep()
+        {
+            IsCompositionStep = true;
+        }
+
+        private void ShowDetailStep()
+        {
+            if (Drafts.Count == 0)
+            {
+                return;
+            }
+
+            SelectedDraft ??= Drafts[0];
+            IsCompositionStep = false;
+            RefreshWorkflowValues();
+        }
+
+        private bool CanSelectPreviousDraft()
+        {
+            return SelectedDraft != null && Drafts.IndexOf(SelectedDraft) > 0;
+        }
+
+        private void SelectPreviousDraft()
+        {
+            if (!CanSelectPreviousDraft() || SelectedDraft == null)
+            {
+                return;
+            }
+
+            SelectedDraft = Drafts[Drafts.IndexOf(SelectedDraft) - 1];
+        }
+
+        private bool CanSelectNextDraft()
+        {
+            return SelectedDraft != null
+                && Drafts.IndexOf(SelectedDraft) >= 0
+                && Drafts.IndexOf(SelectedDraft) < Drafts.Count - 1;
+        }
+
+        private void SelectNextDraft()
+        {
+            if (!CanSelectNextDraft() || SelectedDraft == null)
+            {
+                return;
+            }
+
+            SelectedDraft = Drafts[Drafts.IndexOf(SelectedDraft) + 1];
+        }
+
+        private void SubscribeDraft(OutsourceWorkInstructionDraftEditModel draft)
+        {
+            draft.PropertyChanged += DraftPropertyChanged;
+            foreach (var lot in draft.Lots)
+            {
+                lot.PropertyChanged += DraftLotPropertyChanged;
+            }
+        }
+
+        private void UnsubscribeDraft(OutsourceWorkInstructionDraftEditModel draft)
+        {
+            draft.PropertyChanged -= DraftPropertyChanged;
+            foreach (var lot in draft.Lots)
+            {
+                lot.PropertyChanged -= DraftLotPropertyChanged;
+            }
+        }
+
+        private void DraftPropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            RefreshWorkflowValues();
+        }
+
+        private void DraftLotPropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (sender is not OutsourceWorkInstructionCandidateLotRowModel changedLot)
+            {
+                return;
+            }
+
+            foreach (var draft in Drafts.Where(x => x.Lots.Contains(changedLot)))
+            {
+                if (e.PropertyName == nameof(OutsourceWorkInstructionCandidateLotRowModel.ManualCutsPerSheet))
+                {
+                    draft.RecalculateBundleCutTotal();
+                }
+
+                draft.RefreshValidationValues();
+            }
+        }
+
+        private void RefreshWorkflowValues()
+        {
+            OnPropertyChanged(nameof(SelectedDraftPositionText));
+            OnPropertyChanged(nameof(CompositionStatusSummary));
+            OnPropertyChanged(nameof(DetailStatusSummary));
+            ShowDetailStepCommand.RaiseCanExecuteChanged();
+            SelectPreviousDraftCommand.RaiseCanExecuteChanged();
+            SelectNextDraftCommand.RaiseCanExecuteChanged();
+        }
+
+        private void ClearDraftSubscriptions()
+        {
+            foreach (var draft in Drafts)
+            {
+                UnsubscribeDraft(draft);
+            }
+        }
+
+        private async Task LoadSelfUseSheetsAsync()
+        {
+            var result = await _apiClient.GetAsync<SelfUseSheetInventoryListDto>(
+                $"{ApiRoutes.SelfUseSheetInventory}?status=AVAILABLE&page=1&size=200");
+            _selfUseSheetOptions.Clear();
+            if (!result.Success || result.Data == null) return;
+            foreach (var lot in result.Data.Items)
+            {
+                foreach (var location in lot.Locations.Where(x => x.CurrentQty > 0))
+                {
+                    _selfUseSheetOptions.Add(new OutsourceSelfUseSheetOptionModel
+                    {
+                        SelfUseSheetInventoryLotId = lot.SelfUseSheetInventoryLotId,
+                        SourceLocationId = location.RawMaterialLocationId,
+                        SheetLotNo = lot.SheetLotNo,
+                        MaterialName = lot.MaterialName,
+                        LocationName = location.LocationName,
+                        CutWidthMm = lot.CutWidthMm,
+                        CutLengthMm = lot.CutLengthMm,
+                        CurrentQty = location.CurrentQty,
+                        SourceLotSummary = lot.SourceLotSummary
+                    });
+                }
+            }
         }
 
         private async Task LoadCandidatesAsync()
@@ -156,8 +351,22 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
             }
 
             draft.RefreshDerivedValues();
+            draft.RecalculateBundleCutTotal();
+            foreach (var option in _selfUseSheetOptions.Where(option =>
+                         draft.Lots.All(lot =>
+                             lot.PanelWidthMm.HasValue
+                             && lot.PanelLengthMm.HasValue
+                             && ((lot.PanelWidthMm.Value <= option.CutWidthMm
+                                     && lot.PanelLengthMm.Value <= option.CutLengthMm)
+                                 || (lot.PanelWidthMm.Value <= option.CutLengthMm
+                                     && lot.PanelLengthMm.Value <= option.CutWidthMm)))))
+            {
+                draft.AvailableSelfUseSheets.Add(option);
+            }
+            draft.RefreshSelfUseSheetAvailability();
 
             Drafts.Add(draft);
+            SubscribeDraft(draft);
             SelectedDraft = draft;
 
             foreach (var lot in selectedLots)
@@ -167,6 +376,7 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
 
             OnPropertyChanged(nameof(Drafts));
             OnPropertyChanged(nameof(SelectedDraft));
+            RefreshWorkflowValues();
         }
 
         private void RemoveDraft()
@@ -177,7 +387,10 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
                 return;
             }
 
-            foreach (var lot in SelectedDraft.Lots)
+            var removedDraft = SelectedDraft;
+            UnsubscribeDraft(removedDraft);
+
+            foreach (var lot in removedDraft.Lots)
             {
                 lot.IsSelected = false;
                 lot.IsRepresentative = false;
@@ -185,11 +398,48 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
                 CandidateLots.Add(lot);
             }
 
-            Drafts.Remove(SelectedDraft);
-            SelectedDraft = null;
+            var removedIndex = Drafts.IndexOf(removedDraft);
+            Drafts.Remove(removedDraft);
+            SelectedDraft = Drafts.Count == 0
+                ? null
+                : Drafts[Math.Min(removedIndex, Drafts.Count - 1)];
+
+            if (Drafts.Count == 0)
+            {
+                IsCompositionStep = true;
+            }
 
             OnPropertyChanged(nameof(Drafts));
             OnPropertyChanged(nameof(SelectedDraft));
+            RefreshWorkflowValues();
+        }
+
+        private void ChangeInputSource(object? parameter)
+        {
+            if (SelectedDraft == null || parameter is not string inputSourceType
+                || inputSourceType is not ("RAW_MATERIAL" or "SELF_USE_SHEET")
+                || SelectedDraft.InputSourceType == inputSourceType)
+            {
+                return;
+            }
+
+            var hasCurrentInput = SelectedDraft.IsRawMaterialSource
+                ? SelectedDraft.LengthM.GetValueOrDefault() > 0
+                    || SelectedDraft.RawMaterialAllocations.Count > 0
+                    || !string.IsNullOrWhiteSpace(SelectedDraft.FabricLotNo)
+                : SelectedDraft.SelectedSelfUseSheet != null || SelectedDraft.SelfUseSheetQty > 0;
+
+            if (hasCurrentInput)
+            {
+                var targetName = inputSourceType == "RAW_MATERIAL" ? "롤 원단" : "자가사용 시트지";
+                if (!_messageService.Confirm(
+                        $"투입 형태를 {targetName}(으)로 변경하면 현재 투입 정보가 초기화됩니다.\n계속하시겠습니까?"))
+                {
+                    return;
+                }
+            }
+
+            SelectedDraft.InputSourceType = inputSourceType;
         }
 
         public event Action<RawMaterialAllocationDialogContext>? RequestOpenRawMaterialAllocation;
@@ -216,6 +466,12 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
             if (SelectedDraft == null)
             {
                 _messageService.ShowWarning("원자재를 배정할 작업지시를 선택하세요.");
+                return;
+            }
+
+            if (SelectedDraft.IsSelfUseSheetSource)
+            {
+                _messageService.ShowWarning("자가사용 시트지를 선택한 작업지시는 원자재를 별도로 배정하지 않습니다.");
                 return;
             }
 
@@ -314,81 +570,155 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
                 return;
             }
 
+            if (!TryValidateDrafts(out var validationMessage))
+            {
+                _messageService.ShowWarning(validationMessage);
+                return;
+            }
+
+            var request = BuildBatchRequest();
+            IsLoading = true;
+
+            try
+            {
+                var result = await _apiClient.PostAsync<
+                    OutsourceWorkInstructionBatchCreateRequest,
+                    OutsourceWorkInstructionBatchResponseDto>(
+                    ApiRoutes.OutsourceWorkInstructionBatch,
+                    request);
+
+                if (!result.Success || result.Data == null)
+                {
+                    _messageService.ShowError(result.Message ?? "외주 작업지시 저장 중 오류가 발생했습니다.");
+                    return;
+                }
+
+                ClearDraftSubscriptions();
+                Drafts.Clear();
+                SelectedDraft = null;
+                IsCompositionStep = true;
+                RefreshWorkflowValues();
+
+                _messageService.ShowInfo("외주 작업지시가 일괄 저장되었습니다.");
+
+                await Task.WhenAll(LoadCandidatesAsync(), LoadSelfUseSheetsAsync());
+            }
+            finally
+            {
+                IsLoading = false;
+            }
+        }
+
+        private bool TryValidateDrafts(out string validationMessage)
+        {
             foreach (var draft in Drafts)
             {
                 if (draft.IsBundle && draft.Files.Count == 0)
                 {
-                    _messageService.ShowWarning("묶음 작업지시는 판데이터 첨부가 필요합니다.");
-                    return;
+                    validationMessage = "묶음 작업지시는 판데이터 첨부가 필요합니다.";
+                    return false;
                 }
 
                 if (draft.IsBundle && draft.Files.Count > 1)
                 {
-                    _messageService.ShowWarning("묶음 작업지시는 판데이터 파일 1개만 첨부할 수 있습니다.");
-                    return;
+                    validationMessage = "묶음 작업지시는 판데이터 파일 1개만 첨부할 수 있습니다.";
+                    return false;
                 }
 
-                if (!draft.LengthM.HasValue || draft.LengthM.Value <= 0)
+                if (draft.IsRawMaterialSource && (!draft.LengthM.HasValue || draft.LengthM.Value <= 0))
                 {
-                    _messageService.ShowWarning($"원단 m수를 입력하지 않은 작업지시 행이 있습니다.\nLOT: {draft.LotSummary}");
-                    return;
+                    validationMessage = $"원단 m수를 입력하지 않은 작업지시 행이 있습니다.\nLOT: {draft.LotSummary}";
+                    return false;
                 }
 
                 if (draft.SheetQty <= 0)
                 {
-                    _messageService.ShowWarning($"원단 m수 또는 판 길이를 확인하세요. 계산된 장수가 없습니다.\nLOT: {draft.LotSummary}");
-                    return;
+                    validationMessage = $"원단 m수 또는 판 길이를 확인하세요. 계산된 장수가 없습니다.\nLOT: {draft.LotSummary}";
+                    return false;
                 }
 
-                if (draft.RawMaterialAllocations.Count == 0)
+                if (draft.IsRawMaterialSource && draft.RawMaterialAllocations.Count == 0)
                 {
-                    _messageService.ShowWarning($"원자재 배정이 필요합니다.\nLOT: {draft.LotSummary}");
-                    return;
+                    validationMessage = $"원자재 배정이 필요합니다.\nLOT: {draft.LotSummary}";
+                    return false;
                 }
 
-                if (draft.AllocatedRawMaterialQty != draft.LengthM.Value)
+                if (draft.IsRawMaterialSource
+                    && draft.AllocatedRawMaterialQty != draft.LengthM.GetValueOrDefault())
                 {
-                    _messageService.ShowWarning($"원자재 배정수량 합계가 사용 M수와 일치해야 합니다.\nLOT: {draft.LotSummary}");
-                    return;
+                    validationMessage = $"원자재 배정수량 합계가 사용 M수와 일치해야 합니다.\nLOT: {draft.LotSummary}";
+                    return false;
+                }
+
+                if (draft.IsSelfUseSheetSource
+                    && (draft.SelectedSelfUseSheet == null || draft.SelfUseSheetQty <= 0
+                        || draft.SelfUseSheetQty > draft.SelectedSelfUseSheet.CurrentQty))
+                {
+                    validationMessage = $"자가사용 시트지 LOT와 사용수량을 확인하세요.\nLOT: {draft.LotSummary}";
+                    return false;
+                }
+
+                if (draft.IsSelfUseSheetSource && draft.SelectedSelfUseSheet != null)
+                {
+                    var batchReservedQty = Drafts
+                        .Where(x => x.IsSelfUseSheetSource && x.SelectedSelfUseSheet != null
+                            && x.SelectedSelfUseSheet.SelfUseSheetInventoryLotId
+                                == draft.SelectedSelfUseSheet.SelfUseSheetInventoryLotId
+                            && x.SelectedSelfUseSheet.SourceLocationId
+                                == draft.SelectedSelfUseSheet.SourceLocationId)
+                        .Sum(x => x.SelfUseSheetQty);
+                    if (batchReservedQty > draft.SelectedSelfUseSheet.CurrentQty)
+                    {
+                        validationMessage = $"같은 시트지 LOT의 일괄 배정수량이 현재고를 초과합니다.\n시트지 LOT: {draft.SelectedSelfUseSheet.SheetLotNo}";
+                        return false;
+                    }
                 }
 
                 foreach (var lot in draft.Lots)
                 {
                     if (!TryResolveCutsPerSheet(lot, out _))
                     {
-                        _messageService.ShowWarning($"절수 정보가 없는 LOT가 있습니다.\nLOT: {lot.LotNo}");
-                        return;
+                        validationMessage = $"절수 정보가 없는 LOT가 있습니다.\nLOT: {lot.LotNo}";
+                        return false;
                     }
                 }
 
-                if (draft.IsBundle)
+                if (!draft.IsBundle)
                 {
-                    if (!draft.RepresentativeLotId.HasValue)
-                    {
-                        _messageService.ShowWarning($"묶음 작업지시는 대표품목을 지정해야 합니다.\nLOT: {draft.LotSummary}");
-                        return;
-                    }
+                    continue;
+                }
 
-                    if (!draft.SheetCutCount.HasValue || draft.SheetCutCount.Value <= 0)
-                    {
-                        _messageService.ShowWarning($"묶음 작업지시는 총 절수를 입력해야 합니다.\nLOT: {draft.LotSummary}");
-                        return;
-                    }
+                if (!draft.RepresentativeLotId.HasValue)
+                {
+                    validationMessage = $"묶음 작업지시는 대표품목을 지정해야 합니다.\nLOT: {draft.LotSummary}";
+                    return false;
+                }
 
-                    var cutsPerSheetSum = draft.Lots.Sum(x =>
-                    {
-                        TryResolveCutsPerSheet(x, out var cutsPerSheet);
-                        return cutsPerSheet;
-                    });
+                if (!draft.SheetCutCount.HasValue || draft.SheetCutCount.Value <= 0)
+                {
+                    validationMessage = $"묶음 작업지시는 총 절수를 입력해야 합니다.\nLOT: {draft.LotSummary}";
+                    return false;
+                }
 
-                    if (cutsPerSheetSum != draft.SheetCutCount.Value)
-                    {
-                        _messageService.ShowWarning($"묶음 작업지시의 LOT별 절수 합계와 총 절수가 일치하지 않습니다.\nLOT: {draft.LotSummary}");
-                        return;
-                    }
+                var cutsPerSheetSum = draft.Lots.Sum(x =>
+                {
+                    TryResolveCutsPerSheet(x, out var cutsPerSheet);
+                    return cutsPerSheet;
+                });
+
+                if (cutsPerSheetSum != draft.SheetCutCount.Value)
+                {
+                    validationMessage = $"묶음 작업지시의 LOT별 절수 합계와 총 절수가 일치하지 않습니다.\nLOT: {draft.LotSummary}";
+                    return false;
                 }
             }
 
+            validationMessage = string.Empty;
+            return true;
+        }
+
+        private OutsourceWorkInstructionBatchCreateRequest BuildBatchRequest()
+        {
             var request = new OutsourceWorkInstructionBatchCreateRequest
             {
                 InstructionDate = DateTime.Today
@@ -406,33 +736,8 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
                         WorkGroups = BuildWorkGroups(draft)
                     });
             }
-            IsLoading = true;
 
-            try
-            {
-                var result = await _apiClient.PostAsync<
-                    OutsourceWorkInstructionBatchCreateRequest,
-                    OutsourceWorkInstructionBatchResponseDto>(
-                    ApiRoutes.OutsourceWorkInstructionBatch,
-                    request);
-
-                if (!result.Success || result.Data == null)
-                {
-                    _messageService.ShowError(result.Message ?? "외주 작업지시 저장 중 오류가 발생했습니다.");
-                    return;
-                }
-
-                Drafts.Clear();
-                SelectedDraft = null;
-
-                _messageService.ShowInfo("외주 작업지시가 일괄 저장되었습니다.");
-
-                await LoadCandidatesAsync();
-            }
-            finally
-            {
-                IsLoading = false;
-            }
+            return request;
         }
 
         private static string GetPrimaryProcessType(OutsourceWorkInstructionCandidateLotRowModel lot)
@@ -469,11 +774,24 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
                 RepresentativeLotId = draft.RepresentativeLotId,
                 Remark = string.IsNullOrWhiteSpace(draft.Memo)
                     ? null
-                    : draft.Memo.Trim()
+                    : draft.Memo.Trim(),
+                InputSourceType = draft.InputSourceType
             };
 
             group.RawMaterialAllocations.AddRange(
                 draft.RawMaterialAllocations.Select(x => x.ToRequest()));
+
+            if (draft.IsSelfUseSheetSource && draft.SelectedSelfUseSheet != null)
+            {
+                group.SelfUseSheetAllocations.Add(
+                    new OutsourceWorkInstructionSelfUseSheetAllocationCreateRequest
+                    {
+                        SelfUseSheetInventoryLotId = draft.SelectedSelfUseSheet.SelfUseSheetInventoryLotId,
+                        SourceLocationId = draft.SelectedSelfUseSheet.SourceLocationId,
+                        Qty = draft.SelfUseSheetQty,
+                        Memo = string.IsNullOrWhiteSpace(draft.Memo) ? null : draft.Memo.Trim()
+                    });
+            }
 
             foreach (var lot in draft.Lots)
             {
@@ -586,10 +904,13 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
 
         private async Task ResetAsync()
         {
+            ClearDraftSubscriptions();
             Drafts.Clear();
             SelectedDraft = null;
+            IsCompositionStep = true;
+            RefreshWorkflowValues();
 
-            await LoadCandidatesAsync();
+            await Task.WhenAll(LoadCandidatesAsync(), LoadSelfUseSheetsAsync());
         }
     }
 }

@@ -18,12 +18,15 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
         private readonly IMessageService _messageService;
         private readonly Func<long, decimal> _reservedQtyProvider;
         private readonly Dictionary<long, decimal> _currentDraftQtyByLotId;
+        private readonly Dictionary<long, OutsourceWorkInstructionRawMaterialAllocationEditModel> _allocationByLotId;
+        private readonly HashSet<long> _loadedLotIds = new();
         private readonly bool _currentAllocationsAreConsumed;
         private readonly long? _initialMaterialId;
         private readonly long? _initialLocationId;
         private RawMaterialDto? _selectedMaterial;
         private RawMaterialLocationDto? _selectedLocation;
         private RawMaterialAllocationLotRowModel? _selectedLotRow;
+        private OutsourceWorkInstructionRawMaterialAllocationEditModel? _selectedBasketAllocation;
         private decimal? _allocationInputQty;
         private bool _isLoading;
 
@@ -46,15 +49,26 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
             _currentDraftQtyByLotId = currentAllocations
                 .GroupBy(x => x.RawMaterialInventoryLotId)
                 .ToDictionary(x => x.Key, x => x.Sum(y => y.Qty));
+            _allocationByLotId = new Dictionary<long, OutsourceWorkInstructionRawMaterialAllocationEditModel>();
 
             Materials = new ObservableCollection<RawMaterialDto>();
             Locations = new ObservableCollection<RawMaterialLocationDto>();
             LotRows = new ObservableCollection<RawMaterialAllocationLotRowModel>();
+            AllocationBasket = new ObservableCollection<OutsourceWorkInstructionRawMaterialAllocationEditModel>();
+            foreach (var allocation in currentAllocations
+                         .GroupBy(x => x.RawMaterialInventoryLotId)
+                         .Select(x => CloneAllocation(x.First(), x.Sum(y => y.Qty))))
+            {
+                _allocationByLotId.Add(allocation.RawMaterialInventoryLotId, allocation);
+                AllocationBasket.Add(allocation);
+            }
+            SelectedBasketAllocation = AllocationBasket.FirstOrDefault();
             AppliedAllocations = new List<OutsourceWorkInstructionRawMaterialAllocationEditModel>();
 
             SearchLotsCommand = new AsyncRelayCommand(SearchLotsAsync);
             AssignSelectedLotCommand = new RelayCommand(AssignSelectedLot);
             ClearSelectedLotCommand = new RelayCommand(ClearSelectedLot);
+            RemoveBasketAllocationCommand = new RelayCommand(RemoveBasketAllocation);
             ApplyCommand = new RelayCommand(Apply);
             CancelCommand = new RelayCommand(Cancel);
         }
@@ -64,17 +78,19 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
         public ObservableCollection<RawMaterialDto> Materials { get; }
         public ObservableCollection<RawMaterialLocationDto> Locations { get; }
         public ObservableCollection<RawMaterialAllocationLotRowModel> LotRows { get; }
+        public ObservableCollection<OutsourceWorkInstructionRawMaterialAllocationEditModel> AllocationBasket { get; }
         public List<OutsourceWorkInstructionRawMaterialAllocationEditModel> AppliedAllocations { get; }
 
         public AsyncRelayCommand SearchLotsCommand { get; }
         public RelayCommand AssignSelectedLotCommand { get; }
         public RelayCommand ClearSelectedLotCommand { get; }
+        public RelayCommand RemoveBasketAllocationCommand { get; }
         public RelayCommand ApplyCommand { get; }
         public RelayCommand CancelCommand { get; }
 
         public decimal RequiredQty { get; }
 
-        public decimal TotalAllocationQty => LotRows.Sum(x => x.AllocationQty);
+        public decimal TotalAllocationQty => AllocationBasket.Sum(x => x.Qty);
         public decimal RemainingQty => RequiredQty - TotalAllocationQty;
         public decimal SelectedLotMaxAllocationQty
         {
@@ -114,6 +130,12 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
                     OnPropertyChanged(nameof(SelectedLotMaxAllocationQty));
                 }
             }
+        }
+
+        public OutsourceWorkInstructionRawMaterialAllocationEditModel? SelectedBasketAllocation
+        {
+            get => _selectedBasketAllocation;
+            set => SetProperty(ref _selectedBasketAllocation, value);
         }
 
         public decimal? AllocationInputQty
@@ -200,25 +222,32 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
 
                 foreach (var lot in result.Data.Items)
                 {
-                    var currentDraftQty = _currentDraftQtyByLotId.TryGetValue(
+                    var originalDraftQty = _currentDraftQtyByLotId.TryGetValue(
                         lot.RawMaterialInventoryLotId,
                         out var draftQty)
                         ? draftQty
                         : 0m;
-                    var otherReservedQty = Math.Max(0m, _reservedQtyProvider(lot.RawMaterialInventoryLotId) - currentDraftQty);
+                    var basketQty = _allocationByLotId.TryGetValue(
+                        lot.RawMaterialInventoryLotId,
+                        out var basketAllocation)
+                        ? basketAllocation.Qty
+                        : 0m;
+                    var otherReservedQty = Math.Max(
+                        0m,
+                        _reservedQtyProvider(lot.RawMaterialInventoryLotId) - originalDraftQty);
                     var row = RawMaterialAllocationLotRowModel.FromDto(
                         lot,
                         otherReservedQty,
-                        currentDraftQty,
-                        _currentAllocationsAreConsumed);
-                    row.PropertyChanged += (_, args) =>
-                    {
-                        if (args.PropertyName == nameof(RawMaterialAllocationLotRowModel.AllocationQty))
-                        {
-                            RefreshAllocationTotals();
-                        }
-                    };
+                        basketQty,
+                        _currentAllocationsAreConsumed ? originalDraftQty : 0m);
                     LotRows.Add(row);
+                    _loadedLotIds.Add(lot.RawMaterialInventoryLotId);
+                    if (basketAllocation != null)
+                    {
+                        basketAllocation.CurrentQty = row.CurrentQty;
+                        basketAllocation.ReservedQty = row.ReservedQty;
+                        basketAllocation.AvailableQty = row.AvailableQty;
+                    }
                 }
 
                 SelectedLotRow = LotRows.FirstOrDefault(x => x.AllocationQty > 0) ?? LotRows.FirstOrDefault();
@@ -271,6 +300,22 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
             }
 
             SelectedLotRow.AllocationQty = qty;
+            if (_allocationByLotId.TryGetValue(
+                    SelectedLotRow.RawMaterialInventoryLotId,
+                    out var allocation))
+            {
+                allocation.CurrentQty = SelectedLotRow.CurrentQty;
+                allocation.ReservedQty = SelectedLotRow.ReservedQty;
+                allocation.AvailableQty = SelectedLotRow.AvailableQty;
+                allocation.Qty = qty;
+            }
+            else
+            {
+                allocation = SelectedLotRow.ToEditModel();
+                _allocationByLotId.Add(allocation.RawMaterialInventoryLotId, allocation);
+                AllocationBasket.Add(allocation);
+            }
+            SelectedBasketAllocation = allocation;
             AllocationInputQty = ResolveDefaultAllocationQty(SelectedLotRow);
             RefreshAllocationTotals();
         }
@@ -284,8 +329,45 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
             }
 
             SelectedLotRow.AllocationQty = 0m;
+            RemoveAllocationFromBasket(SelectedLotRow.RawMaterialInventoryLotId);
             AllocationInputQty = ResolveDefaultAllocationQty(SelectedLotRow);
             RefreshAllocationTotals();
+        }
+
+        private void RemoveBasketAllocation()
+        {
+            if (SelectedBasketAllocation == null)
+            {
+                _messageService.ShowWarning("삭제할 현재 배정 내역을 선택하세요.");
+                return;
+            }
+
+            var lotId = SelectedBasketAllocation.RawMaterialInventoryLotId;
+            RemoveAllocationFromBasket(lotId);
+            var visibleRow = LotRows.FirstOrDefault(x => x.RawMaterialInventoryLotId == lotId);
+            if (visibleRow != null)
+            {
+                visibleRow.AllocationQty = 0m;
+                if (ReferenceEquals(SelectedLotRow, visibleRow))
+                {
+                    AllocationInputQty = ResolveDefaultAllocationQty(visibleRow);
+                }
+            }
+            RefreshAllocationTotals();
+        }
+
+        private void RemoveAllocationFromBasket(long rawMaterialInventoryLotId)
+        {
+            if (!_allocationByLotId.Remove(rawMaterialInventoryLotId, out var allocation))
+            {
+                return;
+            }
+
+            AllocationBasket.Remove(allocation);
+            if (ReferenceEquals(SelectedBasketAllocation, allocation))
+            {
+                SelectedBasketAllocation = null;
+            }
         }
 
         private void RefreshAllocationTotals()
@@ -297,17 +379,18 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
 
         private void Apply()
         {
-            foreach (var row in LotRows)
+            foreach (var allocation in AllocationBasket)
             {
-                if (row.AllocationQty < 0)
+                if (allocation.Qty <= 0)
                 {
-                    _messageService.ShowWarning("배정수량은 0보다 작을 수 없습니다.");
+                    _messageService.ShowWarning("배정수량은 0보다 커야 합니다.");
                     return;
                 }
 
-                if (row.AllocationQty > row.AvailableQty)
+                if (_loadedLotIds.Contains(allocation.RawMaterialInventoryLotId)
+                    && allocation.Qty > allocation.AvailableQty)
                 {
-                    _messageService.ShowWarning($"가용수량보다 크게 배정할 수 없습니다.\nLOT: {row.LotNo}");
+                    _messageService.ShowWarning($"가용수량보다 크게 배정할 수 없습니다.\nLOT: {allocation.LotNo}");
                     return;
                 }
             }
@@ -320,9 +403,9 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
 
             AppliedAllocations.Clear();
 
-            foreach (var row in LotRows.Where(x => x.AllocationQty > 0))
+            foreach (var allocation in AllocationBasket)
             {
-                AppliedAllocations.Add(row.ToEditModel());
+                AppliedAllocations.Add(CloneAllocation(allocation, allocation.Qty));
             }
 
             OwnerWindow!.DialogResult = true;
@@ -333,6 +416,26 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
         {
             OwnerWindow!.DialogResult = false;
             OwnerWindow.Close();
+        }
+
+        private static OutsourceWorkInstructionRawMaterialAllocationEditModel CloneAllocation(
+            OutsourceWorkInstructionRawMaterialAllocationEditModel source,
+            decimal qty)
+        {
+            return new OutsourceWorkInstructionRawMaterialAllocationEditModel
+            {
+                RawMaterialInventoryLotId = source.RawMaterialInventoryLotId,
+                RawMaterialId = source.RawMaterialId,
+                RawMaterialLocationId = source.RawMaterialLocationId,
+                MaterialCode = source.MaterialCode,
+                MaterialName = source.MaterialName,
+                LocationName = source.LocationName,
+                LotNo = source.LotNo,
+                CurrentQty = source.CurrentQty,
+                ReservedQty = source.ReservedQty,
+                AvailableQty = source.AvailableQty,
+                Qty = qty
+            };
         }
     }
 
@@ -368,13 +471,13 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
         public static RawMaterialAllocationLotRowModel FromDto(
             RawMaterialInventoryLotDto dto,
             decimal reservedQty,
-            decimal currentDraftQty,
-            bool currentAllocationIsAlreadyConsumed = false)
+            decimal allocationQty,
+            decimal restorableConsumedQty)
         {
             var availableQty = Math.Max(
                 0m,
                 dto.CurrentQty
-                + (currentAllocationIsAlreadyConsumed ? currentDraftQty : 0m)
+                + restorableConsumedQty
                 - reservedQty);
             return new RawMaterialAllocationLotRowModel
             {
@@ -388,7 +491,7 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.ViewModels
                 CurrentQty = dto.CurrentQty,
                 ReservedQty = reservedQty,
                 AvailableQty = availableQty,
-                AllocationQty = currentDraftQty
+                AllocationQty = allocationQty
             };
         }
 

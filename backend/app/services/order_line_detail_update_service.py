@@ -8,7 +8,10 @@ from app.crud.order_line import order_line_crud
 from app.models.order_line import OrderLine
 from app.schemas.order_line import OrderLineStatus
 from app.schemas.order_line_detail import OrderLineDetailUpdate
-from app.services.order_line_update_service import propagate_order_line_due_date
+from app.services.order_line_update_service import (
+    ensure_no_waiting_stock_reservation_for_plan_change,
+    propagate_order_line_due_date,
+)
 from app.services.production_daily_query import refresh_order_line_snapshot
 
 
@@ -32,6 +35,9 @@ def update_order_line_detail_fields(
 
     if payload.order_qty <= 0:
         raise HTTPException(status_code=422, detail="order_qty must be greater than 0")
+
+    if payload.order_qty != int(order_line.order_qty or 0):
+        ensure_no_waiting_stock_reservation_for_plan_change(db, order_line_id)
 
     old_due_date = order_line.due_date
 

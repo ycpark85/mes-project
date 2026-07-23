@@ -85,6 +85,10 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
             CreateBaseLotCommand = new AsyncRelayCommand(CreateBaseLotAsync);
             ShortCloseCommand = new AsyncRelayCommand(ShortCloseAsync);
             ConfirmPartialStockPlanCommand = new AsyncRelayCommand(ConfirmPartialStockPlanAsync);
+            ConfirmFullStockShipmentCommand = new AsyncRelayCommand(
+                () => ConfirmFullStockPlanAsync("AUTO_STOCK_SHIP"));
+            ChangeFullStockToProductionCommand = new AsyncRelayCommand(
+                () => ConfirmFullStockPlanAsync("AUTO_PRODUCTION"));
             OpenOrderDetailCommand = new AsyncRelayCommand(OpenOrderDetailAsync);
             OpenLotActionCommand = new AsyncRelayCommand(OpenLotActionAsync);
             DeleteOrderGroupCommand = new AsyncRelayCommand(DeleteOrderGroupAsync);
@@ -118,6 +122,8 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
         public AsyncRelayCommand NextPageCommand { get; }
 
         public AsyncRelayCommand ConfirmPartialStockPlanCommand { get; }
+        public AsyncRelayCommand ConfirmFullStockShipmentCommand { get; }
+        public AsyncRelayCommand ChangeFullStockToProductionCommand { get; }
 
 
         public string SearchKeyword
@@ -292,11 +298,17 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
             && !SelectedItem.DecisionMade
             && SelectedItem.Status == "OPEN"
             && !SelectedItem.HasLot
-            && SelectedItem.AvailableInventoryQty > 0
-            && SelectedItem.AvailableInventoryQty < SelectedItem.ShipTargetQty;
+            && SelectedItem.AvailableInventoryForPlanQty > 0
+            && SelectedItem.AvailableInventoryForPlanQty < SelectedItem.ShipTargetQty;
+
+        public bool IsFullStockDecisionVisible =>
+            IsInProgressTab
+            && SelectedItem?.IsFullStockConfirmationPending == true;
 
         public string PlanTypeDisplayText =>
-            string.IsNullOrWhiteSpace(SelectedItem?.PlanTypeDisplay)
+            IsFullStockDecisionVisible
+                ? "재고출고 권장"
+                : string.IsNullOrWhiteSpace(SelectedItem?.PlanTypeDisplay)
                 ? "-"
                 : SelectedItem.PlanTypeDisplay!;
 
@@ -309,8 +321,10 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
                     return "0";
                 }
 
-                var qty = Math.Min(
-                    Math.Max(SelectedItem.AvailableInventoryQty, 0),
+                var qty = SelectedItem.ReservedStockQty > 0
+                    ? SelectedItem.ReservedStockQty
+                    : Math.Min(
+                    Math.Max(SelectedItem.AvailableInventoryForPlanQty, 0),
                     Math.Max(SelectedItem.ShipTargetQty, 0));
 
                 return $"{qty:N0}";
@@ -331,12 +345,17 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
                     return "처리계획이 확정되었습니다.";
                 }
 
-                if (SelectedItem.AvailableInventoryQty <= 0)
+                if (IsFullStockDecisionVisible)
+                {
+                    return "재고가 충분합니다. 등록 내용을 확인한 후 재고출고를 확정하세요. 확정 전에는 재고가 차감되지 않으며 예약수량은 다른 발주에서 사용할 수 없습니다.";
+                }
+
+                if (SelectedItem.AvailableInventoryForPlanQty <= 0)
                 {
                     return "현재고가 없어 출고목표수량 기준으로 생산이 진행됩니다.";
                 }
 
-                if (SelectedItem.AvailableInventoryQty >= SelectedItem.ShipTargetQty)
+                if (SelectedItem.AvailableInventoryForPlanQty >= SelectedItem.ShipTargetQty)
                 {
                     return "현재고가 출고목표수량 이상이므로 재고 출고 대상으로 처리됩니다.";
                 }
@@ -379,12 +398,14 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
             set => SetProperty(ref _canShortClose, value);
         }
 
-        public string AvailableInventoryQtyText => $"{SelectedItem?.AvailableInventoryQty ?? 0:N0}";
+        public string AvailableInventoryQtyText => $"{SelectedItem?.AvailableInventoryForPlanQty ?? 0:N0}";
         public string TargetShipQtyText => $"{SelectedItem?.TargetShipQty ?? 0:N0}";
         public string RecommendedFulfillmentModeText => SelectedItem?.RecommendedFulfillmentModeDisplay ?? "-";
         public string RecommendedProductionQtyText => $"{SelectedItem?.RecommendedProductionQty ?? 0:N0}";
         public string PlannedProductionQtyText => $"{SelectedItem?.PlannedProductionQty ?? 0:N0}";
-        public string DecisionStatusText => SelectedItem == null ? "-" : (SelectedItem.DecisionMade ? "결정완료" : "결정필요");
+        public string DecisionStatusText => SelectedItem == null
+            ? "-"
+            : (IsFullStockDecisionVisible ? "확인대기" : (SelectedItem.DecisionMade ? "결정완료" : "결정필요"));
 
         public string ExpectedShipQtyText => $"{SelectedItem?.ExpectedShipQty ?? 0:N0}";
         public string ExpectedShortQtyText => $"{SelectedItem?.ExpectedShortQty ?? 0:N0}";
@@ -552,6 +573,7 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
             OnPropertyChanged(nameof(CanEditExtraProductionQty));
             OnPropertyChanged(nameof(CanDeleteOrderGroup));
             OnPropertyChanged(nameof(IsPartialStockDecisionVisible));
+            OnPropertyChanged(nameof(IsFullStockDecisionVisible));
         }
 
         private void RaisePlanningPropertiesChanged()
@@ -579,6 +601,7 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
             OnPropertyChanged(nameof(IsShortageSectionVisible));
 
             OnPropertyChanged(nameof(IsPartialStockDecisionVisible));
+            OnPropertyChanged(nameof(IsFullStockDecisionVisible));
             OnPropertyChanged(nameof(CanConfirmPartialStockPlan));
             OnPropertyChanged(nameof(PlanTypeDisplayText));
             OnPropertyChanged(nameof(StockUsePlanQtyText));
@@ -740,6 +763,54 @@ namespace Mes.Wpf.Modules.OrderLineList.ViewModels
             PartialStockPlanMemo = string.Empty;
 
             _messageService.ShowInfo("처리계획이 확정되었습니다.");
+        }
+
+        private async Task ConfirmFullStockPlanAsync(string planType)
+        {
+            if (SelectedItem == null || !IsFullStockDecisionVisible)
+            {
+                _messageService.ShowWarning("재고출고 확인대기 발주를 먼저 선택하세요.");
+                return;
+            }
+
+            var isStockShipment = planType == "AUTO_STOCK_SHIP";
+            var confirmMessage = isStockShipment
+                ? "예약된 재고를 출고 확정하고 발주를 생산완료 처리하시겠습니까?"
+                : "재고 예약을 취소하고 생산 처리로 변경하시겠습니까? 변경 후 기본 LOT 생성을 진행해야 합니다.";
+
+            if (!_messageService.Confirm(confirmMessage))
+            {
+                return;
+            }
+
+            var targetId = SelectedItem.OrderLineId;
+            var request = new OrderLinePlanConfirmRequest
+            {
+                PlanType = planType,
+                Memo = isStockShipment
+                    ? "재고출고 확인 후 확정"
+                    : "재고출고 대신 생산 처리로 변경"
+            };
+
+            var route = $"{ApiRoutes.OrderLines}/{targetId}/plan/confirm";
+            var result = await _apiClient.PostAsync<OrderLinePlanConfirmRequest, OrderLineListItemDto>(
+                route,
+                request);
+
+            if (!result.Success || result.Data == null)
+            {
+                _messageService.ShowError(result.Message ?? "처리계획 확정 중 오류가 발생했습니다.");
+                return;
+            }
+
+            await SearchAsync();
+
+            var refreshed = Items.FirstOrDefault(x => x.OrderLineId == targetId);
+            SelectedItem = refreshed;
+
+            _messageService.ShowInfo(isStockShipment
+                ? "재고출고가 확정되어 발주가 생산완료 처리되었습니다."
+                : "생산 처리로 변경되었습니다. 기본 LOT 생성을 진행하세요.");
         }
 
 

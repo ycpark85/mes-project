@@ -1,0 +1,276 @@
+<UserControl x:Class="Mes.Wpf.Modules.RawMaterials.Views.SelfUseSheetManagementPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Resources>
+        <Style x:Key="SectionBorder" TargetType="Border">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#D8DEE8"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="12"/>
+        </Style>
+        <Style x:Key="FieldLabel" TargetType="TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Foreground" Value="#334155"/>
+            <Setter Property="Margin" Value="0,0,8,0"/>
+        </Style>
+        <Style x:Key="PrimaryButton" TargetType="Button">
+            <Setter Property="Background" Value="#2563EB"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="#2563EB"/>
+            <Setter Property="Padding" Value="16,7"/>
+            <Setter Property="MinWidth" Value="90"/>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Margin="16" Background="#F4F6F9">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="10"/>
+            <RowDefinition Height="250"/>
+            <RowDefinition Height="10"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0" Style="{StaticResource SectionBorder}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="60"/>
+                    <ColumnDefinition Width="220"/>
+                    <ColumnDefinition Width="20"/>
+                    <ColumnDefinition Width="60"/>
+                    <ColumnDefinition Width="150"/>
+                    <ColumnDefinition Width="20"/>
+                    <ColumnDefinition Width="70"/>
+                    <ColumnDefinition Width="170"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="90"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="검색어" Style="{StaticResource FieldLabel}"/>
+                <TextBox Grid.Column="1" Text="{Binding SearchKeyword, UpdateSourceTrigger=PropertyChanged}"/>
+                <TextBlock Grid.Column="3" Text="상태" Style="{StaticResource FieldLabel}"/>
+                <ComboBox Grid.Column="4"
+                          ItemsSource="{Binding StatusOptions}"
+                          SelectedItem="{Binding SelectedStatusFilter}"
+                          DisplayMemberPath="Name"/>
+                <TextBlock Grid.Column="6" Text="사용목적" Style="{StaticResource FieldLabel}"/>
+                <ComboBox Grid.Column="7"
+                          ItemsSource="{Binding PurposeFilterOptions}"
+                          SelectedItem="{Binding SelectedPurposeFilter}"
+                          DisplayMemberPath="Name"/>
+                <Button Grid.Column="9" Content="조회" Command="{Binding RefreshCommand}" Style="{StaticResource PrimaryButton}"/>
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="2" Style="{StaticResource SectionBorder}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="8"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <DockPanel>
+                    <TextBlock Text="자가사용 시트지 작업" FontSize="16" FontWeight="SemiBold" Foreground="#0F172A"/>
+                    <TextBlock Text="{Binding Jobs.Count, StringFormat={}{0}건}" HorizontalAlignment="Right" Foreground="#64748B"/>
+                </DockPanel>
+                <DataGrid Grid.Row="2"
+                          ItemsSource="{Binding Jobs}"
+                          SelectedItem="{Binding SelectedJob}"
+                          AutoGenerateColumns="False"
+                          IsReadOnly="True"
+                          CanUserAddRows="False"
+                          SelectionMode="Single">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="사용번호" Binding="{Binding UseNo}" Width="150"/>
+                        <DataGridTextColumn Header="등록일" Binding="{Binding CreatedAt, StringFormat={}{0:yyyy-MM-dd}}" Width="100"/>
+                        <DataGridTextColumn Header="사용목적" Binding="{Binding PurposeDisplay}" Width="130"/>
+                        <DataGridTextColumn Header="가공구분" Binding="{Binding ExecutionDisplay}" Width="100"/>
+                        <DataGridTextColumn Header="외주처" Binding="{Binding PartnerName}" Width="130"/>
+                        <DataGridTextColumn Header="재단규격" Binding="{Binding CutSpecDisplay}" Width="150"/>
+                        <DataGridTextColumn Header="예상수량" Binding="{Binding PlannedOutputQty, StringFormat={}{0:N0}}" Width="90"/>
+                        <DataGridTextColumn Header="예상 가공비" Binding="{Binding ExpectedProcessingFee, StringFormat={}{0:N0}}" Width="110"/>
+                        <DataGridTextColumn Header="실제 가공비" Binding="{Binding ActualProcessingFee, StringFormat={}{0:N0}}" Width="110"/>
+                        <DataGridTextColumn Header="상태" Binding="{Binding StatusDisplay}" Width="90"/>
+                        <DataGridTextColumn Header="시트지 LOT" Binding="{Binding SheetLotNo}" Width="160"/>
+                        <DataGridTextColumn Header="메모" Binding="{Binding Memo}" Width="*"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
+        </Border>
+
+        <ScrollViewer Grid.Row="4" VerticalScrollBarVisibility="Auto">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1.05*"/>
+                    <ColumnDefinition Width="10"/>
+                    <ColumnDefinition Width="1.1*"/>
+                    <ColumnDefinition Width="10"/>
+                    <ColumnDefinition Width="1*"/>
+                </Grid.ColumnDefinitions>
+
+                <Border Grid.Column="0" Style="{StaticResource SectionBorder}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="10"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="12"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Text="신규 작업 등록" FontSize="16" FontWeight="SemiBold"/>
+                        <Grid Grid.Row="2">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="90"/><ColumnDefinition Width="*"/><ColumnDefinition Width="10"/><ColumnDefinition Width="90"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <TextBlock Text="사용목적" Style="{StaticResource FieldLabel}"/>
+                            <ComboBox Grid.Column="1" ItemsSource="{Binding PurposeOptions}" SelectedItem="{Binding SelectedPurpose}" DisplayMemberPath="Name"/>
+                            <TextBlock Grid.Column="3" Text="가공구분" Style="{StaticResource FieldLabel}"/>
+                            <ComboBox Grid.Column="4" ItemsSource="{Binding ExecutionOptions}" SelectedItem="{Binding SelectedExecution}" DisplayMemberPath="Name"/>
+                        </Grid>
+                        <Grid Grid.Row="4">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="90"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <TextBlock Text="외주처" Style="{StaticResource FieldLabel}"/>
+                            <ComboBox Grid.Column="1" ItemsSource="{Binding Vendors}" SelectedItem="{Binding SelectedVendor}" DisplayMemberPath="Name"/>
+                        </Grid>
+                        <Grid Grid.Row="6">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="90"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <TextBlock Text="원자재 LOT" Style="{StaticResource FieldLabel}"/>
+                            <ComboBox Grid.Column="1" ItemsSource="{Binding SourceLots}" SelectedItem="{Binding SelectedSourceLot}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate><TextBlock><Run Text="{Binding MaterialName}"/><Run Text=" / "/><Run Text="{Binding LotNo}"/><Run Text=" / "/><Run Text="{Binding CurrentQty, StringFormat={}{0:N2}}"/><Run Text=" "/><Run Text="{Binding Uom}"/></TextBlock></DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </Grid>
+                        <Grid Grid.Row="8">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="90"/><ColumnDefinition Width="*"/><ColumnDefinition Width="10"/><ColumnDefinition Width="90"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <TextBlock Text="재단 폭(mm)" Style="{StaticResource FieldLabel}"/>
+                            <TextBox Grid.Column="1" Text="{Binding CutWidthMm, UpdateSourceTrigger=PropertyChanged}"/>
+                            <TextBlock Grid.Column="3" Text="재단 길이(mm)" Style="{StaticResource FieldLabel}"/>
+                            <TextBox Grid.Column="4" Text="{Binding CutLengthMm, UpdateSourceTrigger=PropertyChanged}"/>
+                        </Grid>
+                        <Grid Grid.Row="10">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="90"/><ColumnDefinition Width="*"/><ColumnDefinition Width="10"/><ColumnDefinition Width="90"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <TextBlock Text="투입예정(M)" Style="{StaticResource FieldLabel}"/>
+                            <TextBox Grid.Column="1" Text="{Binding PlannedInputQty, UpdateSourceTrigger=PropertyChanged}"/>
+                            <TextBlock Grid.Column="3" Text="예상생산(매)" Style="{StaticResource FieldLabel}"/>
+                            <TextBox Grid.Column="4"
+                                     Text="{Binding PlannedOutputQty, Mode=OneWay, StringFormat={}{0:N0}}"
+                                     IsReadOnly="True"
+                                     Background="#F1F5F9"
+                                     ToolTip="투입 M수의 98%를 사용하고 재단길이로 나눈 뒤 5매 단위로 반올림합니다. 재단폭 250/300mm는 2열로 계산합니다."/>
+                        </Grid>
+                        <Grid Grid.Row="12">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="90"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <TextBlock Text="예상 가공비" Style="{StaticResource FieldLabel}"/>
+                            <TextBox Grid.Column="1" Text="{Binding ExpectedProcessingFee, UpdateSourceTrigger=PropertyChanged}"/>
+                        </Grid>
+                        <Grid Grid.Row="14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="90"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <TextBlock Text="작업 메모" Style="{StaticResource FieldLabel}"/>
+                            <TextBox Grid.Column="1" Height="58" AcceptsReturn="True" TextWrapping="Wrap" Text="{Binding Memo, UpdateSourceTrigger=PropertyChanged}"/>
+                        </Grid>
+                        <StackPanel Grid.Row="16" Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Button Content="초기화" Command="{Binding ClearCommand}" Padding="14,7" Margin="0,0,8,0"/>
+                            <Button Content="임시저장" Command="{Binding CreateCommand}" Style="{StaticResource PrimaryButton}"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <Border Grid.Column="2" Style="{StaticResource SectionBorder}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="170"/>
+                            <RowDefinition Height="10"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <DockPanel>
+                            <TextBlock Text="선택 작업 완료정보" FontSize="16" FontWeight="SemiBold"/>
+                            <Button Content="가공출고 / 작업시작" Command="{Binding StartCommand}" HorizontalAlignment="Right" Padding="12,6" Background="#2563EB" Foreground="White"/>
+                        </DockPanel>
+                        <DataGrid Grid.Row="2" ItemsSource="{Binding SelectedJob.Allocations}" AutoGenerateColumns="False" CanUserAddRows="False">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="원자재" Binding="{Binding MaterialName}" IsReadOnly="True" Width="*"/>
+                                <DataGridTextColumn Header="LOT" Binding="{Binding LotNo}" IsReadOnly="True" Width="115"/>
+                                <DataGridTextColumn Header="예정" Binding="{Binding PlannedQty, StringFormat={}{0:N2}}" IsReadOnly="True" Width="75"/>
+                                <DataGridTextColumn Header="실제투입" Binding="{Binding ActualConsumedQty, UpdateSourceTrigger=PropertyChanged}" Width="85"/>
+                                <DataGridTextColumn Header="반환" Binding="{Binding ReturnedQty, UpdateSourceTrigger=PropertyChanged}" Width="75"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                        <Grid Grid.Row="4">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="90"/><ColumnDefinition Width="*"/><ColumnDefinition Width="10"/><ColumnDefinition Width="90"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <TextBlock Text="정상수량(매)" Style="{StaticResource FieldLabel}"/>
+                            <TextBox Grid.Column="1" Text="{Binding ProducedQty, UpdateSourceTrigger=PropertyChanged}"/>
+                            <TextBlock Grid.Column="3" Text="폐기수량(매)" Style="{StaticResource FieldLabel}"/>
+                            <TextBox Grid.Column="4" Text="{Binding ScrapQty, UpdateSourceTrigger=PropertyChanged}"/>
+                        </Grid>
+                        <Grid Grid.Row="6">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="90"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <TextBlock Text="실제 가공비" Style="{StaticResource FieldLabel}"/>
+                            <TextBox Grid.Column="1" Text="{Binding ActualProcessingFee, UpdateSourceTrigger=PropertyChanged}"/>
+                        </Grid>
+                        <Grid Grid.Row="8">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="90"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <TextBlock Text="완료 메모" Style="{StaticResource FieldLabel}"/>
+                            <TextBox Grid.Column="1" Height="58" AcceptsReturn="True" TextWrapping="Wrap" Text="{Binding CompletionMemo, UpdateSourceTrigger=PropertyChanged}"/>
+                        </Grid>
+                        <Button Grid.Row="10" Content="완료처리 및 시트지 LOT 생성" Command="{Binding CompleteCommand}" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Right"/>
+                        <TextBlock Grid.Row="12" Text="※ 실제투입 + 반환수량은 투입예정수량과 같아야 합니다." Foreground="#64748B" FontSize="11"/>
+                    </Grid>
+                </Border>
+
+                <Border Grid.Column="4" Style="{StaticResource SectionBorder}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="10"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="14"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Text="선택 작업 요약 / 취소" FontSize="16" FontWeight="SemiBold"/>
+                        <Grid Grid.Row="2">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="90"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <TextBlock Text="사용번호" Style="{StaticResource FieldLabel}"/>
+                            <TextBlock Grid.Column="1" Text="{Binding SelectedJob.UseNo}" FontWeight="SemiBold"/>
+                        </Grid>
+                        <Grid Grid.Row="4">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="90"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <TextBlock Text="현재상태" Style="{StaticResource FieldLabel}"/>
+                            <TextBlock Grid.Column="1" Text="{Binding SelectedJob.StatusDisplay}" FontWeight="SemiBold" Foreground="#2563EB"/>
+                        </Grid>
+                        <TextBlock Grid.Row="6" Text="취소 사유" FontWeight="SemiBold"/>
+                        <TextBox Grid.Row="8" Height="90" AcceptsReturn="True" TextWrapping="Wrap" Text="{Binding CancellationReason, UpdateSourceTrigger=PropertyChanged}"/>
+                        <TextBlock Grid.Row="9" Margin="0,10,0,0" TextWrapping="Wrap" Foreground="#64748B" Text="완료된 작업은 생성된 시트지가 아직 사용되지 않은 경우에만 취소할 수 있습니다. 취소 시 원자재 수불이 반대 거래로 복원됩니다."/>
+                        <Button Grid.Row="10" Content="선택 작업 취소" Command="{Binding CancelCommand}" HorizontalAlignment="Right" Padding="14,7" Background="#DC2626" Foreground="White"/>
+                    </Grid>
+                </Border>
+            </Grid>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

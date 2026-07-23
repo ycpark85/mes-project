@@ -343,6 +343,16 @@
                                         Content="원자재 재고관리"
                                         Style="{StaticResource SidebarMenuButtonStyle}"
                                         Click="RawMaterialInventory_Click"/>
+
+                                <Button x:Name="SelfUseSheetManagementMenuButton"
+                                        Content="자가사용 시트지 관리"
+                                        Style="{StaticResource SidebarMenuButtonStyle}"
+                                        Click="SelfUseSheetManagement_Click"/>
+
+                                <Button x:Name="SelfUseSheetInventoryMenuButton"
+                                        Content="자가사용 시트지 재고"
+                                        Style="{StaticResource SidebarMenuButtonStyle}"
+                                        Click="SelfUseSheetInventory_Click"/>
                             </StackPanel>
                         </Expander>
 

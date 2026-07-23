@@ -358,6 +358,23 @@ def confirm_order_line_plan_decision(
     actor = "system"
     plan_type = payload.plan_type
     available_inventory_qty = get_available_inventory_qty(db, order_line.product_id)
+    reserved_stock_lines = (
+        db.execute(
+            select(ShipmentLine)
+            .where(
+                ShipmentLine.order_line_id == order_line.order_line_id,
+                ShipmentLine.source_type == "STOCK",
+                ShipmentLine.status == "WAITING",
+                ShipmentLine.inspection_result_id.is_(None),
+            )
+            .order_by(ShipmentLine.shipment_line_id.asc())
+            .with_for_update()
+        )
+        .scalars()
+        .all()
+    )
+    reserved_stock_qty = sum(int(line.ship_qty or 0) for line in reserved_stock_lines)
+    inventory_qty_for_order = available_inventory_qty + reserved_stock_qty
 
     is_stock_replenishment = is_stock_replenishment_partner(
         partner.name,
@@ -396,7 +413,7 @@ def confirm_order_line_plan_decision(
         production_qty = 0
         is_short_close = False
 
-        if available_inventory_qty <= 0:
+        if inventory_qty_for_order <= 0:
             if plan_type != OrderLinePlanType.AUTO_PRODUCTION:
                 raise HTTPException(
                     status_code=409,
@@ -408,7 +425,28 @@ def confirm_order_line_plan_decision(
             order_line.production_policy = OrderLineProductionPolicy.ORDER_ONLY.value
             order_line.extra_production_qty = 0
 
-        elif available_inventory_qty >= remaining_ship_qty:
+        elif (
+            plan_type == OrderLinePlanType.AUTO_PRODUCTION
+            and reserved_stock_qty >= remaining_ship_qty
+        ):
+            if reserved_stock_qty != remaining_ship_qty:
+                raise HTTPException(
+                    status_code=409,
+                    detail="예약수량과 출고목표수량이 일치하지 않습니다. 화면을 새로고침한 후 다시 처리하세요.",
+                )
+
+            for line in reserved_stock_lines:
+                line.status = "CANCELED"
+                previous_memo = (line.memo or "").strip()
+                cancel_memo = "처리계획 변경: 재고 예약 취소 후 생산으로 전환"
+                line.memo = f"{previous_memo}\n{cancel_memo}" if previous_memo else cancel_memo
+
+            production_qty = remaining_ship_qty
+            order_line.fulfillment_mode = OrderLineFulfillmentMode.PRODUCTION_FIRST.value
+            order_line.production_policy = OrderLineProductionPolicy.ORDER_ONLY.value
+            order_line.extra_production_qty = 0
+
+        elif inventory_qty_for_order >= remaining_ship_qty:
             if plan_type != OrderLinePlanType.AUTO_STOCK_SHIP:
                 raise HTTPException(
                     status_code=409,
@@ -416,12 +454,20 @@ def confirm_order_line_plan_decision(
                 )
 
             stock_ship_qty = remaining_ship_qty
-            stock_lines = create_stock_shipment_waiting_for_plan(
-                db,
-                order_line=order_line,
-                ship_qty=stock_ship_qty,
-                memo="처리계획 확정: 재고 출고",
-            )
+            if reserved_stock_lines:
+                if reserved_stock_qty != stock_ship_qty:
+                    raise HTTPException(
+                        status_code=409,
+                        detail="예약수량과 출고목표수량이 일치하지 않습니다. 화면을 새로고침한 후 다시 처리하세요.",
+                    )
+                stock_lines = reserved_stock_lines
+            else:
+                stock_lines = create_stock_shipment_waiting_for_plan(
+                    db,
+                    order_line=order_line,
+                    ship_qty=stock_ship_qty,
+                    memo="처리계획 확정: 재고 출고",
+                )
             confirm_shipment_lines_in_session(
                 db,
                 [line.shipment_line_id for line in stock_lines],
@@ -485,7 +531,7 @@ def confirm_order_line_plan_decision(
         order_line=order_line,
         plan_type=plan_type,
         ship_target_qty=ship_target_qty,
-        available_inventory_qty=available_inventory_qty,
+        available_inventory_qty=inventory_qty_for_order,
         stock_ship_qty=stock_ship_qty,
         production_qty=production_qty,
         is_short_close=is_short_close,

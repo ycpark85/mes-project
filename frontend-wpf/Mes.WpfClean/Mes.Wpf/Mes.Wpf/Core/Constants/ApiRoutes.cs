@@ -50,6 +50,9 @@
         public const string RawMaterialInbound = "api/v1/raw-materials/inbound";
         public const string RawMaterialTransfer = "api/v1/raw-materials/transfer";
         public const string RawMaterialAdjust = "api/v1/raw-materials/adjust";
+        public const string SelfUseSheetJobs = "api/v1/raw-materials/self-use-sheet-jobs";
+        public const string SelfUseSheetInventory = "api/v1/raw-materials/self-use-sheet-inventory";
+        public const string SelfUseSheetMovements = "api/v1/raw-materials/self-use-sheet-movements";
         public const string Shipments = "api/v1/shipments";
         public const string InitialInventoryBulk = "api/v1/inventories/initial-bulk";
 

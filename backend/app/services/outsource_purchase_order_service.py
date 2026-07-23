@@ -124,6 +124,7 @@ def create_purchase_order(
                 OutsourceWorkGroup.outsource_work_group_id,
                 OutsourceWorkGroup.outsource_work_instruction_id,
                 OutsourceWorkGroupItem.lot_id,
+                OutsourceWorkGroup.cut_skipped_reason,
             )
             .join(
                 OutsourceWorkGroupItem,
@@ -153,8 +154,10 @@ def create_purchase_order(
     )
 
     work_group_id_by_item_key: dict[tuple[int, int], int] = {}
-    for work_group_id, instruction_id, lot_id in work_group_rows:
+    cut_skipped_reason_by_work_group_id: dict[int, str | None] = {}
+    for work_group_id, instruction_id, lot_id, cut_skipped_reason in work_group_rows:
         work_group_id_by_item_key[(int(instruction_id), int(lot_id))] = int(work_group_id)
+        cut_skipped_reason_by_work_group_id[int(work_group_id)] = cut_skipped_reason
 
     selected_lot_ids_by_work_group_id: dict[int, set[int]] = {}
     ordered_work_group_ids: list[int] = []
@@ -177,6 +180,21 @@ def create_purchase_order(
             ordered_work_group_ids.append(work_group_id)
 
         selected_lot_ids_by_work_group_id[work_group_id].add(int(item.lot_id))
+
+    if normalized_process_type == "CUT":
+        skipped_work_group_ids = [
+            work_group_id
+            for work_group_id in ordered_work_group_ids
+            if cut_skipped_reason_by_work_group_id.get(work_group_id) is not None
+        ]
+        if skipped_work_group_ids:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Cutting is skipped for outsource work group: "
+                    f"outsource_work_group_id={skipped_work_group_ids[0]}"
+                ),
+            )
 
     group_lot_rows = (
         db.execute(
@@ -387,4 +405,3 @@ def _get_outsource_partner_name_by_process_type(process_type: str) -> str | None
         return "\ubcf4\ud604\ubb38\ud654"
 
     return None
-

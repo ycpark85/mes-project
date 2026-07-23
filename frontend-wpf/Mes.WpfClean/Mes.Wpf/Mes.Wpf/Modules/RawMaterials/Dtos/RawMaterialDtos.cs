@@ -135,6 +135,7 @@ namespace Mes.Wpf.Modules.RawMaterials.Dtos
 
         [JsonPropertyName("current_qty")]
         public decimal CurrentQty { get; set; }
+
     }
 
     public class RawMaterialLocationListDto
@@ -205,11 +206,17 @@ namespace Mes.Wpf.Modules.RawMaterials.Dtos
         [JsonPropertyName("location_name")]
         public string LocationName { get; set; } = string.Empty;
 
+        [JsonPropertyName("location_type")]
+        public string LocationType { get; set; } = string.Empty;
+
         [JsonPropertyName("lot_no")]
         public string LotNo { get; set; } = string.Empty;
 
         [JsonPropertyName("current_qty")]
         public decimal CurrentQty { get; set; }
+
+        [JsonPropertyName("uom")]
+        public string Uom { get; set; } = string.Empty;
 
         [JsonPropertyName("unit_cost")]
         public decimal? UnitCost { get; set; }
@@ -222,6 +229,15 @@ namespace Mes.Wpf.Modules.RawMaterials.Dtos
     {
         [JsonPropertyName("items")]
         public List<RawMaterialInventoryLotDto> Items { get; set; } = new();
+
+        [JsonPropertyName("total")]
+        public int Total { get; set; }
+
+        [JsonPropertyName("page")]
+        public int Page { get; set; }
+
+        [JsonPropertyName("size")]
+        public int Size { get; set; }
     }
 
     public class RawMaterialMovementDto
@@ -267,6 +283,21 @@ namespace Mes.Wpf.Modules.RawMaterials.Dtos
 
         [JsonPropertyName("memo")]
         public string? Memo { get; set; }
+
+        [JsonPropertyName("usage_product_display")]
+        public string UsageProductDisplay { get; set; } = "-";
+
+        [JsonPropertyName("usage_lot_display")]
+        public string UsageLotDisplay { get; set; } = "-";
+
+        [JsonPropertyName("usage_partner_display")]
+        public string UsagePartnerDisplay { get; set; } = "-";
+
+        [JsonPropertyName("work_instruction_no")]
+        public string WorkInstructionNo { get; set; } = "-";
+
+        [JsonPropertyName("work_group_seq")]
+        public string WorkGroupSeq { get; set; } = "-";
 
         [JsonPropertyName("created_at")]
         public DateTime CreatedAt { get; set; }

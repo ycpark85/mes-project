@@ -10,9 +10,31 @@ from app.crud.order_line import order_line_crud
 from app.models.lot import Lot
 from app.models.lot_step import LotStep
 from app.models.order_line import OrderLine
+from app.models.shipment_line import ShipmentLine
 from app.schemas.order_line import OrderLineStatus, OrderLineUpdate
 from app.services.order_line_creation_service import ensure_partner_active, ensure_product_active
 from app.services.production_daily_query import refresh_order_line_snapshot
+
+
+def ensure_no_waiting_stock_reservation_for_plan_change(
+    db: Session,
+    order_line_id: int,
+) -> None:
+    waiting_reservation_exists = db.execute(
+        select(ShipmentLine.shipment_line_id)
+        .where(
+            ShipmentLine.order_line_id == order_line_id,
+            ShipmentLine.source_type == "STOCK",
+            ShipmentLine.status == "WAITING",
+        )
+        .limit(1)
+    ).scalar_one_or_none()
+
+    if waiting_reservation_exists is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="재고출고 확인대기 중에는 거래처, 품목 또는 수주수량을 변경할 수 없습니다. 처리계획을 먼저 확정하세요.",
+        )
 
 
 def propagate_order_line_due_date(db: Session, order_line_id: int, new_due_date: date) -> None:
@@ -86,6 +108,13 @@ def update_order_line_fields(db: Session, order_line_id: int, payload: OrderLine
     if "product_id" in data:
         product = ensure_product_active(db, data["product_id"])
         data["uom"] = product.uom
+
+    plan_affecting_fields = {"partner_id", "product_id", "order_qty"}
+    if any(
+        key in data and data[key] != getattr(obj, key)
+        for key in plan_affecting_fields
+    ):
+        ensure_no_waiting_stock_reservation_for_plan_change(db, order_line_id)
 
     order_line_crud.update(db, obj, data)
 

@@ -323,6 +323,7 @@ def list_purchase_order_targets(
     if normalized_process_type == "PRINT":
         target_conditions.append(RoutingTemplate.template_name.like("%\uc778\uc1c4%"))
     else:
+        target_conditions.append(OutsourceWorkGroup.cut_skipped_reason.is_(None))
         target_conditions.append(
             or_(
                 RoutingTemplate.template_name.is_(None),

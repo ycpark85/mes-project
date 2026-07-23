@@ -87,6 +87,7 @@ class LotReworkServiceTests(unittest.TestCase):
         self.assertEqual(1, created_lot.parent_lot_id)
         self.assertEqual(5, created_lot.lot_qty)
         self.assertEqual("WAITING", created_lot.status)
+        self.assertEqual("rework", created_lot.memo)
         self.assertEqual("CT26G11E01", created_lot.lot_no)
         self.assertEqual("SO-1", result.order_no)
         self.assertEqual("Customer A", result.partner_name)
@@ -107,6 +108,22 @@ class LotReworkServiceTests(unittest.TestCase):
             )
 
         self.assertEqual(409, ctx.exception.status_code)
+
+    def test_create_rework_lot_rejects_blank_rework_reason(self) -> None:
+        with self.assertRaises(HTTPException) as ctx:
+            create_rework_lot(
+                self.db,
+                LotCreate(
+                    order_line_id=1,
+                    parent_lot_id=1,
+                    lot_qty=5,
+                    created_date=date(2026, 7, 11),
+                    memo="   ",
+                ),
+            )
+
+        self.assertEqual(422, ctx.exception.status_code)
+        self.assertEqual("Rework reason is required", ctx.exception.detail)
 
     def test_create_rework_lot_rejects_parent_not_done_or_canceled(self) -> None:
         self.db.close()

@@ -48,6 +48,13 @@ from .shipment_coa import ShipmentCoa
 from .auth_audit_log import AuthAuditLog
 from .vendor_user_access import VendorUserAccess
 from .vendor_portal_audit_log import VendorPortalAuditLog
+from .self_use_sheet_job import SelfUseSheetJob
+from .self_use_sheet_raw_material_allocation import SelfUseSheetRawMaterialAllocation
+from .self_use_sheet_inventory_lot import SelfUseSheetInventoryLot
+from .self_use_sheet_inventory_movement import SelfUseSheetInventoryMovement
+from .self_use_sheet_inventory_balance import SelfUseSheetInventoryBalance
+from .outsource_work_group_self_use_sheet_allocation import OutsourceWorkGroupSelfUseSheetAllocation
+from .outsource_work_group_self_use_sheet_source_snapshot import OutsourceWorkGroupSelfUseSheetSourceSnapshot
 
 __all__ = [
     "Process", 
@@ -99,5 +106,12 @@ __all__ = [
     "ShipmentCoa",
     "AuthAuditLog",
     "VendorUserAccess",
-    "VendorPortalAuditLog"
+    "VendorPortalAuditLog",
+    "SelfUseSheetJob",
+    "SelfUseSheetRawMaterialAllocation",
+    "SelfUseSheetInventoryLot",
+    "SelfUseSheetInventoryMovement",
+    "SelfUseSheetInventoryBalance",
+    "OutsourceWorkGroupSelfUseSheetAllocation",
+    "OutsourceWorkGroupSelfUseSheetSourceSnapshot",
 ]

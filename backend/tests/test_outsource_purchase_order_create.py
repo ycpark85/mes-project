@@ -152,6 +152,35 @@ class OutsourcePurchaseOrderCreateTests(unittest.TestCase):
         self.assertEqual(409, error.exception.status_code)
         self.assertIn("All LOTs", error.exception.detail)
 
+    def test_create_cut_purchase_order_rejects_cut_skipped_work_group(self) -> None:
+        work_group = self.db.get(OutsourceWorkGroup, 1)
+        work_group.input_source_type = "SELF_USE_SHEET"
+        work_group.cut_skipped_reason = "SELF_USE_SHEET"
+        self.db.commit()
+        payload = self._build_payload(
+            [
+                OutsourcePurchaseOrderCreateItem(
+                    lot_id=1,
+                    outsource_work_instruction_id=1,
+                    item_seq=1,
+                    qty=100,
+                ),
+                OutsourcePurchaseOrderCreateItem(
+                    lot_id=2,
+                    outsource_work_instruction_id=1,
+                    item_seq=2,
+                    qty=200,
+                ),
+            ]
+        )
+
+        with self.assertRaises(HTTPException) as error:
+            api.create_outsource_purchase_order(payload, self.db)
+
+        self.assertEqual(409, error.exception.status_code)
+        self.assertIn("Cutting is skipped", error.exception.detail)
+        self.assertEqual(0, len(self.db.execute(select(OutsourcePurchaseOrder)).scalars().all()))
+
     def _build_payload(
         self,
         items: list[OutsourcePurchaseOrderCreateItem],

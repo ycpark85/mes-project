@@ -335,7 +335,10 @@
                             <DataGridTextColumn Header="수량" Binding="{Binding Qty, StringFormat={}{0:N2}}" Width="100"/>
                             <DataGridTextColumn Header="반영 후 재고" Binding="{Binding BalanceAfter, StringFormat={}{0:N2}}" Width="120"/>
                             <DataGridTextColumn Header="금액" Binding="{Binding AmountSnapshot, StringFormat={}{0:N0}}" Width="110"/>
-                            <DataGridTextColumn Header="비고" Binding="{Binding Memo}" Width="*"/>
+                            <DataGridTextColumn Header="비고" Binding="{Binding Memo}" Width="180"/>
+                            <DataGridTextColumn Header="사용 제품" Binding="{Binding UsageProductDisplay}" Width="180"/>
+                            <DataGridTextColumn Header="제품 LOT" Binding="{Binding UsageLotDisplay}" Width="160"/>
+                            <DataGridTextColumn Header="발주 거래처" Binding="{Binding UsagePartnerDisplay}" Width="180"/>
                         </DataGrid.Columns>
                     </DataGrid>
                 </Grid>

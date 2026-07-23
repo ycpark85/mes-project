@@ -143,7 +143,7 @@ Important columns:
 - `unit_cost_snapshot`, `amount_snapshot`: cost snapshots for future closing and auditability.
 - `transfer_key`: groups paired transfer-out and transfer-in rows.
 - Movement history queries should support raw material, LOT number, location, movement type, and date filters so the original inbound row and later location transfers can be reviewed together for the same raw material LOT.
-- `source_type` and `source_id` link outsource consumption rows to `outsource_work_group_raw_material_allocation`.
+- `source_type` and `source_id` identify the source operation. Outsource work-group consumption and self-use sheet jobs use different source types so their ledger histories remain distinguishable.
 - LOT-number contains-search uses the PostgreSQL `pg_trgm` extension and a partial GIN index on non-null `lot_no` values. This keeps the existing `ILIKE '%keyword%'` search behavior usable as movement history grows.
 
 ### `outsource_work_group_raw_material_allocation`
@@ -159,6 +159,74 @@ Important columns:
 - `unit_cost_snapshot`, `amount_snapshot`: cost snapshots for future WIP and closing calculations.
 - `raw_material_inventory_movement_id`: linked `CONSUME_OUT` ledger row.
 - `status`: `CONSUMED` for active consumption snapshots and `REVERSED` for allocations restored by update or cancel flows.
+
+## Self-Use Sheet Processing and Inventory Tables
+
+Self-use sheets are processed inventory made from existing raw material LOT stock. They are kept separate from raw material stock because the input unit can be meters or another raw-material unit while the output is managed as sheet count.
+
+### `self_use_sheet_job`
+
+Header and state machine for one self-use sheet cutting operation.
+
+- `use_no`: unique human-readable operation number.
+- `purpose_type`: `PRINT_SETUP`, `SAMPLE`, `TEST_RND`, or `OTHER`. `OTHER` requires a memo.
+- `execution_type`: `INTERNAL` or `OUTSOURCE`; outsource jobs require a vendor `partner_id`.
+- `status`: `DRAFT`, `IN_PROGRESS`, `COMPLETED`, or `CANCELED`.
+- Cutting dimensions, planned/actual output, scrap, expected/actual processing fee, actor snapshots, transition timestamps, and cancel reason are retained.
+- `version` protects state transitions from stale concurrent writes.
+
+### `self_use_sheet_raw_material_allocation`
+
+Raw-material LOT allocation and cost snapshot for a self-use sheet job.
+
+- Multiple input LOTs are supported, but every allocation in one job must belong to the same raw material.
+- Original source location/LOT and processing-location LOT are stored separately so outsource dispatch and return can be traced.
+- `planned_qty`, `actual_consumed_qty`, and `returned_qty` preserve the input reconciliation.
+- Unit cost and amount snapshots retain the material-cost basis used when the self-use sheet LOT is completed.
+- Status progresses from `PLANNED` to `ISSUED` to `CONSUMED`; cancellation uses `REVERSED`.
+
+### `self_use_sheet_inventory_lot`
+
+Current self-use sheet stock created by one completed job.
+
+- One job creates at most one sheet LOT; both the job relation and `sheet_lot_no` are unique.
+- `initial_qty` and `current_qty` are sheet counts and cannot be mixed with raw-material quantity units.
+- `material_amount`, `processing_fee`, `total_cost`, and `unit_cost` retain the completion valuation.
+- Status is `AVAILABLE`, `DEPLETED`, or `CANCELED`; `version` protects use and reversal writes.
+
+### `self_use_sheet_inventory_movement`
+
+Append-only self-use sheet inventory ledger.
+
+- `PRODUCE_IN`: cutting completion and sheet LOT creation.
+- `USE_OUT`: printing setup, sample production, test/R&D, or another documented use.
+- `USE_REVERSE`: reversal of one `USE_OUT` movement. `source_movement_id` is unique so one usage cannot be reversed twice.
+- `CANCEL_OUT`: cancellation of an unused completed job.
+- `TRANSFER_OUT`/`TRANSFER_IN`: paired location movement with one transfer key; LOT total is unchanged.
+- `WORK_USE_OUT`/`WORK_USE_REVERSE`: outsource work-instruction consumption and exact-location restoration.
+- Signed quantity, LOT balance, location balance, location/counterpart, source operation, unit-cost/amount snapshots, actor, memo, and timestamp are retained.
+
+### `self_use_sheet_inventory_balance`
+
+Location-level current stock for one self-use sheet LOT.
+
+- `(self_use_sheet_inventory_lot_id, raw_material_location_id)` is unique.
+- `current_qty` is nonnegative and the sum of all location balances must equal the parent LOT `current_qty`.
+- Row locks on the LOT and location balance protect concurrent use and transfer.
+
+### `outsource_work_group_self_use_sheet_allocation`
+
+Self-use sheet stock consumed by one outsource work group.
+
+- Stores the sheet LOT, exact source location, quantity, cost snapshot, linked sheet movement, and `CONSUMED`/`REVERSED` status.
+- Raw-roll and self-use-sheet allocations are mutually exclusive. Self-use allocations must total the work-group sheet quantity.
+
+### `outsource_work_group_self_use_sheet_source_snapshot`
+
+Immutable raw-material LOT provenance copied when a self-use sheet is allocated to a work group.
+
+- Keeps source cutting allocation and original raw-material LOT references where available.
+- Material code/name, raw-material LOT number, source location name, consumed quantity, unit cost, and amount are stored as snapshots.
 
 ## Outsource Work Instruction Cancel Support
 
@@ -334,3 +402,9 @@ The stored `lot.status` is protected by the `ck_lot__status_enum` database const
 - `CANCELED`: the LOT was canceled.
 
 The LOT management screen may derive a separate display status, such as showing an active outsource LOT as `IN_PROGRESS` while the stored status remains `WAITING`. Display-only values such as `CREATED` and `INSPECTION_DONE` are not stored in `lot.status` and are intentionally excluded from the constraint.
+
+Rework LOTs use `parent_lot_id` and must preserve their creation reason in `lot.memo`.
+
+- `ck_lot__rework_memo_required` allows an optional memo for primary LOTs but requires a non-blank trimmed memo whenever `parent_lot_id` is set.
+- The migration audits existing rework rows and stops instead of silently inventing a reason when invalid legacy data exists.
+- Application validation remains in both WPF and `lot_rework_service.py`; the database constraint is the final integrity boundary.

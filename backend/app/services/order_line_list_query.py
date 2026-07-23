@@ -57,6 +57,19 @@ def list_order_lines_for_grid(
         .subquery()
     )
 
+    order_reserved_inventory_sq = (
+        select(
+            ShipmentLine.order_line_id.label("order_line_id"),
+            func.coalesce(func.sum(ShipmentLine.ship_qty), 0).label("reserved_stock_qty"),
+        )
+        .where(
+            ShipmentLine.source_type == "STOCK",
+            ShipmentLine.status == "WAITING",
+        )
+        .group_by(ShipmentLine.order_line_id)
+        .subquery()
+    )
+
     stmt = (
         select(
             OrderLine,
@@ -66,6 +79,7 @@ def list_order_lines_for_grid(
             Drawing.drawing_no.label("drawing_no"),
             func.coalesce(ProductInventory.current_qty, 0).label("current_qty"),
             func.coalesce(reserved_inventory_sq.c.reserved_qty, 0).label("reserved_qty"),
+            func.coalesce(order_reserved_inventory_sq.c.reserved_stock_qty, 0).label("reserved_stock_qty"),
             func.coalesce(lot_agg_sq.c.lot_count, 0).label("lot_count"),
         )
         .join(Partner, Partner.partner_id == OrderLine.partner_id)
@@ -73,6 +87,10 @@ def list_order_lines_for_grid(
         .outerjoin(Drawing, Drawing.drawing_id == Product.drawing_id)
         .outerjoin(ProductInventory, ProductInventory.product_id == OrderLine.product_id)
         .outerjoin(reserved_inventory_sq, reserved_inventory_sq.c.product_id == Product.product_id)
+        .outerjoin(
+            order_reserved_inventory_sq,
+            order_reserved_inventory_sq.c.order_line_id == OrderLine.order_line_id,
+        )
         .outerjoin(lot_agg_sq, lot_agg_sq.c.order_line_id == OrderLine.order_line_id)
     )
 
@@ -142,9 +160,11 @@ def list_order_lines_for_grid(
     total = db.execute(count_stmt).scalar_one()
 
     stmt = stmt.order_by(
-        OrderLine.due_date.asc(),
-        OrderLine.order_no.asc(),
+        OrderLine.created_at.desc(),
+        OrderLine.order_date.desc(),
+        OrderLine.order_no.desc(),
         OrderLine.line_no.asc(),
+        OrderLine.order_line_id.desc(),
     )
 
     stmt = stmt.offset((page - 1) * size).limit(size)
@@ -203,19 +223,22 @@ def list_order_lines_for_grid(
         drawing_no,
         current_qty,
         reserved_qty,
+        reserved_stock_qty,
         lot_count,
     ) in rows:
         lot_count_int = int(lot_count or 0)
         available_inventory_qty = max(int(current_qty or 0) - int(reserved_qty or 0), 0)
+        reserved_stock_qty_int = int(reserved_stock_qty or 0)
+        inventory_qty_for_order = available_inventory_qty + reserved_stock_qty_int
         order_qty = int(ol.order_qty or 0)
         latest_plan_history = latest_plan_history_map.get(ol.order_line_id)
         plan_type = latest_plan_history.plan_type if latest_plan_history else None
 
         target_ship_qty = int(calculate_ship_qty(partner_name or "", order_qty) or 0)
 
-        if available_inventory_qty <= 0:
+        if inventory_qty_for_order <= 0:
             recommended_mode = "PRODUCTION_FIRST"
-        elif available_inventory_qty >= target_ship_qty:
+        elif inventory_qty_for_order >= target_ship_qty:
             recommended_mode = "INVENTORY_FIRST"
         else:
             recommended_mode = "HYBRID"
@@ -231,7 +254,7 @@ def list_order_lines_for_grid(
         elif saved_mode == "PRODUCTION_FIRST":
             base_planned_production_qty = target_ship_qty
         else:
-            base_planned_production_qty = max(target_ship_qty - available_inventory_qty, 0)
+            base_planned_production_qty = max(target_ship_qty - inventory_qty_for_order, 0)
 
         if saved_policy != "ALLOW_STOCK_BUILD":
             extra_production_qty = 0
@@ -239,16 +262,16 @@ def list_order_lines_for_grid(
         recommended_production_qty = (
             target_ship_qty
             if recommended_mode == "PRODUCTION_FIRST"
-            else max(target_ship_qty - available_inventory_qty, 0)
+            else max(target_ship_qty - inventory_qty_for_order, 0)
         )
 
         planned_production_qty = base_planned_production_qty + extra_production_qty
 
         if saved_policy == "INVENTORY_ONLY_CLOSE":
-            expected_ship_qty = min(available_inventory_qty, target_ship_qty)
+            expected_ship_qty = min(inventory_qty_for_order, target_ship_qty)
         else:
             expected_ship_qty = min(
-                available_inventory_qty + planned_production_qty,
+                inventory_qty_for_order + planned_production_qty,
                 target_ship_qty,
             )
 
@@ -301,6 +324,7 @@ def list_order_lines_for_grid(
                 "plan_type": plan_type,
                 "plan_type_display": to_plan_type_display(plan_type),
                 "available_inventory_qty": available_inventory_qty,
+                "reserved_stock_qty": reserved_stock_qty_int,
                 "target_ship_qty": target_ship_qty,
                 "recommended_fulfillment_mode": recommended_mode,
                 "recommended_production_qty": recommended_production_qty,

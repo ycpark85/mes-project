@@ -268,7 +268,7 @@
                                                 ElementStyle="{StaticResource GridTextStyle}"/>
 
                             <DataGridTextColumn Header="현재고"
-                                                Binding="{Binding AvailableInventoryQty, StringFormat={}{0:N0}}"
+                                                Binding="{Binding AvailableInventoryForPlanQty, StringFormat={}{0:N0}}"
                                                 Width="100"
                                                 ElementStyle="{StaticResource GridTextStyle}"/>
 
@@ -278,7 +278,7 @@
                                                 ElementStyle="{StaticResource GridTextStyle}"/>
 
                             <DataGridTextColumn Header="처리구분"
-                                                Binding="{Binding PlanTypeDisplay}"
+                                                Binding="{Binding PlanTypeDisplayForGrid}"
                                                 Width="150"
                                                 ElementStyle="{StaticResource GridTextStyle}"/>
 
@@ -445,6 +445,7 @@
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="90"/>
                                     <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
 
                                 <TextBlock Grid.Column="0"
@@ -462,6 +463,19 @@
                                 <TextBlock Grid.Column="3"
                                            Style="{StaticResource ValueTextStyle}"
                                            Text="{Binding DecisionStatusText}"/>
+
+                                <StackPanel Grid.Column="4"
+                                            Margin="16,0,0,0"
+                                            Orientation="Horizontal"
+                                            Visibility="{Binding IsFullStockDecisionVisible, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <Button Style="{StaticResource PrimaryButtonStyle}"
+                                            Margin="0,0,8,0"
+                                            Content="재고출고 확정"
+                                            Command="{Binding ConfirmFullStockShipmentCommand}"/>
+                                    <Button Style="{StaticResource PrimaryButtonStyle}"
+                                            Content="생산으로 변경"
+                                            Command="{Binding ChangeFullStockToProductionCommand}"/>
+                                </StackPanel>
                             </Grid>
 
                             <TextBlock Grid.Row="2"

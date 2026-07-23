@@ -168,6 +168,40 @@ class OutsourcePurchaseOrderQueryTests(unittest.TestCase):
         self.assertEqual(1, len(item.files))
         self.assertEqual("plate.pdf", item.files[0].file_name)
 
+    def test_cut_targets_exclude_blank_self_use_sheet_group(self) -> None:
+        instruction = self.db.get(OutsourceWorkInstruction, 20)
+        instruction.process_type = "DIECUT"
+        instruction_item = self.db.get(OutsourceWorkInstructionItem, 20)
+        instruction_item.process_type = "DIECUT"
+        work_group = self.db.get(OutsourceWorkGroup, 20)
+        work_group.process_type = "DIECUT"
+        work_group.input_source_type = "SELF_USE_SHEET"
+        work_group.cut_skipped_reason = "SELF_USE_SHEET"
+        self.db.commit()
+
+        result = list_purchase_order_targets(self.db, process_type="cut")
+
+        self.assertEqual(0, result.total_count)
+        self.assertEqual([], result.items)
+
+    def test_roll_material_print_group_remains_cut_and_print_target(self) -> None:
+        self._change_target_group_to_print(self_use_sheet=False)
+
+        cut_result = list_purchase_order_targets(self.db, process_type="cut")
+        print_result = list_purchase_order_targets(self.db, process_type="print")
+
+        self.assertEqual([20], [item.outsource_work_group_id for item in cut_result.items])
+        self.assertEqual([20], [item.outsource_work_group_id for item in print_result.items])
+
+    def test_self_use_sheet_print_group_is_print_target_only(self) -> None:
+        self._change_target_group_to_print(self_use_sheet=True)
+
+        cut_result = list_purchase_order_targets(self.db, process_type="cut")
+        print_result = list_purchase_order_targets(self.db, process_type="print")
+
+        self.assertEqual([], cut_result.items)
+        self.assertEqual([20], [item.outsource_work_group_id for item in print_result.items])
+
     def test_list_purchase_order_targets_paginates_by_work_group(self) -> None:
         self.db.add_all(
             [
@@ -205,6 +239,37 @@ class OutsourcePurchaseOrderQueryTests(unittest.TestCase):
         self.assertEqual(2, second_page.page)
         self.assertEqual(1, second_page.size)
         self.assertEqual([20], [item.outsource_work_group_id for item in second_page.items])
+
+    def _change_target_group_to_print(self, *, self_use_sheet: bool) -> None:
+        self.db.add(
+            Partner(
+                partner_id=6,
+                partner_type="VENDOR",
+                name="\uc8fc\uc2dd\ud68c\uc0ac \uc0c1\ub9bc\ud06c\ub9ac\uc5d0\uc774\ud2f0\ube0c",
+                business_no="V-006",
+                is_active=True,
+            )
+        )
+        self.db.add(
+            RoutingTemplate(
+                routing_template_id=3,
+                template_code="PRINT-TARGET",
+                template_name="\uc778\uc1c4",
+                is_active=True,
+            )
+        )
+        product = self.db.get(Product, 3)
+        product.routing_template_id = 3
+        instruction = self.db.get(OutsourceWorkInstruction, 20)
+        instruction.process_type = "PRINT"
+        instruction_item = self.db.get(OutsourceWorkInstructionItem, 20)
+        instruction_item.process_type = "PRINT"
+        work_group = self.db.get(OutsourceWorkGroup, 20)
+        work_group.process_type = "PRINT"
+        if self_use_sheet:
+            work_group.input_source_type = "SELF_USE_SHEET"
+            work_group.cut_skipped_reason = "SELF_USE_SHEET"
+        self.db.commit()
 
     def _seed_base_data(self) -> None:
         self.db.add_all(

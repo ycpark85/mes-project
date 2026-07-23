@@ -41,6 +41,14 @@ class OutsourceWorkGroup(Base):
             name="ck_outsource_work_group__status",
         ),
         CheckConstraint(
+            "input_source_type IN ('RAW_MATERIAL','SELF_USE_SHEET')",
+            name="ck_outsource_work_group__input_source_type",
+        ),
+        CheckConstraint(
+            "input_source_type <> 'SELF_USE_SHEET' OR cut_skipped_reason = 'SELF_USE_SHEET'",
+            name="ck_outsource_work_group__self_use_sheet_skip_reason",
+        ),
+        CheckConstraint(
             "work_done_sheet_qty IS NULL OR work_done_sheet_qty >= 0",
             name="ck_outsource_work_group__work_done_sheet_qty_ge_0",
         ),
@@ -78,6 +86,8 @@ class OutsourceWorkGroup(Base):
 
     group_seq: Mapped[str] = mapped_column(String(20), nullable=False)
     process_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    input_source_type: Mapped[str] = mapped_column(String(30), nullable=False, default="RAW_MATERIAL")
+    cut_skipped_reason: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
     is_bundle: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     sheet_qty: Mapped[int] = mapped_column(BigInteger, nullable=False)
     length_m: Mapped[Optional[float]] = mapped_column(Numeric(18, 2), nullable=True)
@@ -148,6 +158,11 @@ class OutsourceWorkGroup(Base):
 
     purchase_order_groups: Mapped[List["OutsourcePurchaseOrderGroup"]] = relationship(
         "OutsourcePurchaseOrderGroup",
+        back_populates="work_group",
+        cascade="all, delete-orphan",
+    )
+    self_use_sheet_allocations: Mapped[List["OutsourceWorkGroupSelfUseSheetAllocation"]] = relationship(
+        "OutsourceWorkGroupSelfUseSheetAllocation",
         back_populates="work_group",
         cascade="all, delete-orphan",
     )

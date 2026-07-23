@@ -1,0 +1,209 @@
+<UserControl x:Class="Mes.Wpf.Modules.RawMaterials.Views.SelfUseSheetInventoryPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Resources>
+        <Style x:Key="CardBorder" TargetType="Border">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#D8DEE8"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="12"/>
+        </Style>
+        <Style x:Key="PrimaryButton" TargetType="Button">
+            <Setter Property="Background" Value="#2563EB"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="#2563EB"/>
+            <Setter Property="Padding" Value="16,7"/>
+            <Setter Property="MinWidth" Value="90"/>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Margin="16" Background="#F4F6F9">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="90"/>
+            <RowDefinition Height="12"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/><ColumnDefinition Width="10"/><ColumnDefinition Width="*"/><ColumnDefinition Width="10"/><ColumnDefinition Width="*"/><ColumnDefinition Width="10"/><ColumnDefinition Width="*"/><ColumnDefinition Width="10"/><ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Border Grid.Column="0" Style="{StaticResource CardBorder}"><StackPanel><TextBlock Text="재단 LOT" Foreground="#64748B"/><TextBlock Text="{Binding LotCount, StringFormat={}{0:N0}건}" FontSize="22" FontWeight="Bold" Margin="0,8,0,0"/></StackPanel></Border>
+            <Border Grid.Column="2" Style="{StaticResource CardBorder}"><StackPanel><TextBlock Text="총 생산수량" Foreground="#64748B"/><TextBlock Text="{Binding TotalInitialQty, StringFormat={}{0:N0}매}" FontSize="22" FontWeight="Bold" Margin="0,8,0,0"/></StackPanel></Border>
+            <Border Grid.Column="4" Style="{StaticResource CardBorder}"><StackPanel><TextBlock Text="사용수량" Foreground="#64748B"/><TextBlock Text="{Binding TotalUsedQty, StringFormat={}{0:N0}매}" FontSize="22" FontWeight="Bold" Margin="0,8,0,0" Foreground="#7C3AED"/></StackPanel></Border>
+            <Border Grid.Column="6" Style="{StaticResource CardBorder}"><StackPanel><TextBlock Text="사용가능 수량" Foreground="#64748B"/><TextBlock Text="{Binding TotalCurrentQty, StringFormat={}{0:N0}매}" FontSize="22" FontWeight="Bold" Margin="0,8,0,0" Foreground="#15803D"/></StackPanel></Border>
+            <Border Grid.Column="8" Style="{StaticResource CardBorder}"><StackPanel><TextBlock Text="현재 재고금액" Foreground="#64748B"/><TextBlock Text="{Binding InventoryAmount, StringFormat={}{0:N0}원}" FontSize="22" FontWeight="Bold" Margin="0,8,0,0"/></StackPanel></Border>
+        </Grid>
+
+        <TabControl Grid.Row="2">
+            <TabItem Header="재고 현황">
+                <Grid Margin="8">
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="12"/><RowDefinition Height="*"/><RowDefinition Height="12"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <Border Grid.Row="0" Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="70"/><ColumnDefinition Width="260"/><ColumnDefinition Width="20"/><ColumnDefinition Width="70"/><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions>
+                            <TextBlock Text="검색어" VerticalAlignment="Center"/>
+                            <TextBox Grid.Column="1" Text="{Binding SearchKeyword, UpdateSourceTrigger=PropertyChanged}"/>
+                            <TextBlock Grid.Column="3" Text="재고상태" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Column="4" ItemsSource="{Binding StatusOptions}" SelectedItem="{Binding SelectedStatus}" DisplayMemberPath="Name"/>
+                            <Button Grid.Column="6" Content="조회" Command="{Binding RefreshCommand}" Style="{StaticResource PrimaryButton}"/>
+                        </Grid>
+                    </Border>
+                    <DataGrid Grid.Row="2" ItemsSource="{Binding LocationRows}" SelectedItem="{Binding SelectedLocationRow}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="시트지 LOT" Binding="{Binding Lot.SheetLotNo}" Width="155"/>
+                            <DataGridTextColumn Header="완료일" Binding="{Binding Lot.CompletedAt, StringFormat={}{0:yyyy-MM-dd}}" Width="95"/>
+                            <DataGridTextColumn Header="원자재" Binding="{Binding Lot.MaterialName}" Width="*"/>
+                            <DataGridTextColumn Header="원본 LOT" Binding="{Binding Lot.SourceLotSummary}" Width="135"/>
+                            <DataGridTextColumn Header="보관 위치" Binding="{Binding LocationName}" Width="150"/>
+                            <DataGridTextColumn Header="위치재고" Binding="{Binding LocationQty, StringFormat={}{0:N0}}" Width="85"/>
+                            <DataGridTextColumn Header="재단 규격" Binding="{Binding Lot.CutSpecDisplay}" Width="130"/>
+                            <DataGridTextColumn Header="생산" Binding="{Binding Lot.InitialQty, StringFormat={}{0:N0}}" Width="75"/>
+                            <DataGridTextColumn Header="사용" Binding="{Binding Lot.UsedQty, StringFormat={}{0:N0}}" Width="75"/>
+                            <DataGridTextColumn Header="LOT 현재고" Binding="{Binding Lot.CurrentQty, StringFormat={}{0:N0}}" Width="90"/>
+                            <DataGridTextColumn Header="단위원가" Binding="{Binding Lot.UnitCost, StringFormat={}{0:N4}}" Width="90"/>
+                            <DataGridTextColumn Header="상태" Binding="{Binding Lot.StatusDisplay}" Width="80"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <Border Grid.Row="4" Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="120"/><ColumnDefinition Width="*"/><ColumnDefinition Width="110"/><ColumnDefinition Width="150"/><ColumnDefinition Width="110"/><ColumnDefinition Width="150"/><ColumnDefinition Width="110"/><ColumnDefinition Width="150"/></Grid.ColumnDefinitions>
+                            <TextBlock Text="선택 LOT 원가" FontWeight="SemiBold"/>
+                            <TextBlock Grid.Column="1" Text="{Binding SelectedLot.SheetLotNo}" Foreground="#475569"/>
+                            <TextBlock Grid.Column="2" Text="원자재 원가" Foreground="#64748B"/>
+                            <TextBlock Grid.Column="3" Text="{Binding SelectedLot.MaterialAmount, StringFormat={}{0:N0}원}" FontWeight="SemiBold"/>
+                            <TextBlock Grid.Column="4" Text="가공비" Foreground="#64748B"/>
+                            <TextBlock Grid.Column="5" Text="{Binding SelectedLot.ProcessingFee, StringFormat={}{0:N0}원}" FontWeight="SemiBold"/>
+                            <TextBlock Grid.Column="6" Text="단위원가" Foreground="#64748B"/>
+                            <TextBlock Grid.Column="7" Text="{Binding SelectedLot.UnitCost, StringFormat={}{0:N4}원/매}" FontWeight="Bold" Foreground="#2563EB"/>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="위치 이동">
+                <Grid Margin="8">
+                    <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="12"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <DataGrid ItemsSource="{Binding LocationRows}" SelectedItem="{Binding SelectedLocationRow}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="시트지 LOT" Binding="{Binding Lot.SheetLotNo}" Width="160"/>
+                            <DataGridTextColumn Header="원자재" Binding="{Binding Lot.MaterialName}" Width="*"/>
+                            <DataGridTextColumn Header="원본 LOT" Binding="{Binding Lot.SourceLotSummary}" Width="150"/>
+                            <DataGridTextColumn Header="재단 규격" Binding="{Binding Lot.CutSpecDisplay}" Width="130"/>
+                            <DataGridTextColumn Header="현재 위치" Binding="{Binding LocationName}" Width="180"/>
+                            <DataGridTextColumn Header="위치재고" Binding="{Binding LocationQty, StringFormat={}{0:N0}}" Width="100"/>
+                            <DataGridTextColumn Header="LOT 총재고" Binding="{Binding Lot.CurrentQty, StringFormat={}{0:N0}}" Width="100"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <Border Grid.Row="2" Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="90"/><ColumnDefinition Width="190"/><ColumnDefinition Width="16"/><ColumnDefinition Width="90"/><ColumnDefinition Width="190"/><ColumnDefinition Width="16"/><ColumnDefinition Width="70"/><ColumnDefinition Width="100"/><ColumnDefinition Width="16"/><ColumnDefinition Width="70"/><ColumnDefinition Width="*"/><ColumnDefinition Width="16"/><ColumnDefinition Width="100"/></Grid.ColumnDefinitions>
+                            <TextBlock Text="출발 위치" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Column="1" ItemsSource="{Binding SelectedLot.Locations}" SelectedItem="{Binding SelectedTransferFromLocation}" DisplayMemberPath="DisplayText"/>
+                            <TextBlock Grid.Column="3" Text="도착 위치" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Column="4" ItemsSource="{Binding ActiveLocations}" SelectedItem="{Binding SelectedTransferToLocation}" DisplayMemberPath="LocationName"/>
+                            <TextBlock Grid.Column="6" Text="이동수량" VerticalAlignment="Center"/>
+                            <TextBox Grid.Column="7" Text="{Binding TransferQty, UpdateSourceTrigger=PropertyChanged}"/>
+                            <TextBlock Grid.Column="9" Text="이동사유" VerticalAlignment="Center"/>
+                            <TextBox Grid.Column="10" Text="{Binding TransferReason, UpdateSourceTrigger=PropertyChanged}"/>
+                            <Button Grid.Column="12" Content="위치 이동" Command="{Binding TransferCommand}" Style="{StaticResource PrimaryButton}"/>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="사용 처리">
+                <Grid Margin="8">
+                    <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="12"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <DataGrid ItemsSource="{Binding Lots}" SelectedItem="{Binding SelectedLot}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="시트지 LOT" Binding="{Binding SheetLotNo}" Width="160"/>
+                            <DataGridTextColumn Header="원자재" Binding="{Binding MaterialName}" Width="*"/>
+                            <DataGridTextColumn Header="재단 규격" Binding="{Binding CutSpecDisplay}" Width="130"/>
+                            <DataGridTextColumn Header="보관 위치" Binding="{Binding LocationSummary}" Width="230"/>
+                            <DataGridTextColumn Header="사용가능" Binding="{Binding CurrentQty, StringFormat={}{0:N0}}" Width="100"/>
+                            <DataGridTextColumn Header="단위원가" Binding="{Binding UnitCost, StringFormat={}{0:N4}}" Width="110"/>
+                            <DataGridTextColumn Header="상태" Binding="{Binding StatusDisplay}" Width="90"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <Border Grid.Row="2" Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="80"/><ColumnDefinition Width="190"/><ColumnDefinition Width="16"/><ColumnDefinition Width="80"/><ColumnDefinition Width="150"/><ColumnDefinition Width="16"/><ColumnDefinition Width="80"/><ColumnDefinition Width="100"/><ColumnDefinition Width="16"/><ColumnDefinition Width="60"/><ColumnDefinition Width="*"/><ColumnDefinition Width="16"/><ColumnDefinition Width="100"/></Grid.ColumnDefinitions>
+                            <TextBlock Text="사용 위치" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Column="1" ItemsSource="{Binding SelectedLot.Locations}" SelectedItem="{Binding SelectedUseLocation}" DisplayMemberPath="DisplayText"/>
+                            <TextBlock Grid.Column="3" Text="사용목적" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Column="4" ItemsSource="{Binding PurposeOptions}" SelectedItem="{Binding SelectedUsePurpose}" DisplayMemberPath="Name"/>
+                            <TextBlock Grid.Column="6" Text="사용수량" VerticalAlignment="Center"/>
+                            <TextBox Grid.Column="7" Text="{Binding UseQty, UpdateSourceTrigger=PropertyChanged}"/>
+                            <TextBlock Grid.Column="9" Text="메모" VerticalAlignment="Center"/>
+                            <TextBox Grid.Column="10" Text="{Binding UseMemo, UpdateSourceTrigger=PropertyChanged}"/>
+                            <Button Grid.Column="12" Content="사용 확정" Command="{Binding UseCommand}" Style="{StaticResource PrimaryButton}"/>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="수불 이력">
+                <Grid Margin="8">
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="12"/><RowDefinition Height="*"/><RowDefinition Height="12"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <Border Grid.Row="0" Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="70"/><ColumnDefinition Width="220"/><ColumnDefinition Width="16"/>
+                                <ColumnDefinition Width="70"/><ColumnDefinition Width="160"/><ColumnDefinition Width="16"/>
+                                <ColumnDefinition Width="60"/><ColumnDefinition Width="135"/><ColumnDefinition Width="16"/>
+                                <ColumnDefinition Width="60"/><ColumnDefinition Width="135"/><ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="90"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="검색어" VerticalAlignment="Center"/>
+                            <TextBox Grid.Column="1" Text="{Binding MovementSearchKeyword, UpdateSourceTrigger=PropertyChanged}"/>
+                            <TextBlock Grid.Column="3" Text="수불구분" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Column="4" ItemsSource="{Binding MovementTypeOptions}" SelectedItem="{Binding SelectedMovementType}" DisplayMemberPath="Name"/>
+                            <TextBlock Grid.Column="6" Text="시작일" VerticalAlignment="Center"/>
+                            <DatePicker Grid.Column="7" SelectedDate="{Binding MovementDateFrom}"/>
+                            <TextBlock Grid.Column="9" Text="종료일" VerticalAlignment="Center"/>
+                            <DatePicker Grid.Column="10" SelectedDate="{Binding MovementDateTo}"/>
+                            <Button Grid.Column="12" Content="이력 조회" Command="{Binding RefreshMovementsCommand}" Style="{StaticResource PrimaryButton}"/>
+                        </Grid>
+                    </Border>
+                    <DataGrid Grid.Row="2" ItemsSource="{Binding Movements}" SelectedItem="{Binding SelectedMovement}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="일시" Binding="{Binding CreatedAt, StringFormat={}{0:yyyy-MM-dd HH:mm}}" Width="145"/>
+                            <DataGridTextColumn Header="시트지 LOT" Binding="{Binding SheetLotNo}" Width="175"/>
+                            <DataGridTextColumn Header="원자재" Binding="{Binding MaterialName}" Width="160"/>
+                            <DataGridTextColumn Header="구분" Binding="{Binding MovementTypeDisplay}" Width="125"/>
+                            <DataGridTextColumn Header="처리 위치" Binding="{Binding LocationName}" Width="150"/>
+                            <DataGridTextColumn Header="상대 위치" Binding="{Binding CounterpartLocationName}" Width="150"/>
+                            <DataGridTextColumn Header="목적" Binding="{Binding PurposeDisplay}" Width="120"/>
+                            <DataGridTextColumn Header="수량" Binding="{Binding Qty, StringFormat={}{0:N0}}" Width="80"/>
+                            <DataGridTextColumn Header="LOT 잔량" Binding="{Binding BalanceAfter, StringFormat={}{0:N0}}" Width="90"/>
+                            <DataGridTextColumn Header="위치 잔량" Binding="{Binding LocationBalanceAfter, StringFormat={}{0:N0}}" Width="90"/>
+                            <DataGridTextColumn Header="담당자" Binding="{Binding CreatedBy}" Width="100"/>
+                            <DataGridTextColumn Header="메모" Binding="{Binding Memo}" Width="170"/>
+                            <DataGridTextColumn Header="사용 제품" Binding="{Binding UsageProductDisplay}" Width="180"/>
+                            <DataGridTextColumn Header="제품 LOT" Binding="{Binding UsageLotDisplay}" Width="160"/>
+                            <DataGridTextColumn Header="발주 거래처" Binding="{Binding UsagePartnerDisplay}" Width="180"/>
+                            <DataGridTextColumn Header="외주작업지시" Binding="{Binding WorkInstructionNo}" Width="135"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <Border Grid.Row="4" Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="180"/><ColumnDefinition Width="80"/><ColumnDefinition Width="80"/>
+                                <ColumnDefinition Width="*"/><ColumnDefinition Width="100"/><ColumnDefinition Width="280"/>
+                                <ColumnDefinition Width="16"/><ColumnDefinition Width="100"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="{Binding MovementPageDisplay}" VerticalAlignment="Center" Foreground="#475569"/>
+                            <Button Grid.Column="1" Content="이전" Command="{Binding PreviousMovementPageCommand}" Margin="4,0"/>
+                            <Button Grid.Column="2" Content="다음" Command="{Binding NextMovementPageCommand}" Margin="4,0"/>
+                            <TextBlock Grid.Column="4" Text="사용취소 사유" VerticalAlignment="Center"/>
+                            <TextBox Grid.Column="5" Text="{Binding ReverseReason, UpdateSourceTrigger=PropertyChanged}"/>
+                            <Button Grid.Column="7" Content="선택 사용취소" Command="{Binding ReverseCommand}" Background="#DC2626" Foreground="White"/>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</UserControl>

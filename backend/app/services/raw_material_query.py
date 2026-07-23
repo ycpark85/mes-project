@@ -9,6 +9,9 @@ from sqlalchemy.orm import Session
 from app.core.time import korea_day_bounds_utc
 
 from app.models.partner import Partner
+from app.models.outsource_work_group_raw_material_allocation import (
+    OutsourceWorkGroupRawMaterialAllocation,
+)
 from app.models.raw_material import RawMaterial
 from app.models.raw_material_inventory import RawMaterialInventory
 from app.models.raw_material_inventory_lot import RawMaterialInventoryLot
@@ -24,6 +27,7 @@ from app.schemas.raw_material import (
     RawMaterialMovementOut,
     RawMaterialOut,
 )
+from app.services.inventory_usage_context import load_work_group_usage_contexts
 
 
 def _q2(value: Decimal) -> Decimal:
@@ -42,8 +46,17 @@ def _amount(qty: Decimal, unit_cost: Decimal | None) -> Decimal | None:
     return (abs(_q2(qty)) * _q4(unit_cost)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
-def _movement_out(row) -> RawMaterialMovementOut:
-    return RawMaterialMovementOut(**dict(row))
+def _movement_out(row, usage_context=None) -> RawMaterialMovementOut:
+    data = dict(row)
+    if usage_context is not None:
+        data.update(
+            usage_product_display=usage_context.product_display,
+            usage_lot_display=usage_context.lot_display,
+            usage_partner_display=usage_context.partner_display,
+            work_instruction_no=usage_context.work_instruction_no,
+            work_group_seq=usage_context.work_group_seq,
+        )
+    return RawMaterialMovementOut(**data)
 
 
 def list_raw_materials_for_grid(
@@ -309,4 +322,41 @@ def list_raw_material_movements_for_grid(
         .mappings()
         .all()
     )
-    return RawMaterialMovementListOut(items=[_movement_out(row) for row in rows], total=total, page=page, size=size)
+    allocation_source_types = {
+        "OUTSOURCE_WORK_GROUP_RAW_MATERIAL_ALLOCATION",
+        "OUTSOURCE_WORK_GROUP_UPDATE",
+        "OUTSOURCE_WORK_GROUP_CANCEL",
+    }
+    allocation_ids = {
+        int(row.source_id)
+        for row in rows
+        if row.source_id is not None and row.source_type in allocation_source_types
+    }
+    allocation_group_ids = dict(
+        db.execute(
+            select(
+                OutsourceWorkGroupRawMaterialAllocation.outsource_work_group_raw_material_allocation_id,
+                OutsourceWorkGroupRawMaterialAllocation.outsource_work_group_id,
+            ).where(
+                OutsourceWorkGroupRawMaterialAllocation.outsource_work_group_raw_material_allocation_id.in_(
+                    allocation_ids
+                )
+            )
+        ).all()
+    ) if allocation_ids else {}
+    contexts = load_work_group_usage_contexts(db, set(allocation_group_ids.values()))
+
+    return RawMaterialMovementListOut(
+        items=[
+            _movement_out(
+                row,
+                contexts.get(allocation_group_ids.get(int(row.source_id)))
+                if row.source_id is not None and row.source_type in allocation_source_types
+                else None,
+            )
+            for row in rows
+        ],
+        total=total,
+        page=page,
+        size=size,
+    )

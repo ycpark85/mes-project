@@ -41,6 +41,12 @@ def create_rework_lot(
     material_lot_no, material_used_qty, material_sheet_count = _validate_material_fields(payload)
     parent = _ensure_parent_lot(db, parent_lot_id)
     _validate_rework_parent(order_line, parent)
+    rework_reason = _normalize_optional_str(payload.memo)
+    if rework_reason is None:
+        raise HTTPException(
+            status_code=422,
+            detail="Rework reason is required",
+        )
 
     if order_line.status == "DONE":
         order_line.status = "CLOSED"
@@ -55,7 +61,7 @@ def create_rework_lot(
         material_lot_no=material_lot_no,
         material_used_qty=material_used_qty,
         material_sheet_count=material_sheet_count,
-        memo=payload.memo,
+        memo=rework_reason,
     )
 
     refresh_order_line_snapshot(db, order_line.order_line_id)

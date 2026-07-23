@@ -15,14 +15,29 @@ from app.models.outsource_work_group_item import OutsourceWorkGroupItem
 from app.models.outsource_work_group_raw_material_allocation import (
     OutsourceWorkGroupRawMaterialAllocation,
 )
+from app.models.outsource_work_group_self_use_sheet_allocation import (
+    OutsourceWorkGroupSelfUseSheetAllocation,
+)
+from app.models.outsource_work_group_self_use_sheet_source_snapshot import (
+    OutsourceWorkGroupSelfUseSheetSourceSnapshot,
+)
 from app.models.outsource_work_instruction_item import OutsourceWorkInstructionItem
 from app.models.raw_material_inventory import RawMaterialInventory
 from app.models.raw_material_inventory_lot import RawMaterialInventoryLot
 from app.models.raw_material_inventory_movement import RawMaterialInventoryMovement
+from app.models.raw_material import RawMaterial
+from app.models.raw_material_location import RawMaterialLocation
+from app.models.self_use_sheet_inventory_balance import SelfUseSheetInventoryBalance
+from app.models.self_use_sheet_inventory_lot import SelfUseSheetInventoryLot
+from app.models.self_use_sheet_inventory_movement import SelfUseSheetInventoryMovement
+from app.models.self_use_sheet_raw_material_allocation import SelfUseSheetRawMaterialAllocation
+from app.models.lot import Lot
+from app.models.product import Product
 from app.schemas.outsource_work_instruction import (
     OutsourceWorkGroupCancelIn,
     OutsourceWorkGroupUpdateIn,
     OutsourceWorkInstructionRawMaterialAllocationCreate,
+    OutsourceWorkInstructionSelfUseSheetAllocationCreate,
 )
 from app.services.outsource_work_instruction_query import (
     OUTSOURCE_WORK_GROUP_STATUS_CANCELED,
@@ -42,6 +57,11 @@ def update_work_group(
     update_block_reason = get_update_block_reason(db, work_group)
     if update_block_reason is not None:
         raise HTTPException(status_code=409, detail=update_block_reason)
+    if work_group.input_source_type == "SELF_USE_SHEET":
+        raise HTTPException(
+            status_code=409,
+            detail="Self-use sheet work groups cannot be edited. Cancel and create a new work instruction.",
+        )
 
     reason = payload.reason.strip()
     if not reason:
@@ -132,6 +152,7 @@ def cancel_work_group(
         raise HTTPException(status_code=422, detail="Cancel reason is required")
 
     reverse_raw_material_allocations(db, work_group, reason)
+    reverse_self_use_sheet_allocations(db, work_group, reason)
     _cancel_linked_inspection_schedules(db, work_group)
 
     work_group.status = OUTSOURCE_WORK_GROUP_STATUS_CANCELED
@@ -291,6 +312,226 @@ def consume_raw_material_allocations(
         db.flush()
 
         allocation.raw_material_inventory_movement_id = movement.raw_material_inventory_movement_id
+
+
+def consume_self_use_sheet_allocations(
+    db: Session,
+    work_group: OutsourceWorkGroup,
+    allocations: list[OutsourceWorkInstructionSelfUseSheetAllocationCreate],
+) -> None:
+    if not allocations:
+        raise HTTPException(status_code=422, detail="Self-use sheet allocation is required")
+    allocated_qty = sum(item.qty for item in allocations)
+    if allocated_qty != work_group.sheet_qty:
+        raise HTTPException(status_code=409, detail="Self-use sheet allocation total must match sheet_qty")
+
+    product_dimensions = (
+        db.execute(
+            select(Product.panel_width_mm, Product.panel_length_mm)
+            .join(Lot, Lot.product_id == Product.product_id)
+            .join(OutsourceWorkGroupItem, OutsourceWorkGroupItem.lot_id == Lot.lot_id)
+            .where(OutsourceWorkGroupItem.outsource_work_group_id == work_group.outsource_work_group_id)
+        )
+        .all()
+    )
+
+    for payload in allocations:
+        sheet_lot = (
+            db.execute(
+                select(SelfUseSheetInventoryLot)
+                .where(
+                    SelfUseSheetInventoryLot.self_use_sheet_inventory_lot_id
+                    == payload.self_use_sheet_inventory_lot_id
+                )
+                .with_for_update()
+            )
+            .scalar_one_or_none()
+        )
+        if sheet_lot is None:
+            raise HTTPException(status_code=404, detail="Self-use sheet inventory LOT not found")
+        if sheet_lot.status != "AVAILABLE" or sheet_lot.current_qty < payload.qty:
+            raise HTTPException(status_code=409, detail="Self-use sheet inventory is insufficient")
+        for panel_width_mm, panel_length_mm in product_dimensions:
+            if panel_width_mm is None or panel_length_mm is None:
+                raise HTTPException(status_code=409, detail="Product panel dimensions are required for self-use sheet allocation")
+            panel_width = Decimal(panel_width_mm)
+            panel_length = Decimal(panel_length_mm)
+            fits_without_rotation = (
+                panel_width <= sheet_lot.cut_width_mm
+                and panel_length <= sheet_lot.cut_length_mm
+            )
+            fits_with_rotation = (
+                panel_width <= sheet_lot.cut_length_mm
+                and panel_length <= sheet_lot.cut_width_mm
+            )
+            if not fits_without_rotation and not fits_with_rotation:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Self-use sheet dimensions cannot contain the selected product panel",
+                )
+
+        location_balance = (
+            db.execute(
+                select(SelfUseSheetInventoryBalance)
+                .where(
+                    SelfUseSheetInventoryBalance.self_use_sheet_inventory_lot_id
+                    == sheet_lot.self_use_sheet_inventory_lot_id,
+                    SelfUseSheetInventoryBalance.raw_material_location_id == payload.source_location_id,
+                )
+                .with_for_update()
+            )
+            .scalar_one_or_none()
+        )
+        if location_balance is None or location_balance.current_qty < payload.qty:
+            raise HTTPException(status_code=409, detail="Self-use sheet inventory is insufficient at the selected location")
+
+        memo = payload.memo.strip() if payload.memo and payload.memo.strip() else None
+        amount_snapshot = _amount(Decimal(payload.qty), sheet_lot.unit_cost) or Decimal("0")
+        allocation = OutsourceWorkGroupSelfUseSheetAllocation(
+            outsource_work_group_id=work_group.outsource_work_group_id,
+            self_use_sheet_inventory_lot_id=sheet_lot.self_use_sheet_inventory_lot_id,
+            source_location_id=payload.source_location_id,
+            sheet_lot_no=sheet_lot.sheet_lot_no,
+            qty=payload.qty,
+            unit_cost_snapshot=sheet_lot.unit_cost,
+            amount_snapshot=amount_snapshot,
+            status="CONSUMED",
+            memo=memo,
+        )
+        db.add(allocation)
+        db.flush()
+
+        sheet_lot.current_qty -= payload.qty
+        location_balance.current_qty -= payload.qty
+        sheet_lot.status = "DEPLETED" if sheet_lot.current_qty == 0 else "AVAILABLE"
+        sheet_lot.version += 1
+        movement = SelfUseSheetInventoryMovement(
+            self_use_sheet_inventory_lot_id=sheet_lot.self_use_sheet_inventory_lot_id,
+            movement_type="WORK_USE_OUT",
+            raw_material_location_id=payload.source_location_id,
+            qty=-payload.qty,
+            balance_after=sheet_lot.current_qty,
+            location_balance_after=location_balance.current_qty,
+            unit_cost_snapshot=sheet_lot.unit_cost,
+            amount_snapshot=amount_snapshot,
+            source_type="OUTSOURCE_WORK_GROUP_SELF_USE_SHEET_ALLOCATION",
+            source_id=allocation.outsource_work_group_self_use_sheet_allocation_id,
+            memo=memo,
+            created_by="system",
+        )
+        db.add(movement)
+        db.flush()
+        allocation.inventory_movement_id = movement.self_use_sheet_inventory_movement_id
+
+        source_rows = (
+            db.execute(
+                select(SelfUseSheetRawMaterialAllocation, RawMaterial, RawMaterialLocation)
+                .join(RawMaterial, RawMaterial.raw_material_id == SelfUseSheetRawMaterialAllocation.raw_material_id)
+                .join(
+                    RawMaterialLocation,
+                    RawMaterialLocation.raw_material_location_id
+                    == SelfUseSheetRawMaterialAllocation.source_location_id,
+                )
+                .where(
+                    SelfUseSheetRawMaterialAllocation.self_use_sheet_job_id
+                    == sheet_lot.self_use_sheet_job_id
+                )
+                .order_by(SelfUseSheetRawMaterialAllocation.self_use_sheet_raw_material_allocation_id.asc())
+            )
+            .all()
+        )
+        for source, raw_material, source_location in source_rows:
+            db.add(
+                OutsourceWorkGroupSelfUseSheetSourceSnapshot(
+                    self_use_sheet_allocation_id=allocation.outsource_work_group_self_use_sheet_allocation_id,
+                    self_use_sheet_raw_material_allocation_id=source.self_use_sheet_raw_material_allocation_id,
+                    original_inventory_lot_id=source.original_inventory_lot_id,
+                    raw_material_id=source.raw_material_id,
+                    raw_material_code_snapshot=raw_material.material_code,
+                    raw_material_name_snapshot=raw_material.material_name,
+                    raw_material_lot_no_snapshot=source.lot_no,
+                    source_location_name_snapshot=source_location.location_name,
+                    actual_consumed_qty_snapshot=source.actual_consumed_qty or Decimal("0"),
+                    unit_cost_snapshot=source.unit_cost_snapshot or Decimal("0"),
+                    amount_snapshot=source.amount_snapshot or Decimal("0"),
+                )
+            )
+
+
+def reverse_self_use_sheet_allocations(
+    db: Session,
+    work_group: OutsourceWorkGroup,
+    reason: str | None,
+) -> None:
+    allocations = (
+        db.execute(
+            select(OutsourceWorkGroupSelfUseSheetAllocation)
+            .where(
+                OutsourceWorkGroupSelfUseSheetAllocation.outsource_work_group_id
+                == work_group.outsource_work_group_id,
+                OutsourceWorkGroupSelfUseSheetAllocation.status == "CONSUMED",
+            )
+            .with_for_update()
+        )
+        .scalars()
+        .all()
+    )
+    for allocation in allocations:
+        sheet_lot = (
+            db.execute(
+                select(SelfUseSheetInventoryLot)
+                .where(
+                    SelfUseSheetInventoryLot.self_use_sheet_inventory_lot_id
+                    == allocation.self_use_sheet_inventory_lot_id
+                )
+                .with_for_update()
+            )
+            .scalar_one()
+        )
+        if sheet_lot.status == "CANCELED":
+            raise HTTPException(status_code=409, detail="Canceled self-use sheet inventory cannot be restored")
+        balance = (
+            db.execute(
+                select(SelfUseSheetInventoryBalance)
+                .where(
+                    SelfUseSheetInventoryBalance.self_use_sheet_inventory_lot_id
+                    == allocation.self_use_sheet_inventory_lot_id,
+                    SelfUseSheetInventoryBalance.raw_material_location_id == allocation.source_location_id,
+                )
+                .with_for_update()
+            )
+            .scalar_one_or_none()
+        )
+        if balance is None:
+            balance = SelfUseSheetInventoryBalance(
+                self_use_sheet_inventory_lot_id=allocation.self_use_sheet_inventory_lot_id,
+                raw_material_location_id=allocation.source_location_id,
+                current_qty=0,
+            )
+            db.add(balance)
+            db.flush()
+        sheet_lot.current_qty += allocation.qty
+        balance.current_qty += allocation.qty
+        sheet_lot.status = "AVAILABLE"
+        sheet_lot.version += 1
+        db.add(
+            SelfUseSheetInventoryMovement(
+                self_use_sheet_inventory_lot_id=allocation.self_use_sheet_inventory_lot_id,
+                movement_type="WORK_USE_REVERSE",
+                raw_material_location_id=allocation.source_location_id,
+                qty=allocation.qty,
+                balance_after=sheet_lot.current_qty,
+                location_balance_after=balance.current_qty,
+                unit_cost_snapshot=allocation.unit_cost_snapshot,
+                amount_snapshot=allocation.amount_snapshot,
+                source_movement_id=allocation.inventory_movement_id,
+                source_type="OUTSOURCE_WORK_GROUP_CANCEL",
+                source_id=allocation.outsource_work_group_self_use_sheet_allocation_id,
+                memo=reason,
+                created_by="system",
+            )
+        )
+        allocation.status = "REVERSED"
 
 
 def reverse_raw_material_allocations(

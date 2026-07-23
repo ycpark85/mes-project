@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="960" viewBox="0 0 1180 960">
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="1480" viewBox="0 0 1180 1480">
   <style>
     .box { fill:#ffffff; stroke:#334155; stroke-width:1.5; rx:6; }
     .read { fill:#f0fdf4; stroke:#15803d; stroke-width:1.8; rx:6; }
@@ -49,10 +49,13 @@
   <text class="text" x="400" y="352">basis_type, basis_value, ratio</text>
   <text class="text" x="400" y="374">standard_allocated, actual_allocated</text>
 
-  <rect class="box" x="740" y="260" width="180" height="105"/>
+  <rect class="box" x="740" y="260" width="210" height="150"/>
   <text class="title" x="760" y="290">lot</text>
   <text class="text" x="760" y="318">PK lot_id</text>
   <text class="text" x="760" y="340">order_line_id, product_id</text>
+  <text class="text" x="760" y="362">parent_lot_id, memo</text>
+  <text class="text" x="760" y="384">status, lot_qty</text>
+  <text class="text" x="760" y="406">CHECK rework memo required</text>
 
   <rect class="box" x="980" y="250" width="170" height="105"/>
   <text class="title" x="1000" y="280">order_line</text>
@@ -118,6 +121,57 @@
   <text class="text" x="670" y="916">FK work_group/material/location/lot</text>
   <text class="text" x="670" y="936">qty, cost snapshots, movement_id</text>
 
+  <rect class="box" x="40" y="990" width="250" height="170"/>
+  <text class="title" x="60" y="1020">self_use_sheet_job</text>
+  <text class="text" x="60" y="1048">PK self_use_sheet_job_id</text>
+  <text class="text" x="60" y="1070">use_no UNIQUE, purpose_type</text>
+  <text class="text" x="60" y="1092">execution_type, partner_id</text>
+  <text class="text" x="60" y="1114">status, cutting dimensions</text>
+  <text class="text" x="60" y="1136">fees, output, version, audit</text>
+
+  <rect class="box" x="330" y="990" width="270" height="170"/>
+  <text class="title" x="350" y="1020">self_use_sheet_rm_allocation</text>
+  <text class="text" x="350" y="1048">FK job/material/source location</text>
+  <text class="text" x="350" y="1070">FK original/processing RM LOT</text>
+  <text class="text" x="350" y="1092">planned, consumed, returned qty</text>
+  <text class="text" x="350" y="1114">cost snapshots, transfer keys</text>
+  <text class="text" x="350" y="1136">status</text>
+
+  <rect class="box" x="650" y="990" width="240" height="170"/>
+  <text class="title" x="670" y="1020">self_use_sheet_inventory_lot</text>
+  <text class="text" x="670" y="1048">FK job UNIQUE, raw_material</text>
+  <text class="text" x="670" y="1070">sheet_lot_no UNIQUE</text>
+  <text class="text" x="670" y="1092">initial/current sheet qty</text>
+  <text class="text" x="670" y="1114">material/processing/total cost</text>
+  <text class="text" x="670" y="1136">status, version</text>
+
+  <rect class="box" x="930" y="990" width="220" height="170"/>
+  <text class="title" x="950" y="1020">self_use_sheet_movement</text>
+  <text class="text" x="950" y="1048">FK sheet inventory LOT</text>
+  <text class="text" x="950" y="1070">movement_type, signed qty</text>
+  <text class="text" x="950" y="1092">balance_after, purpose</text>
+  <text class="text" x="950" y="1114">cost snapshots, actor</text>
+  <text class="text" x="950" y="1136">source movement UNIQUE</text>
+
+  <rect class="box" x="40" y="1210" width="300" height="135"/>
+  <text class="title" x="60" y="1240">owg_self_use_sheet_allocation</text>
+  <text class="text" x="60" y="1268">FK work_group/sheet LOT/location</text>
+  <text class="text" x="60" y="1290">sheet qty, cost snapshots</text>
+  <text class="text" x="60" y="1312">movement_id, status</text>
+
+  <rect class="box" x="380" y="1210" width="330" height="160"/>
+  <text class="title" x="400" y="1240">owg_self_use_sheet_source_snapshot</text>
+  <text class="text" x="400" y="1268">FK sheet allocation/source RM allocation</text>
+  <text class="text" x="400" y="1290">original raw-material LOT reference</text>
+  <text class="text" x="400" y="1312">material/LOT/location snapshots</text>
+  <text class="text" x="400" y="1334">consumed qty and cost snapshots</text>
+
+  <rect class="box" x="750" y="1210" width="300" height="135"/>
+  <text class="title" x="770" y="1240">self_use_sheet_inventory_balance</text>
+  <text class="text" x="770" y="1268">FK sheet inventory LOT/location</text>
+  <text class="text" x="770" y="1290">UNIQUE sheet LOT + location</text>
+  <text class="text" x="770" y="1312">current_qty</text>
+
   <path class="line" d="M300 100 L380 95"/>
   <path class="line" d="M640 95 L720 95"/>
   <path class="line" d="M940 95 L960 95"/>
@@ -134,6 +188,15 @@
   <path class="line" d="M830 182 L790 860"/>
   <path class="line" d="M770 835 L770 860"/>
   <path class="line" d="M950 900 L1040 845"/>
+  <path class="line" d="M290 1075 L330 1075"/>
+  <path class="line" d="M600 1075 L650 1075"/>
+  <path class="line" d="M890 1075 L930 1075"/>
+  <path class="line" d="M150 835 L150 990"/>
+  <path class="line" d="M770 835 L465 990"/>
+  <path class="line" d="M1040 845 L465 990"/>
+  <path class="line" d="M830 182 L190 1210"/>
+  <path class="line" d="M340 1275 L380 1275"/>
+  <path class="line" d="M770 1160 L900 1210"/>
 
   <path class="readline" d="M340 320 L740 320"/>
   <path class="readline" d="M340 300 L980 300"/>

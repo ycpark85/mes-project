@@ -18,6 +18,13 @@ from app.models.outsource_work_group_item import OutsourceWorkGroupItem
 from app.models.outsource_work_group_raw_material_allocation import (
     OutsourceWorkGroupRawMaterialAllocation,
 )
+from app.models.outsource_work_group_self_use_sheet_allocation import (
+    OutsourceWorkGroupSelfUseSheetAllocation,
+)
+from app.models.outsource_work_group_self_use_sheet_source_snapshot import (
+    OutsourceWorkGroupSelfUseSheetSourceSnapshot,
+)
+from app.models.self_use_sheet_inventory_lot import SelfUseSheetInventoryLot
 from app.models.outsource_work_instruction import OutsourceWorkInstruction
 from app.models.outsource_work_instruction_file import OutsourceWorkInstructionFile
 from app.models.outsource_work_instruction_item import OutsourceWorkInstructionItem
@@ -37,6 +44,8 @@ from app.schemas.outsource_work_instruction import (
     OutsourceWorkGroupListOut,
     OutsourceWorkGroupLotOut,
     OutsourceWorkGroupRawMaterialAllocationOut,
+    OutsourceWorkGroupSelfUseSheetAllocationOut,
+    OutsourceWorkGroupSelfUseSheetSourceOut,
     OutsourceWorkInstructionFileOut,
 )
 from app.services.routing_policy import get_available_process_types
@@ -308,7 +317,9 @@ def list_work_groups(
     details = [build_work_group_detail(db, work_group) for work_group in rows]
     items = [
         OutsourceWorkGroupListItemOut(
-            **detail.model_dump(exclude={"lots", "raw_material_allocations", "files"})
+            **detail.model_dump(
+                exclude={"lots", "raw_material_allocations", "self_use_sheet_allocations", "files"}
+            )
         )
         for detail in details
     ]
@@ -428,6 +439,9 @@ def get_update_block_reason(
     db: Session,
     work_group: OutsourceWorkGroup,
 ) -> str | None:
+    if work_group.input_source_type == "SELF_USE_SHEET":
+        return "Self-use sheet work groups must be canceled and recreated to change the allocation"
+
     if work_group.status == OUTSOURCE_WORK_GROUP_STATUS_CANCELED:
         return "Canceled outsource work instruction cannot be updated"
 
@@ -541,6 +555,32 @@ def build_work_group_detail(
         .all()
     )
 
+    self_use_sheet_rows = (
+        db.execute(
+            select(
+                OutsourceWorkGroupSelfUseSheetAllocation,
+                SelfUseSheetInventoryLot,
+                RawMaterialLocation,
+            )
+            .join(
+                SelfUseSheetInventoryLot,
+                SelfUseSheetInventoryLot.self_use_sheet_inventory_lot_id
+                == OutsourceWorkGroupSelfUseSheetAllocation.self_use_sheet_inventory_lot_id,
+            )
+            .join(
+                RawMaterialLocation,
+                RawMaterialLocation.raw_material_location_id
+                == OutsourceWorkGroupSelfUseSheetAllocation.source_location_id,
+            )
+            .where(
+                OutsourceWorkGroupSelfUseSheetAllocation.outsource_work_group_id
+                == work_group.outsource_work_group_id
+            )
+            .order_by(OutsourceWorkGroupSelfUseSheetAllocation.created_at.asc())
+        )
+        .all()
+    )
+
     file_rows = (
         db.execute(
             select(OutsourceWorkInstructionFile)
@@ -609,6 +649,52 @@ def build_work_group_detail(
             )
         )
 
+    self_use_sheet_outputs: list[OutsourceWorkGroupSelfUseSheetAllocationOut] = []
+    for allocation, sheet_lot, location in self_use_sheet_rows:
+        snapshots = (
+            db.execute(
+                select(OutsourceWorkGroupSelfUseSheetSourceSnapshot)
+                .where(
+                    OutsourceWorkGroupSelfUseSheetSourceSnapshot.self_use_sheet_allocation_id
+                    == allocation.outsource_work_group_self_use_sheet_allocation_id
+                )
+                .order_by(
+                    OutsourceWorkGroupSelfUseSheetSourceSnapshot.outsource_work_group_self_use_sheet_source_snapshot_id.asc()
+                )
+            )
+            .scalars()
+            .all()
+        )
+        self_use_sheet_outputs.append(
+            OutsourceWorkGroupSelfUseSheetAllocationOut(
+                outsource_work_group_self_use_sheet_allocation_id=allocation.outsource_work_group_self_use_sheet_allocation_id,
+                self_use_sheet_inventory_lot_id=allocation.self_use_sheet_inventory_lot_id,
+                source_location_id=allocation.source_location_id,
+                source_location_name=location.location_name,
+                sheet_lot_no=allocation.sheet_lot_no,
+                cut_width_mm=sheet_lot.cut_width_mm,
+                cut_length_mm=sheet_lot.cut_length_mm,
+                qty=allocation.qty,
+                unit_cost_snapshot=allocation.unit_cost_snapshot,
+                amount_snapshot=allocation.amount_snapshot,
+                status=allocation.status,
+                source_lots=[
+                    OutsourceWorkGroupSelfUseSheetSourceOut(
+                        raw_material_inventory_lot_id=snapshot.original_inventory_lot_id,
+                        material_code=snapshot.raw_material_code_snapshot,
+                        material_name=snapshot.raw_material_name_snapshot,
+                        raw_material_lot_no=snapshot.raw_material_lot_no_snapshot,
+                        source_location_name=snapshot.source_location_name_snapshot,
+                        actual_consumed_qty=snapshot.actual_consumed_qty_snapshot,
+                        unit_cost_snapshot=snapshot.unit_cost_snapshot,
+                        amount_snapshot=snapshot.amount_snapshot,
+                    )
+                    for snapshot in snapshots
+                ],
+                created_at=allocation.created_at,
+            )
+        )
+
     cancel_block_reason = get_cancel_block_reason(db, work_group)
     update_block_reason = get_update_block_reason(db, work_group)
 
@@ -618,6 +704,8 @@ def build_work_group_detail(
         instruction_no=instruction.instruction_no,
         instruction_date=instruction.instruction_date,
         process_type=work_group.process_type,
+        input_source_type=work_group.input_source_type,
+        cut_skipped_reason=work_group.cut_skipped_reason,
         partner_id=instruction.partner_id,
         partner_name=partner.name if partner else None,
         group_seq=work_group.group_seq,
@@ -643,6 +731,7 @@ def build_work_group_detail(
         created_at=work_group.created_at,
         lots=lot_outputs,
         raw_material_allocations=raw_material_outputs,
+        self_use_sheet_allocations=self_use_sheet_outputs,
         files=[
             OutsourceWorkInstructionFileOut.model_validate(file_row, from_attributes=True)
             for file_row in file_rows

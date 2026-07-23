@@ -1,0 +1,33 @@
+* text=auto
+.gitattributes text eol=lf
+.gitignore text eol=lf
+
+# Backend, migrations, scripts, and documentation use LF in every environment.
+*.py text eol=lf
+*.sh text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+*.svg text eol=lf
+
+# Visual Studio and WPF project files use the Windows-native convention.
+*.cs text eol=crlf
+*.xaml text eol=crlf
+*.sln text eol=crlf
+*.csproj text eol=crlf
+*.props text eol=crlf
+*.targets text eol=crlf
+*.ps1 text eol=crlf
+
+# Generated and packaged assets must never be text-normalized.
+*.pyc binary
+*.pyo binary
+*.pyd binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary

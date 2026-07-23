@@ -21,7 +21,10 @@ from app.schemas.outsource_work_instruction import (
     OutsourceWorkInstructionGroupCreate,
     OutsourceWorkInstructionGroupItemCreate,
 )
-from app.services.outsource_work_group_service import consume_raw_material_allocations
+from app.services.outsource_work_group_service import (
+    consume_raw_material_allocations,
+    consume_self_use_sheet_allocations,
+)
 from app.services.production_daily_query import refresh_order_line_snapshots_for_lots
 from app.services.routing_policy import get_available_process_types
 
@@ -66,25 +69,32 @@ def create_work_instruction_batch(
 
         cut_lot_ids: list[int] = []
         print_lot_ids: list[int] = []
+        diecut_lot_ids: list[int] = []
 
         for lot, _order_line, _product, routing_template in lots:
+            input_source_type = _get_lot_input_source_type(group.groups, lot.lot_id)
             primary_process_type = _get_primary_outsource_process_type(
-                routing_template.template_name
+                routing_template.template_name,
+                input_source_type=input_source_type,
             )
 
             if primary_process_type == "PRINT":
                 print_lot_ids.append(lot.lot_id)
             elif primary_process_type == "CUT":
                 cut_lot_ids.append(lot.lot_id)
+            elif primary_process_type == "DIECUT":
+                diecut_lot_ids.append(lot.lot_id)
 
-        if not cut_lot_ids and not print_lot_ids:
+        if not cut_lot_ids and not print_lot_ids and not diecut_lot_ids:
             raise HTTPException(status_code=409, detail="No available process for selected lots")
 
         _raise_if_lots_registered(db, cut_lot_ids, "CUT")
         _raise_if_lots_registered(db, print_lot_ids, "PRINT")
+        _raise_if_lots_registered(db, diecut_lot_ids, "DIECUT")
 
         cut_groups = _filter_groups_for_lot_ids(group.groups, cut_lot_ids) if group.groups else []
         print_groups = _filter_groups_for_lot_ids(group.groups, print_lot_ids) if group.groups else []
+        diecut_groups = _filter_groups_for_lot_ids(group.groups, diecut_lot_ids) if group.groups else []
 
         if cut_lot_ids:
             created_instructions.append(
@@ -111,6 +121,20 @@ def create_work_instruction_batch(
                     memo=group.memo,
                     files=group.files,
                     groups=print_groups,
+                )
+            )
+
+        if diecut_lot_ids:
+            created_instructions.append(
+                _create_instruction(
+                    db=db,
+                    instruction_date=payload.instruction_date,
+                    process_type="DIECUT",
+                    partner_id=group.customer_partner_id,
+                    lot_ids=diecut_lot_ids,
+                    memo=group.memo,
+                    files=group.files,
+                    groups=diecut_groups,
                 )
             )
 
@@ -211,6 +235,10 @@ def _create_work_groups(
             outsource_work_instruction_id=instruction_id,
             group_seq=_generate_work_group_seq(db, instruction_date),
             process_type=process_type,
+            input_source_type=group_payload.input_source_type,
+            cut_skipped_reason=(
+                "SELF_USE_SHEET" if group_payload.input_source_type == "SELF_USE_SHEET" else None
+            ),
             is_bundle=group_payload.is_bundle,
             sheet_qty=group_payload.sheet_qty,
             length_m=group_payload.length_m,
@@ -242,11 +270,26 @@ def _create_work_groups(
                 )
             )
 
-        consume_raw_material_allocations(
-            db=db,
-            work_group=work_group,
-            allocations=group_payload.raw_material_allocations,
-        )
+        # Allocation validation queries the persisted work-group items and must
+        # run before any raw material or self-use sheet inventory is consumed.
+        db.flush()
+
+        if group_payload.input_source_type == "SELF_USE_SHEET":
+            if group_payload.raw_material_allocations:
+                raise HTTPException(status_code=422, detail="Raw material and self-use sheet cannot be allocated together")
+            consume_self_use_sheet_allocations(
+                db=db,
+                work_group=work_group,
+                allocations=group_payload.self_use_sheet_allocations,
+            )
+        else:
+            if group_payload.self_use_sheet_allocations:
+                raise HTTPException(status_code=422, detail="Raw material and self-use sheet cannot be allocated together")
+            consume_raw_material_allocations(
+                db=db,
+                work_group=work_group,
+                allocations=group_payload.raw_material_allocations,
+            )
 
     db.flush()
 
@@ -278,16 +321,33 @@ def _generate_instruction_no(db: Session, instruction_date: date) -> str:
     return f"{prefix}{seq:03d}"
 
 
-def _get_primary_outsource_process_type(template_name: str | None) -> str:
+def _get_primary_outsource_process_type(
+    template_name: str | None,
+    *,
+    input_source_type: str = "RAW_MATERIAL",
+) -> str:
     available_process_types = get_available_process_types(template_name)
 
     if "PRINT" in available_process_types:
         return "PRINT"
 
+    if input_source_type == "SELF_USE_SHEET" and "CUT" in available_process_types:
+        return "DIECUT"
+
     if "CUT" in available_process_types:
         return "CUT"
 
     return ""
+
+
+def _get_lot_input_source_type(
+    groups: list[OutsourceWorkInstructionGroupCreate],
+    lot_id: int,
+) -> str:
+    for group in groups:
+        if any(item.lot_id == lot_id for item in group.items):
+            return group.input_source_type
+    return "RAW_MATERIAL"
 
 
 def _filter_groups_for_lot_ids(
@@ -335,6 +395,8 @@ def _filter_groups_for_lot_ids(
                 remark=group.remark,
                 items=filtered_items,
                 raw_material_allocations=group.raw_material_allocations,
+                input_source_type=group.input_source_type,
+                self_use_sheet_allocations=group.self_use_sheet_allocations,
             )
         )
 

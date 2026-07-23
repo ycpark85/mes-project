@@ -30,6 +30,10 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
         [JsonPropertyName("process_type")]
         public string ProcessType { get; set; } = string.Empty;
 
+        [JsonPropertyName("input_source_type")]
+        public string InputSourceType { get; set; } = "RAW_MATERIAL";
+        public string InputSourceDisplay => InputSourceType == "SELF_USE_SHEET" ? "자가사용 시트지" : "원단 롤";
+
         [JsonPropertyName("partner_name")]
         public string? PartnerName { get; set; }
 
@@ -101,6 +105,9 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
         [JsonPropertyName("raw_material_allocations")]
         public List<OutsourceWorkGroupRawMaterialAllocationDto> RawMaterialAllocations { get; set; } = new();
 
+        [JsonPropertyName("self_use_sheet_allocations")]
+        public List<OutsourceWorkGroupSelfUseSheetAllocationDto> SelfUseSheetAllocations { get; set; } = new();
+
         [JsonPropertyName("files")]
         public List<OutsourceWorkInstructionFileDto> Files { get; set; } = new();
     }
@@ -166,6 +173,38 @@ namespace Mes.Wpf.Modules.OutsourceWorkInstructions.Dtos
 
         [JsonPropertyName("status")]
         public string Status { get; set; } = string.Empty;
+    }
+
+    public sealed class OutsourceWorkGroupSelfUseSheetAllocationDto
+    {
+        [JsonPropertyName("sheet_lot_no")]
+        public string SheetLotNo { get; set; } = string.Empty;
+        [JsonPropertyName("source_location_name")]
+        public string SourceLocationName { get; set; } = string.Empty;
+        [JsonPropertyName("cut_width_mm")]
+        public decimal CutWidthMm { get; set; }
+        [JsonPropertyName("cut_length_mm")]
+        public decimal CutLengthMm { get; set; }
+        [JsonPropertyName("qty")]
+        public int Qty { get; set; }
+        [JsonPropertyName("status")]
+        public string Status { get; set; } = string.Empty;
+        [JsonPropertyName("source_lots")]
+        public List<OutsourceWorkGroupSelfUseSheetSourceDto> SourceLots { get; set; } = new();
+        public string CutSpec => $"{CutWidthMm:N0}×{CutLengthMm:N0}";
+        public string SourceLotSummary => string.Join(", ", SourceLots.ConvertAll(x => $"{x.RawMaterialLotNo}({x.ActualConsumedQty:N2}M)"));
+    }
+
+    public sealed class OutsourceWorkGroupSelfUseSheetSourceDto
+    {
+        [JsonPropertyName("material_name")]
+        public string MaterialName { get; set; } = string.Empty;
+        [JsonPropertyName("raw_material_lot_no")]
+        public string RawMaterialLotNo { get; set; } = string.Empty;
+        [JsonPropertyName("source_location_name")]
+        public string SourceLocationName { get; set; } = string.Empty;
+        [JsonPropertyName("actual_consumed_qty")]
+        public decimal ActualConsumedQty { get; set; }
     }
 
     public sealed class OutsourceWorkGroupCancelRequest

@@ -61,6 +61,13 @@ TEST_TABLE_NAMES = [
     "raw_material_inventory_lot",
     "raw_material_inventory_movement",
     "outsource_work_group_raw_material_allocation",
+    "self_use_sheet_job",
+    "self_use_sheet_raw_material_allocation",
+    "self_use_sheet_inventory_lot",
+    "self_use_sheet_inventory_balance",
+    "self_use_sheet_inventory_movement",
+    "outsource_work_group_self_use_sheet_allocation",
+    "outsource_work_group_self_use_sheet_source_snapshot",
 ]
 
 

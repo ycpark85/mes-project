@@ -256,13 +256,17 @@ def _build_detail_timeline(
     for lot in lots:
         lot_type = "REWORK" if lot.parent_lot_id else "NORMAL"
         label = "재작업 LOT 생성" if lot.parent_lot_id else "기본 LOT 생성"
+        message = f"{lot.lot_no} / {lot_type} / 계획수량 {lot.lot_qty:,} {lot.uom}"
+
+        if lot.parent_lot_id and lot.memo and lot.memo.strip():
+            message = f"{message}\n재작업 원인: {lot.memo.strip()}"
 
         items.append(
             OrderLineTimelineItemDto(
                 event_type="LOT_CREATED",
                 event_label=label,
                 event_at=lot.created_at,
-                message=f"{lot.lot_no} / {lot_type} / 계획수량 {lot.lot_qty:,} {lot.uom}",
+                message=message,
                 ref_type="LOT",
                 ref_id=lot.lot_id,
             )
